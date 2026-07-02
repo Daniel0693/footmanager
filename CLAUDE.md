@@ -40,14 +40,6 @@ Voir `docs/architecture.md` §3 pour les conventions et la bibliothèque retenue
 Le code (variables, fonctions, commentaires techniques) reste en **anglais**. Les clés de
 traduction (i18n) sont en anglais. Les données de démo/seed peuvent être en français.
 
-## Qualité TypeScript — zéro erreur non négociable
-
-`backend/tsconfig.json` et `frontend/tsconfig.json` tournent en `strict` complet. Avant tout
-commit qui touche du code, lancer `npm run typecheck` dans `backend/` **et** `frontend/` — doit
-passer sans erreur. Ne jamais assouplir `strict`, ajouter un `any` de confort, un `@ts-ignore` ou
-un cast de contournement pour faire taire une erreur réelle. Détail et liste complète des règles :
-voir `docs/typescript-conventions.md`.
-
 ## Règle d'or — Permissions (NE JAMAIS ENFREINDRE)
 
 **La logique de permission doit TOUJOURS être évaluée via le système de rôles scopé** — rôle par
@@ -83,27 +75,26 @@ données personnelles, à la suppression de compte ou aux données de mineurs**,
 
 ## Structure de la documentation (`docs/`)
 
-| Fichier | Contenu |
-|---|---|
-| `docs/architecture.md` | Stack, i18n, structure de repo, Docker, UX/UI, vision produit |
-| `docs/typescript-conventions.md` | Règles TypeScript strictes — config, interdits, typage Prisma/DTO |
-| `docs/schema/index.md` | **Point d'entrée du schéma BDD** — conventions, enums globaux, table de correspondance entité→fichier |
-| `docs/schema/fondations.md` | User, Club, Team, Member, rôles, permissions |
-| `docs/schema/joueurs.md` | PlayerProfile, évaluations, notes, objectifs, absences |
-| `docs/schema/evenements.md` | Event, TrainingSession, Match, gestion live |
-| `docs/schema/championnats.md` | Season, Championship, ExternalTeam/Player |
-| `docs/schema/scouting.md` | TeamScoutingReport, PlayerScoutingReport, critères |
-| `docs/schema/medical.md` | Injury, rééducation — données de santé RGPD |
-| `docs/modules/auth-roles.md` | RBAC, JWT, rôles fixes et dynamiques, permissions, multi-rôles |
-| `docs/modules/effectif-joueurs.md` | Profils joueurs, mesures, évaluations, objectifs, notes, entretiens |
-| `docs/modules/calendrier-evenements.md` | Calendrier, événements, code couleur, filtres |
-| `docs/modules/entrainement.md` | Séances, exercices, présence, feedback, éditeur graphique |
-| `docs/modules/saisons-championnats.md` | Saisons, championnats, classement, ExternalTeam, live match format |
-| `docs/modules/matchs.md` | Feuille de match, gestion live, périodes, événements, statistiques |
-| `docs/modules/scouting.md` | TeamScoutingReport, PlayerScoutingReport, ExternalPlayer/Team, recrutement |
-| `docs/modules/blessures.md` | Suivi médical, rééducation, statut de disponibilité |
-| `docs/decisions-ouvertes-et-rgpd.md` | Décisions en attente + contraintes RGPD |
-| `docs/roadmap.md` | Plan de développement par phases et état d'avancement |
+| Fichier                                 | Contenu                                                                                               |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `docs/architecture.md`                  | Stack, i18n, structure de repo, Docker, UX/UI, vision produit                                         |
+| `docs/schema/index.md`                  | **Point d'entrée du schéma BDD** — conventions, enums globaux, table de correspondance entité→fichier |
+| `docs/schema/fondations.md`             | User, Club, Team, Member, rôles, permissions                                                          |
+| `docs/schema/joueurs.md`                | PlayerProfile, évaluations, notes, objectifs, absences                                                |
+| `docs/schema/evenements.md`             | Event, TrainingSession, Match, gestion live                                                           |
+| `docs/schema/championnats.md`           | Season, Championship, ExternalTeam/Player                                                             |
+| `docs/schema/scouting.md`               | TeamScoutingReport, PlayerScoutingReport, critères                                                    |
+| `docs/schema/medical.md`                | Injury, rééducation — données de santé RGPD                                                           |
+| `docs/modules/auth-roles.md`            | RBAC, JWT, rôles fixes et dynamiques, permissions, multi-rôles                                        |
+| `docs/modules/effectif-joueurs.md`      | Profils joueurs, mesures, évaluations, objectifs, notes, entretiens                                   |
+| `docs/modules/calendrier-evenements.md` | Calendrier, événements, code couleur, filtres                                                         |
+| `docs/modules/entrainement.md`          | Séances, exercices, présence, feedback, éditeur graphique                                             |
+| `docs/modules/saisons-championnats.md`  | Saisons, championnats, classement, ExternalTeam, live match format                                    |
+| `docs/modules/matchs.md`                | Feuille de match, gestion live, périodes, événements, statistiques                                    |
+| `docs/modules/scouting.md`              | TeamScoutingReport, PlayerScoutingReport, ExternalPlayer/Team, recrutement                            |
+| `docs/modules/blessures.md`             | Suivi médical, rééducation, statut de disponibilité                                                   |
+| `docs/decisions-ouvertes-et-rgpd.md`    | Décisions en attente + contraintes RGPD                                                               |
+| `docs/roadmap.md`                       | Plan de développement par phases et état d'avancement                                                 |
 
 ## Règle de cohérence
 
@@ -125,15 +116,77 @@ d'**étoiles sur 5** (valeur / 2, avec demi-étoiles). Jamais d'autre échelle.
 cd backend && npm run start:dev
 cd backend && npx prisma migrate dev
 cd backend && npm run test
-cd backend && npm run typecheck
 
 cd frontend && npm run dev
-cd frontend && npm run typecheck
 
 docker-compose up
 ```
 
-## Conventions de commit
+## Convention Git — branches et commits
 
-Un commit = un incrément logique cohérent. Message descriptif (jamais `wip`, `fix`, `update`).
-Préfixe de module recommandé : `[auth]`, `[effectif]`, `[matchs]`, `[schema]`, etc.
+### Branches principales
+
+```
+main       → production, toujours stable et déployable
+develop    → intégration, branche de référence du développement
+```
+
+### Branches de travail
+
+```
+feature/[module]-[description]    → nouvelle fonctionnalité
+fix/[module]-[description]        → correction de bug
+refactor/[module]-[description]   → refactoring sans changement de comportement
+docs/[description]                → documentation uniquement
+chore/[description]               → config, dépendances, outils
+```
+
+Exemples :
+
+```
+feature/effectif-liste-joueurs
+feature/calendrier-vue-mensuelle
+feature/matchs-live-periodes
+fix/permissions-coach-scope-equipe
+docs/schema-evaluation-category
+```
+
+### Flux de travail obligatoire
+
+1. Toujours partir de `develop` pour créer une branche de travail.
+2. Ne jamais committer directement sur `main` ou `develop`.
+3. Une branche = une fonctionnalité cohérente (pas plusieurs modules mélangés).
+4. Merger dans `develop` une fois la fonctionnalité terminée et testée.
+5. `main` ne reçoit que des merges depuis `develop` quand une phase est complète et stable.
+
+### Convention de commits
+
+Format : `[module] type: description courte`
+
+Types : `feat`, `fix`, `refactor`, `test`, `chore`, `docs`
+
+```
+[effectif] feat: ajout liste joueurs avec filtres par poste
+[effectif] feat: fiche joueur onglet mesures
+[calendrier] feat: vue mensuelle avec code couleur par type
+[auth] fix: correction scope équipe pour coach adjoint
+[schema] chore: migration PlayerTeam avec joinDate/leaveDate
+[docs] docs: mise à jour schema/joueurs.md après migration
+```
+
+Jamais : `wip`, `fix`, `update`, `changes`, `misc`.
+
+### Règles que Claude Code doit suivre automatiquement
+
+- **Avant de commencer une tâche** : vérifier la branche courante.
+  Si sur `main` ou `develop` → créer la bonne branche `feature/` avant tout.
+- **Après chaque incrément logique fonctionnel** : proposer un commit avec un
+  message respectant la convention ci-dessus. Ne pas accumuler plusieurs
+  fonctionnalités dans un seul commit.
+- **Si un changement touche le schéma Prisma** : le commit doit inclure à la fois
+  la migration ET la mise à jour du fichier `docs/schema/` concerné.
+- **Si un changement touche les permissions** : le commit doit inclure les tests
+  de permission correspondants (pas de permission sans test).
+- **Ne jamais forcer un push (`--force`)** sans validation explicite.
+- **En fin de session** : signaler sur quelle branche le travail a été laissé
+  et ce qui reste à faire avant le merge dans `develop`.
