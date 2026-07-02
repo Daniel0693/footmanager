@@ -1,0 +1,270 @@
+// Prisma schema — FootManager
+// Source de vérité fonctionnelle : docs/schema/index.md, fondations.md, joueurs.md, scouting.md
+// Toute modification de ce fichier doit être reportée dans le fichier docs/schema/ concerné.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Fondations — Auth, Clubs, Membres, Rôles (docs/schema/fondations.md)
+// ─────────────────────────────────────────────────────────────────────────
+
+model User {
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  passwordHash  String
+  emailVerified Boolean  @default(false)
+  locale        String   @default("fr")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  members       Member[]
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+enum SportType {
+  FOOTBALL
+  BASKETBALL
+  RUGBY
+  HANDBALL
+  VOLLEYBALL
+}
+
+model Club {
+  id             Int       @id @default(autoincrement())
+  name           String
+  sport          SportType @default(FOOTBALL)
+  logoUrl        String?
+  primaryColor   String?
+  secondaryColor String?
+  country        String
+  city           String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  teams                Team[]
+  members              Member[]
+  roles                Role[]
+  memberRoles          MemberRole[]
+  evaluationCategories EvaluationCategory[]
+  evaluationCriteria   EvaluationCriterion[]
+  evaluationConfigs    ClubEvaluationConfig[]
+  playingStyleTags     PlayingStyleTag[]
+  scoutingCriteria     PlayerScoutingCriterion[]
+}
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  clubId    Int
+  club      Club     @relation(fields: [clubId], references: [id])
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberRoles MemberRole[]
+
+  @@index([clubId])
+}
+
+model Member {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  clubId    Int
+  club      Club     @relation(fields: [clubId], references: [id])
+  firstName String
+  lastName  String
+  phone     String?
+  avatarUrl String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberRoles MemberRole[]
+
+  @@unique([userId, clubId])
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  isSystem    Boolean
+  clubId      Int?
+  club        Club?    @relation(fields: [clubId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberRoles     MemberRole[]
+  rolePermissions RolePermission[]
+}
+
+model MemberRole {
+  id        Int       @id @default(autoincrement())
+  memberId  Int
+  member    Member    @relation(fields: [memberId], references: [id])
+  roleId    Int
+  role      Role      @relation(fields: [roleId], references: [id])
+  clubId    Int?
+  club      Club?     @relation(fields: [clubId], references: [id])
+  teamId    Int?
+  team      Team?     @relation(fields: [teamId], references: [id])
+  startDate DateTime? @db.Date
+  endDate   DateTime? @db.Date
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([memberId])
+  @@index([clubId, teamId])
+}
+
+enum PermissionAction {
+  READ
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum PermissionScope {
+  OWN
+  TEAM
+  CLUB
+  ALL
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  resource    String
+  action      PermissionAction
+  scope       PermissionScope
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action, scope])
+}
+
+model RolePermission {
+  roleId       Int
+  role         Role       @relation(fields: [roleId], references: [id])
+  permissionId Int
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  createdAt    DateTime   @default(now())
+
+  @@id([roleId, permissionId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Joueurs (partiel) — docs/schema/joueurs.md
+// Uniquement les tables nécessaires au seed système Phase 1 (évaluation).
+// Le reste du module (PlayerProfile, PlayerEvaluation, etc.) arrive en Phase 6.
+// ─────────────────────────────────────────────────────────────────────────
+
+model EvaluationCategory {
+  id                  Int        @id @default(autoincrement())
+  name                String
+  description         String?
+  isSystem            Boolean
+  sport               SportType?
+  defaultDisplayOrder Int
+  clubId              Int?
+  club                Club?      @relation(fields: [clubId], references: [id])
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  criteria          EvaluationCriterion[]
+  evaluationConfigs ClubEvaluationConfig[]
+
+  @@index([clubId])
+}
+
+model ClubEvaluationConfig {
+  id           Int                @id @default(autoincrement())
+  clubId       Int
+  club         Club               @relation(fields: [clubId], references: [id])
+  categoryId   Int
+  category     EvaluationCategory @relation(fields: [categoryId], references: [id])
+  isEnabled    Boolean            @default(true)
+  displayOrder Int?
+  customName   String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([clubId, categoryId])
+  @@index([clubId])
+}
+
+model EvaluationCriterion {
+  id          Int                @id @default(autoincrement())
+  name        String
+  categoryId  Int
+  category    EvaluationCategory @relation(fields: [categoryId], references: [id])
+  isSystem    Boolean
+  clubId      Int?
+  club        Club?              @relation(fields: [clubId], references: [id])
+  description String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([categoryId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Scouting (partiel) — docs/schema/scouting.md
+// Uniquement les tables de référence pour le seed système Phase 1.
+// Le reste du module (TeamScoutingReport, PlayerScoutingReport, etc.) arrive en Phase 7.
+// ─────────────────────────────────────────────────────────────────────────
+
+model PlayingStyleTag {
+  id        Int      @id @default(autoincrement())
+  name      String
+  isSystem  Boolean
+  clubId    Int?
+  club      Club?    @relation(fields: [clubId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clubId])
+}
+
+enum ScoutingDimension {
+  PHYSIQUE
+  TECHNIQUE
+  TACTIQUE
+  MENTAL
+}
+
+model PlayerScoutingCriterion {
+  id          Int               @id @default(autoincrement())
+  name        String
+  dimension   ScoutingDimension
+  isSystem    Boolean
+  clubId      Int?
+  club        Club?             @relation(fields: [clubId], references: [id])
+  description String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([clubId])
+}

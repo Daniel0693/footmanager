@@ -1,0 +1,46 @@
+{
+  "common": {
+    "appName": "FootManager"
+  },
+  "auth": {
+    "login": {
+      "title": "Connexion",
+      "email": "Adresse e-mail",
+      "emailInvalid": "Adresse e-mail invalide",
+      "password": "Mot de passe",
+      "passwordRequired": "Le mot de passe est requis",
+      "submit": "Se connecter",
+      "success": "Connexion réussie",
+      "noAccount": "Pas encore de compte ?",
+      "registerLink": "Créer un compte"
+    },
+    "register": {
+      "title": "Créer un compte",
+      "email": "Adresse e-mail",
+      "emailInvalid": "Adresse e-mail invalide",
+      "password": "Mot de passe",
+      "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
+      "submit": "S'inscrire",
+      "success": "Compte créé avec succès",
+      "hasAccount": "Déjà un compte ?",
+      "loginLink": "Se connecter"
+    }
+  },
+  "home": {
+    "welcome": "Bienvenue, {email}",
+    "createClub": "Créer un club",
+    "clubCreated": "Club créé avec succès",
+    "clubCreationFailed": "Échec de la création du club",
+    "demoClubName": "Mon club",
+    "logout": "Se déconnecter"
+  },
+  "errors": {
+    "AUTH": {
+      "INVALID_CREDENTIALS": "Adresse e-mail ou mot de passe incorrect",
+      "EMAIL_TAKEN": "Cette adresse e-mail est déjà utilisée",
+      "UNAUTHORIZED": "Vous devez être connecté pour accéder à cette page",
+      "REFRESH_TOKEN_INVALID": "Votre session a expiré, merci de vous reconnecter",
+      "UNKNOWN": "Une erreur inattendue est survenue"
+    }
+  }
+}

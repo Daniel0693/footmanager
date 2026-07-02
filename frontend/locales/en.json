@@ -1,0 +1,46 @@
+{
+  "common": {
+    "appName": "FootManager"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "email": "Email address",
+      "emailInvalid": "Invalid email address",
+      "password": "Password",
+      "passwordRequired": "Password is required",
+      "submit": "Sign in",
+      "success": "Signed in successfully",
+      "noAccount": "Don't have an account yet?",
+      "registerLink": "Create an account"
+    },
+    "register": {
+      "title": "Create an account",
+      "email": "Email address",
+      "emailInvalid": "Invalid email address",
+      "password": "Password",
+      "passwordTooShort": "Password must be at least 8 characters",
+      "submit": "Sign up",
+      "success": "Account created successfully",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Sign in"
+    }
+  },
+  "home": {
+    "welcome": "Welcome, {email}",
+    "createClub": "Create a club",
+    "clubCreated": "Club created successfully",
+    "clubCreationFailed": "Failed to create the club",
+    "demoClubName": "My club",
+    "logout": "Sign out"
+  },
+  "errors": {
+    "AUTH": {
+      "INVALID_CREDENTIALS": "Incorrect email or password",
+      "EMAIL_TAKEN": "This email address is already in use",
+      "UNAUTHORIZED": "You must be signed in to access this page",
+      "REFRESH_TOKEN_INVALID": "Your session has expired, please sign in again",
+      "UNKNOWN": "An unexpected error occurred"
+    }
+  }
+}
