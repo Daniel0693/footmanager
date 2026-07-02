@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomUUID } from 'crypto';
-import type { SignOptions } from 'jsonwebtoken';
+import type { JwtPayload, SignOptions } from 'jsonwebtoken';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicUser, UsersService } from '../users/users.service';
@@ -30,7 +30,10 @@ export class AuthService {
     return createHash('sha256').update(rawToken).digest('hex');
   }
 
-  private async issueTokenPair(userId: number, user: PublicUser): Promise<TokenPair> {
+  private async issueTokenPair(
+    userId: number,
+    user: PublicUser,
+  ): Promise<TokenPair> {
     const accessToken = this.jwtService.sign(
       { sub: userId },
       {
@@ -38,7 +41,10 @@ export class AuthService {
         // Cast : la valeur vient d'une env var (string libre), jsonwebtoken
         // exige un literal-type StringValue que le compilateur ne peut pas
         // vérifier statiquement ici.
-        expiresIn: this.config.get<string>('JWT_ACCESS_EXPIRES_IN', '15m') as SignOptions['expiresIn'],
+        expiresIn: this.config.get<string>(
+          'JWT_ACCESS_EXPIRES_IN',
+          '15m',
+        ) as SignOptions['expiresIn'],
       },
     );
 
@@ -47,12 +53,16 @@ export class AuthService {
       { sub: userId, jti },
       {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES_IN', '30d') as SignOptions['expiresIn'],
+        expiresIn: this.config.get<string>(
+          'JWT_REFRESH_EXPIRES_IN',
+          '30d',
+        ) as SignOptions['expiresIn'],
       },
     );
 
-    const decoded = this.jwtService.decode(refreshToken) as { exp: number };
-    const refreshExpiresAt = new Date(decoded.exp * 1000);
+    const decoded = this.jwtService.decode<JwtPayload>(refreshToken);
+    // `exp` est garanti présent : on vient de signer ce token nous-mêmes avec `expiresIn`.
+    const refreshExpiresAt = new Date(decoded.exp! * 1000);
 
     await this.prisma.refreshToken.create({
       data: {
@@ -65,7 +75,11 @@ export class AuthService {
     return { accessToken, refreshToken, refreshExpiresAt, user };
   }
 
-  async register(dto: { email: string; password: string; locale?: string }): Promise<TokenPair> {
+  async register(dto: {
+    email: string;
+    password: string;
+    locale?: string;
+  }): Promise<TokenPair> {
     const existing = await this.usersService.findByEmail(dto.email);
     if (existing) {
       throw new AppException('AUTH.EMAIL_TAKEN', HttpStatus.CONFLICT);
@@ -84,25 +98,40 @@ export class AuthService {
   async login(dto: { email: string; password: string }): Promise<TokenPair> {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
-      throw new AppException('AUTH.INVALID_CREDENTIALS', HttpStatus.UNAUTHORIZED);
+      throw new AppException(
+        'AUTH.INVALID_CREDENTIALS',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
-    const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
+    const passwordMatches = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
     if (!passwordMatches) {
-      throw new AppException('AUTH.INVALID_CREDENTIALS', HttpStatus.UNAUTHORIZED);
+      throw new AppException(
+        'AUTH.INVALID_CREDENTIALS',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     return this.issueTokenPair(user.id, this.usersService.toPublic(user));
   }
 
-  async rotateRefreshToken(userId: number, rawToken: string): Promise<TokenPair> {
+  async rotateRefreshToken(
+    userId: number,
+    rawToken: string,
+  ): Promise<TokenPair> {
     const tokenHash = this.hashToken(rawToken);
     const existing = await this.prisma.refreshToken.findFirst({
       where: { userId, tokenHash },
     });
 
     if (!existing || existing.revokedAt || existing.expiresAt < new Date()) {
-      throw new AppException('AUTH.REFRESH_TOKEN_INVALID', HttpStatus.UNAUTHORIZED);
+      throw new AppException(
+        'AUTH.REFRESH_TOKEN_INVALID',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     await this.prisma.refreshToken.update({
@@ -112,7 +141,10 @@ export class AuthService {
 
     const user = await this.usersService.findById(userId);
     if (!user) {
-      throw new AppException('AUTH.REFRESH_TOKEN_INVALID', HttpStatus.UNAUTHORIZED);
+      throw new AppException(
+        'AUTH.REFRESH_TOKEN_INVALID',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     return this.issueTokenPair(user.id, this.usersService.toPublic(user));

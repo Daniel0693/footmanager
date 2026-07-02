@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-export type PublicUser = Pick<User, 'id' | 'email' | 'locale' | 'emailVerified' | 'createdAt'>;
+export type PublicUser = Pick<
+  User,
+  'id' | 'email' | 'locale' | 'emailVerified' | 'createdAt'
+>;
 
 @Injectable()
 export class UsersService {

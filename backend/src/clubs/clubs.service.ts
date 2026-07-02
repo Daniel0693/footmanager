@@ -45,10 +45,17 @@ export class ClubsService {
         where: { name: 'Proprietaire', isSystem: true, clubId: null },
       });
       if (!proprietaireRole) {
-        throw new AppException('CLUB.SETUP_ROLE_MISSING', HttpStatus.INTERNAL_SERVER_ERROR);
+        throw new AppException(
+          'CLUB.SETUP_ROLE_MISSING',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
       await tx.memberRole.create({
-        data: { memberId: member.id, roleId: proprietaireRole.id, clubId: club.id },
+        data: {
+          memberId: member.id,
+          roleId: proprietaireRole.id,
+          clubId: club.id,
+        },
       });
 
       const categories = await tx.evaluationCategory.findMany({

@@ -67,6 +67,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response.json();
   }, [clearSession]);
 
+  // Ref plutôt qu'appel direct : `applySession` se replanifie elle-même via
+  // le silent refresh, une auto-référence directe casse l'analyse du React
+  // Compiler (react-hooks/immutability).
+  const applySessionRef = useRef<(session: Session) => void>(() => {});
+
   const applySession = useCallback(
     (session: Session) => {
       setAccessToken(session.accessToken);
@@ -75,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
       refreshTimer.current = setTimeout(() => {
         void silentRefresh().then((next) => {
-          if (next) applySession(next);
+          if (next) applySessionRef.current(next);
         });
       }, ACCESS_TOKEN_TTL_MS - REFRESH_MARGIN_MS);
     },
@@ -83,6 +88,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    applySessionRef.current = applySession;
+  }, [applySession]);
+
+  useEffect(() => {
+    // Bootstrap volontaire : synchronise l'état React avec la session côté
+    // serveur (cookie httpOnly) au montage. Cas d'usage légitime d'un effect,
+    // pas un état dérivable du rendu.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     silentRefresh()
       .then((session) => {
         if (session) applySession(session);

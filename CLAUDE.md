@@ -40,6 +40,14 @@ Voir `docs/architecture.md` §3 pour les conventions et la bibliothèque retenue
 Le code (variables, fonctions, commentaires techniques) reste en **anglais**. Les clés de
 traduction (i18n) sont en anglais. Les données de démo/seed peuvent être en français.
 
+## Qualité TypeScript — zéro erreur non négociable
+
+`backend/tsconfig.json` et `frontend/tsconfig.json` tournent en `strict` complet. Avant tout
+commit qui touche du code, lancer `npm run typecheck` dans `backend/` **et** `frontend/` — doit
+passer sans erreur. Ne jamais assouplir `strict`, ajouter un `any` de confort, un `@ts-ignore` ou
+un cast de contournement pour faire taire une erreur réelle. Détail et liste complète des règles :
+voir `docs/typescript-conventions.md`.
+
 ## Règle d'or — Permissions (NE JAMAIS ENFREINDRE)
 
 **La logique de permission doit TOUJOURS être évaluée via le système de rôles scopé** — rôle par
@@ -78,6 +86,7 @@ données personnelles, à la suppression de compte ou aux données de mineurs**,
 | Fichier | Contenu |
 |---|---|
 | `docs/architecture.md` | Stack, i18n, structure de repo, Docker, UX/UI, vision produit |
+| `docs/typescript-conventions.md` | Règles TypeScript strictes — config, interdits, typage Prisma/DTO |
 | `docs/schema/index.md` | **Point d'entrée du schéma BDD** — conventions, enums globaux, table de correspondance entité→fichier |
 | `docs/schema/fondations.md` | User, Club, Team, Member, rôles, permissions |
 | `docs/schema/joueurs.md` | PlayerProfile, évaluations, notes, objectifs, absences |
@@ -116,8 +125,10 @@ d'**étoiles sur 5** (valeur / 2, avec demi-étoiles). Jamais d'autre échelle.
 cd backend && npm run start:dev
 cd backend && npx prisma migrate dev
 cd backend && npm run test
+cd backend && npm run typecheck
 
 cd frontend && npm run dev
+cd frontend && npm run typecheck
 
 docker-compose up
 ```

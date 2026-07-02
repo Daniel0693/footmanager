@@ -29,7 +29,10 @@ export class AuthController {
     private readonly usersService: UsersService,
     private readonly config: ConfigService,
   ) {
-    this.refreshCookieName = this.config.get<string>('REFRESH_COOKIE_NAME', 'refresh_token');
+    this.refreshCookieName = this.config.get<string>(
+      'REFRESH_COOKIE_NAME',
+      'refresh_token',
+    );
   }
 
   private setRefreshCookie(res: Response, tokens: TokenPair) {
@@ -47,7 +50,10 @@ export class AuthController {
   }
 
   @Post('register')
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const tokens = await this.authService.register(dto);
     this.setRefreshCookie(res, tokens);
     return { accessToken: tokens.accessToken, user: tokens.user };
@@ -55,7 +61,10 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const tokens = await this.authService.login(dto);
     this.setRefreshCookie(res, tokens);
     return { accessToken: tokens.accessToken, user: tokens.user };
@@ -64,8 +73,14 @@ export class AuthController {
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const { userId, rawToken } = req.user as { userId: number; rawToken: string };
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { userId, rawToken } = req.user as {
+      userId: number;
+      rawToken: string;
+    };
     const tokens = await this.authService.rotateRefreshToken(userId, rawToken);
     this.setRefreshCookie(res, tokens);
     return { accessToken: tokens.accessToken, user: tokens.user };
@@ -75,7 +90,10 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const { userId, rawToken } = req.user as { userId: number; rawToken: string };
+    const { userId, rawToken } = req.user as {
+      userId: number;
+      rawToken: string;
+    };
     await this.authService.revokeRefreshToken(userId, rawToken);
     this.clearRefreshCookie(res);
   }

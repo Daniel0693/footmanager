@@ -10,13 +10,20 @@ export interface RefreshTokenPayload {
 }
 
 @Injectable()
-export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
   private readonly cookieName: string;
 
   constructor(config: ConfigService) {
-    const cookieName = config.get<string>('REFRESH_COOKIE_NAME', 'refresh_token');
+    const cookieName = config.get<string>(
+      'REFRESH_COOKIE_NAME',
+      'refresh_token',
+    );
     super({
-      jwtFromRequest: (req: Request) => req?.cookies?.[cookieName] ?? null,
+      jwtFromRequest: (req: Request) =>
+        (req?.cookies?.[cookieName] as string | undefined) ?? null,
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       passReqToCallback: true as const,

@@ -17,10 +17,15 @@ export class MembersService {
   }
 
   findByUserAndClub(userId: number, clubId: number) {
-    return this.prisma.member.findUnique({ where: { userId_clubId: { userId, clubId } } });
+    return this.prisma.member.findUnique({
+      where: { userId_clubId: { userId, clubId } },
+    });
   }
 
   findById(id: number) {
-    return this.prisma.member.findUnique({ where: { id }, include: { memberRoles: true } });
+    return this.prisma.member.findUnique({
+      where: { id },
+      include: { memberRoles: true },
+    });
   }
 }

@@ -31,13 +31,24 @@ export class PermissionsService {
   ): Promise<PermissionScope | null> {
     const memberRoles = await this.prisma.memberRole.findMany({
       where: { memberId },
-      include: { role: { include: { rolePermissions: { include: { permission: true } } } } },
+      include: {
+        role: {
+          include: { rolePermissions: { include: { permission: true } } },
+        },
+      },
     });
 
     const grantedScopes = memberRoles
-      .filter((memberRole) => this.isActive(memberRole) && this.matchesContext(memberRole, context))
+      .filter(
+        (memberRole) =>
+          this.isActive(memberRole) && this.matchesContext(memberRole, context),
+      )
       .flatMap((memberRole) => memberRole.role.rolePermissions)
-      .filter((rolePermission) => rolePermission.permission.resource === resource && rolePermission.permission.action === action)
+      .filter(
+        (rolePermission) =>
+          rolePermission.permission.resource === resource &&
+          rolePermission.permission.action === action,
+      )
       .map((rolePermission) => rolePermission.permission.scope);
 
     if (grantedScopes.length === 0) {
@@ -49,7 +60,10 @@ export class PermissionsService {
     );
   }
 
-  private isActive(memberRole: { startDate: Date | null; endDate: Date | null }): boolean {
+  private isActive(memberRole: {
+    startDate: Date | null;
+    endDate: Date | null;
+  }): boolean {
     const now = new Date();
     if (memberRole.startDate && memberRole.startDate > now) return false;
     if (memberRole.endDate && memberRole.endDate < now) return false;
