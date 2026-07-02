@@ -30,11 +30,16 @@ Légende : ⬜ pas commencé · 🚧 en cours · ✅ terminé
 
 _~2–3 semaines_
 
-- `PlayerProfile`, `PlayerTeam`, `TeamStaff`, `ExternalTeam`.
+- `PlayerProfile`, `PlayerTeam`, `TeamStaff`.
 - Module Effectif : ajout/édition/suppression joueurs, liste de l'effectif, profil de base.
 - Module Calendrier : création d'événements (`Event`), code couleur par type / par équipe.
-- Saisie des présences sur un événement.
-- Convocations (email, si le temps le permet, sinon reporté en Phase 9).
+
+> `ExternalTeam` reporté à la Phase 3 (championnats) — voir `docs/schema/championnats.md`.
+> Présences et convocations reportées : elles sont modélisées par `MatchAttendance` (Phase 4)
+> et `TrainingAttendance` (Phase 5), pas par un `Event` générique — voir
+> `docs/schema/evenements.md`. Notifications email : voir "Évolutions post-MVP".
+> Rôle `Parent` non câblé sur ce module — voir décision ouverte #5 dans
+> `docs/decisions-ouvertes-et-rgpd.md` (liaison Parent ↔ Joueur non modélisée).
 
 ---
 

@@ -53,8 +53,9 @@ conçu et documenté avant l'implémentation de cette fonctionnalité spécifiqu
 ### 2. Gestion des notifications et convocations
 
 Le système de notification (email, push, in-app) pour les convocations, rappels d'événements
-et feedbacks n'est pas encore spécifié. À documenter dans `docs/modules/notifications.md`
-avant la Phase 2.
+et feedbacks n'est pas encore spécifié. Les convocations elles-mêmes dépendent de
+`MatchAttendance` (Phase 4) et `TrainingAttendance` (Phase 5) — pas d'un `Event` générique
+(Phase 2). À documenter dans `docs/modules/notifications.md` avant la Phase 4.
 
 ### 3. FAIR_PLAY post-MVP
 
@@ -71,7 +72,13 @@ depuis les cartons. À concevoir et documenter en phase post-MVP.
 - **Fil d'actualité / partage de moments d'équipe**
 - **Notifications** (email, push, in-app)
 
----
+### 5. Liaison Parent ↔ Joueur (Member enfant)
+
+Aucune table de liaison entre un `Member` avec le rôle `Parent` et le(s) `Member`(s) enfant(s)
+n'existe dans le schéma actuel (`fondations.md`, `joueurs.md`). `PermissionScope` (`OWN` /
+`TEAM` / `CLUB` / `ALL`) ne permet pas nativement de scoper un accès "à mon enfant précis"
+sans sur-exposer le reste de l'équipe. À concevoir (ex. table `ParentChild` ou équivalent)
+avant de câbler le rôle `Parent` sur le module Effectif ou Calendrier — non traité en Phase 2.
 
 ## Contraintes RGPD
 
