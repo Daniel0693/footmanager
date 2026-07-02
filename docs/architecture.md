@@ -41,6 +41,7 @@ SSR/SPA selon les besoins de page. Réutilisation de logique facilitée si une v
 (React Native) est envisagée plus tard.
 
 Bibliothèques à prévoir :
+
 - Librairie de calendrier (FullCalendar ou similaire) pour la vue agenda.
 - Librairie canvas/SVG (Konva.js ou similaire) pour l'éditeur graphique d'exercices.
 - Bibliothèque i18n (voir §3).
@@ -65,6 +66,7 @@ PostgreSQL pour l'intégrité référentielle sur des données fortement relatio
 TypeScript de bout en bout et la gestion des migrations. Schéma complet : `docs/schema-bdd.md`.
 
 **Principes de conception de la BDD** (non négociables) :
+
 - Flexibilité pour l'ajout de fonctionnalités futures sans refonte structurelle.
 - Zéro duplicata : toute valeur stockée a une seule source de vérité ; les données dérivées
   sont calculées à la volée ou matérialisées explicitement si la performance l'exige.
@@ -74,6 +76,7 @@ TypeScript de bout en bout et la gestion des migrations. Schéma complet : `docs
 ### Déploiement — Docker
 
 Services `docker-compose` :
+
 - `backend` : NestJS/Node
 - `db` : PostgreSQL
 - `frontend` : Next.js (ou build statique Nginx)
@@ -175,6 +178,9 @@ middleware `next-intl` de détection/redirection de langue. Le runtime `edge`
 n'est plus supporté par `proxy.ts` — seul `nodejs` l'est désormais.
 
 ## 5. Principes UX/UI transverses
+
+Le projet utilise shadcn/ui comme base de composants UI (TailwindCSS v4).
+Les principes UX/UI transverses sont les suivants :
 
 - **Simplicité** : navigation par onglets/menus distincts adaptés au rôle de l'utilisateur
   connecté. Chaque acteur ne voit que les sections pertinentes pour lui.

@@ -21,10 +21,14 @@ Légende : ⬜ pas commencé · 🚧 en cours · ✅ terminé
 - À la création d'un club : génération automatique des `ClubEvaluationConfig` selon `Club.sport`.
 - Résultat attendu : un utilisateur peut s'inscrire, se connecter, voir une page d'accueil.
 
+  > Complété le 02/07/2026. Structure retenue : monorepo avec backend/ et frontend/ séparés, Docker Compose pour le dev local, PostgreSQL + Prisma ORM, Next.js + TailwindCSS + TypeScript pour le frontend.
+  > UI : shadcn/ui + Tailwind. Seed initial effectué
+
 ---
 
 ## Phase 2 — Effectif & Calendrier ⬜
-*~2–3 semaines*
+
+_~2–3 semaines_
 
 - `PlayerProfile`, `PlayerTeam`, `TeamStaff`, `ExternalTeam`.
 - Module Effectif : ajout/édition/suppression joueurs, liste de l'effectif, profil de base.
@@ -35,7 +39,8 @@ Légende : ⬜ pas commencé · 🚧 en cours · ✅ terminé
 ---
 
 ## Phase 3 — Saisons & Championnats ⬜
-*~2–3 semaines*
+
+_~2–3 semaines_
 
 - `Season` (états DRAFT/ACTIVE/ARCHIVED), `Championship`, `ChampionshipParticipant`,
   `ChampionshipMatch`, `ExternalTeam`.
@@ -49,7 +54,8 @@ Légende : ⬜ pas commencé · 🚧 en cours · ✅ terminé
 ---
 
 ## Phase 4 — Matchs (notre équipe) ⬜
-*~3 semaines*
+
+_~3 semaines_
 
 - `Match`, `MatchPeriod`, `MatchLineup`, `MatchEvent`, `MatchAttendance`, `MatchPlayerRating`.
 - Préparation de la composition, convocations de match.
@@ -63,7 +69,8 @@ Légende : ⬜ pas commencé · 🚧 en cours · ✅ terminé
 ---
 
 ## Phase 5 — Entraînement & Exercices ⬜
-*~4 semaines*
+
+_~4 semaines_
 
 - `TrainingSession`, `Exercise`, `TrainingSessionExercise`, `TrainingAttendance`,
   `TrainingFeedback`.
@@ -74,7 +81,8 @@ Légende : ⬜ pas commencé · 🚧 en cours · ✅ terminé
 ---
 
 ## Phase 6 — Profil joueur complet ⬜
-*~2–3 semaines*
+
+_~2–3 semaines_
 
 - `PlayerMeasurement`, `PlayerEvaluation` (radar 6 catégories), `PlayerObjective`,
   `PlayerInterview`, `PlayerAbsence`.
@@ -85,7 +93,8 @@ Légende : ⬜ pas commencé · 🚧 en cours · ✅ terminé
 ---
 
 ## Phase 7 — Scouting ⬜
-*~3 semaines*
+
+_~3 semaines_
 
 - `TeamScoutingReport`, `PlayerScoutingReport`, `PlayerScoutingCriterion`,
   `PlayerScoutingEvaluation`, `PlayingStyleTag`, `ExternalPlayer`.
@@ -99,7 +108,8 @@ Légende : ⬜ pas commencé · 🚧 en cours · ✅ terminé
 ---
 
 ## Phase 8 — Blessures & Rééducation ⬜
-*~2 semaines*
+
+_~2 semaines_
 
 - `Injury`, `InjuryAssignment`, `InjuryRehabEvent`.
 - Timeline de rééducation, intervenants multiples.
@@ -109,7 +119,8 @@ Légende : ⬜ pas commencé · 🚧 en cours · ✅ terminé
 ---
 
 ## Phase 9 — Finitions MVP & tests ⬜
-*~2 semaines*
+
+_~2 semaines_
 
 - Gestion des rôles personnalisés (interface de création + attribution de permissions).
 - Mécanisme de transfert sécurisé du rôle Propriétaire.
