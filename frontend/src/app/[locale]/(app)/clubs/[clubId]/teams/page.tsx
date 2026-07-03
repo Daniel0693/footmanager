@@ -25,12 +25,13 @@ const createTeamSchema = z.object({
 
 type CreateTeamValues = z.infer<typeof createTeamSchema>;
 
-export default function TeamsPage({
-  params,
-}: {
-  params: Promise<{ clubId: string }>;
-}) {
-  const { clubId } = use(params);
+// Composant nommé séparé du default export de page.tsx : `use(params)` (voir
+// plus bas) suspend le rendu tant que la Promise n'est pas résolue, ce que
+// Next.js gère nativement en production mais que Jest/jsdom ne résout pas de
+// façon fiable en test (limitation connue, cf. docs Next.js sur les
+// composants async). En testant TeamsPageContent directement avec un
+// `clubId` déjà résolu, on couvre toute la logique sans dépendre de `use()`.
+export function TeamsPageContent({ clubId }: { clubId: string }) {
   const t = useTranslations("teams");
   const tErrors = useTranslations("errors");
   const { accessToken } = useAuth();
@@ -133,4 +134,13 @@ export default function TeamsPage({
       </div>
     </div>
   );
+}
+
+export default function TeamsPage({
+  params,
+}: {
+  params: Promise<{ clubId: string }>;
+}) {
+  const { clubId } = use(params);
+  return <TeamsPageContent clubId={clubId} />;
 }

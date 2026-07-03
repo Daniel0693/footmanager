@@ -46,12 +46,17 @@ interface PlayerTeamRow {
 
 const ALL = "ALL";
 
-export default function TeamPlayersPage({
-  params,
+// Composant nommé séparé du default export de page.tsx : voir la même note
+// dans ../page.tsx (TeamsPageContent) — `use(params)` ne se résout pas de
+// façon fiable sous Jest/jsdom, donc on teste ce composant directement avec
+// clubId/teamId déjà résolus plutôt que de passer par `use()`.
+export function TeamPlayersPageContent({
+  clubId,
+  teamId,
 }: {
-  params: Promise<{ clubId: string; teamId: string }>;
+  clubId: string;
+  teamId: string;
 }) {
-  const { clubId, teamId } = use(params);
   const t = useTranslations("players");
   const tPositions = useTranslations("positions");
   const tPositionLines = useTranslations("positionLines");
@@ -200,4 +205,13 @@ export default function TeamPlayersPage({
       )}
     </div>
   );
+}
+
+export default function TeamPlayersPage({
+  params,
+}: {
+  params: Promise<{ clubId: string; teamId: string }>;
+}) {
+  const { clubId, teamId } = use(params);
+  return <TeamPlayersPageContent clubId={clubId} teamId={teamId} />;
 }
