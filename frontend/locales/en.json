@@ -61,6 +61,9 @@
       "ALREADY_ACTIVE": "This member already has an active staff assignment in this team",
       "CANNOT_MODIFY_PRINCIPAL": "An Assistant or Co-coach cannot modify the Head Coach's record",
       "NOT_FOUND": "Staff assignment not found"
+    },
+    "TEAMS": {
+      "NOT_FOUND": "Team not found"
     }
   }
 }

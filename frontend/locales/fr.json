@@ -61,6 +61,9 @@
       "ALREADY_ACTIVE": "Ce membre a déjà une affectation active dans le staff de cette équipe",
       "CANNOT_MODIFY_PRINCIPAL": "Un Adjoint ou Co-entraîneur ne peut pas modifier la fiche de l'Entraîneur principal",
       "NOT_FOUND": "Affectation de staff introuvable"
+    },
+    "TEAMS": {
+      "NOT_FOUND": "Équipe introuvable"
     }
   }
 }
