@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { apiFetch } from "../api";
+import { apiFetch, parseErrorCode } from "../api";
 
 export interface PublicUser {
   id: number;
@@ -40,11 +40,6 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 // laisser l'utilisateur avec un token expiré (silent refresh).
 const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
 const REFRESH_MARGIN_MS = 60 * 1000;
-
-async function parseErrorCode(response: Response): Promise<string> {
-  const body = await response.json().catch(() => null);
-  return body?.code ?? "AUTH.UNKNOWN";
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<PublicUser | null>(null);

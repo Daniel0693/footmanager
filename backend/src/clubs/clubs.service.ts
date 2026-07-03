@@ -75,4 +75,12 @@ export class ClubsService {
       return club;
     });
   }
+
+  /** Clubs où l'utilisateur a une fiche Member (peu importe le rôle). */
+  findAllForUser(userId: number) {
+    return this.prisma.club.findMany({
+      where: { members: { some: { userId } } },
+      orderBy: { name: 'asc' },
+    });
+  }
 }

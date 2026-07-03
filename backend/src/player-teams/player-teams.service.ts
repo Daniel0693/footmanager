@@ -48,8 +48,11 @@ export class PlayerTeamsService {
   async findAllByTeam(clubId: number, teamId: number) {
     await this.assertTeamInClub(clubId, teamId);
 
+    // include player+member : la liste effectif (frontend) affiche le nom
+    // du joueur, pas seulement son id.
     return this.prisma.playerTeam.findMany({
       where: { teamId, leaveDate: null },
+      include: { player: { include: { member: true } } },
       orderBy: { jerseyNumber: 'asc' },
     });
   }

@@ -7,6 +7,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -31,6 +32,17 @@ export class TeamsController {
   @Get()
   findAll(@Param('clubId', ParseIntPipe) clubId: number) {
     return this.teamsService.findAllByClub(clubId);
+  }
+
+  // Pas de @RequirePermission ici : "mes équipes" par construction (voir
+  // TeamsService.findMineInClub). Doit être déclaré avant `:id` pour que
+  // 'mine' ne soit pas capturé comme un id numérique.
+  @Get('mine')
+  findMine(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @CurrentUser() user: { userId: number },
+  ) {
+    return this.teamsService.findMineInClub(clubId, user.userId);
   }
 
   @RequirePermission('team', 'READ')

@@ -32,7 +32,58 @@
     "clubCreated": "Club créé avec succès",
     "clubCreationFailed": "Échec de la création du club",
     "demoClubName": "Mon club",
-    "logout": "Se déconnecter"
+    "logout": "Se déconnecter",
+    "viewClub": "Voir l'effectif de {clubName}"
+  },
+  "teams": {
+    "title": "Équipes",
+    "createTeam": "Créer une équipe",
+    "teamName": "Nom de l'équipe",
+    "teamNamePlaceholder": "Ex. U15 A",
+    "create": "Créer",
+    "created": "Équipe créée avec succès",
+    "createFailed": "Échec de la création de l'équipe",
+    "empty": "Aucune équipe pour l'instant",
+    "viewRoster": "Voir l'effectif",
+    "loadFailed": "Impossible de charger les équipes"
+  },
+  "players": {
+    "title": "Effectif",
+    "backToTeams": "Retour aux équipes",
+    "jerseyNumber": "N°",
+    "name": "Nom",
+    "mainPosition": "Poste principal",
+    "secondaryPosition": "Poste secondaire",
+    "emptyValue": "—",
+    "empty": "Aucun joueur dans cette équipe",
+    "loadFailed": "Impossible de charger l'effectif",
+    "filterByLine": "Filtrer par ligne",
+    "filterByPosition": "Filtrer par poste",
+    "allLines": "Toutes les lignes",
+    "allPositions": "Tous les postes"
+  },
+  "positionLines": {
+    "GK": "Gardien",
+    "DEF": "Défense",
+    "MID": "Milieu",
+    "ATT": "Attaque"
+  },
+  "positions": {
+    "GK": "Gardien",
+    "CB": "Défenseur central",
+    "RB": "Arrière droit",
+    "LB": "Arrière gauche",
+    "RWB": "Piston droit",
+    "LWB": "Piston gauche",
+    "CDM": "Milieu défensif",
+    "CM": "Milieu central",
+    "RM": "Milieu droit",
+    "LM": "Milieu gauche",
+    "CAM": "Milieu offensif",
+    "RW": "Ailier droit",
+    "LW": "Ailier gauche",
+    "CF": "Avant-centre",
+    "ST": "Buteur"
   },
   "errors": {
     "AUTH": {

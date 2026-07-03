@@ -32,7 +32,58 @@
     "clubCreated": "Club created successfully",
     "clubCreationFailed": "Failed to create the club",
     "demoClubName": "My club",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "viewClub": "View {clubName} roster"
+  },
+  "teams": {
+    "title": "Teams",
+    "createTeam": "Create a team",
+    "teamName": "Team name",
+    "teamNamePlaceholder": "E.g. U15 A",
+    "create": "Create",
+    "created": "Team created successfully",
+    "createFailed": "Failed to create the team",
+    "empty": "No teams yet",
+    "viewRoster": "View roster",
+    "loadFailed": "Failed to load teams"
+  },
+  "players": {
+    "title": "Roster",
+    "backToTeams": "Back to teams",
+    "jerseyNumber": "No.",
+    "name": "Name",
+    "mainPosition": "Main position",
+    "secondaryPosition": "Secondary position",
+    "emptyValue": "—",
+    "empty": "No players in this team",
+    "loadFailed": "Failed to load the roster",
+    "filterByLine": "Filter by line",
+    "filterByPosition": "Filter by position",
+    "allLines": "All lines",
+    "allPositions": "All positions"
+  },
+  "positionLines": {
+    "GK": "Goalkeeper",
+    "DEF": "Defence",
+    "MID": "Midfield",
+    "ATT": "Attack"
+  },
+  "positions": {
+    "GK": "Goalkeeper",
+    "CB": "Centre-Back",
+    "RB": "Right-Back",
+    "LB": "Left-Back",
+    "RWB": "Right Wing-Back",
+    "LWB": "Left Wing-Back",
+    "CDM": "Defensive Midfielder",
+    "CM": "Central Midfielder",
+    "RM": "Right Midfielder",
+    "LM": "Left Midfielder",
+    "CAM": "Attacking Midfielder",
+    "RW": "Right Winger",
+    "LW": "Left Winger",
+    "CF": "Centre-Forward",
+    "ST": "Striker"
   },
   "errors": {
     "AUTH": {

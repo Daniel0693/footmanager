@@ -156,6 +156,7 @@ describe('PlayerTeamsService', () => {
       expect(result).toEqual([assignment]);
       expect(ptFindMany).toHaveBeenCalledWith({
         where: { teamId: 5, leaveDate: null },
+        include: { player: { include: { member: true } } },
         orderBy: { jerseyNumber: 'asc' },
       });
     });
