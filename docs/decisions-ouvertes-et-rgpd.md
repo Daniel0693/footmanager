@@ -39,6 +39,11 @@
 | TeamScoutingReport vs PlayerScoutingReport | Deux entités distinctes. Peuvent vivre ensemble ou séparément. |
 | PlayerScoutingCriterion | Table distincte de EvaluationCriterion. ~20 critères système par 4 dimensions + critères custom par club. |
 | Note globale PlayerScoutingReport | Calculée depuis AVG des 4 dimensions, modifiable manuellement. |
+| Postes (`Position`) | Liste granulaire de 15 postes réels (codes anglais, ex. `CDM`, `RWB`) plutôt que 4 lignes génériques. La ligne (GK/DEF/MID/ATT) n'est pas stockée : dérivée en code à partir du poste précis. Voir `docs/schema/index.md`. |
+| Unicité numéro de maillot (`PlayerTeam.jerseyNumber`) | Pas de contrainte SQL `@@unique([teamId, jerseyNumber])` — incompatible avec l'historisation (`joinDate`/`leaveDate`). Vérifiée au niveau applicatif, parmi les affectations **actives** uniquement. |
+| Accès `TEAM`-scopé sur une route de liste sans `:teamId` | Pattern self-service (`GET .../me`, `GET .../mine`) : contourne `PermissionsGuard`, résolution directe dans le service. Voir `docs/modules/auth-roles.md` §Patterns découverts. |
+| Protection de la fiche `TeamStaff` du Principal | Appliquée explicitement dans `TeamStaffService`, pas dans le moteur RBAC générique (règle non exprimable en `resource`/`action`/`scope`). |
+| "Mes clubs" (`GET /clubs`) | Scope : clubs où l'utilisateur a une fiche `Member`. Remplace un suivi `localStorage` non fiable (id de club persistant entre comptes dans le même navigateur). Un compte ne peut pour l'instant créer qu'un seul club (aucun flux "rejoindre un club" existant) — à revisiter si le multi-club post-MVP est implémenté. |
 
 ---
 

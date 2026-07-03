@@ -95,6 +95,30 @@ function can(member, action, resource, { clubId, teamId }): boolean {
 à cause de raccourcis de permission. C'est un risque structurel récurrent — documenter ici
 tout cas limite découvert pour éviter de répéter l'erreur.
 
+### Implémentation réelle (depuis la Phase 2, module Effectif)
+
+Le pseudo-code ci-dessus est concrètement `PermissionsService.can(memberId, action, resource,
+{ clubId, teamId })` (`backend/src/roles/permissions.service.ts`, Phase 1) : filtre les
+`MemberRole` actifs du membre correspondant au contexte, résout le scope le plus large accordé
+parmi `OWN < TEAM < CLUB < ALL`.
+
+Deux briques supplémentaires branchent cette logique sur les routes HTTP (Phase 2,
+`backend/src/auth/guards/permissions.guard.ts`) :
+
+- **`@RequirePermission(resource, action)`** — décorateur posé sur une méthode de controller,
+  pose une métadonnée lue par le guard.
+- **`PermissionsGuard`** — résout `clubId`/`teamId` depuis les paramètres de route (jamais
+  requête DB), résout le `Member` de l'utilisateur via `MembersService.findByUserAndClub`, puis
+  appelle `PermissionsService.can()`. Si un scope est accordé, attache `request.member` et
+  `request.permissionScope` (récupérables via `@CurrentMember()` / `@CurrentPermissionScope()`)
+  pour que le service applique un filtrage fin (ex. scope `OWN` → ne renvoyer que la ressource de
+  l'appelant).
+
+**Convention de route qui en découle** : toute route dont la permission peut être scopée `TEAM`
+doit porter `clubId` **et** `teamId` explicitement dans l'URL (ex.
+`/clubs/:clubId/teams/:teamId/players`), jamais résolus implicitement — le guard ne fait aucune
+requête DB pour les déduire.
+
 ---
 
 ## Cas particuliers documentés
@@ -104,9 +128,54 @@ tout cas limite découvert pour éviter de répéter l'erreur.
 La table `TeamStaff` (`staffRole` : `PRINCIPAL`, `CO_ENTRAINEUR`, `ADJOINT`) définit le rôle
 précis d'un Coach au sein d'une équipe. En termes de droits applicatifs :
 - **Parité complète** entre `PRINCIPAL`, `CO_ENTRAINEUR` et `ADJOINT` sur la gestion de
-  l'équipe (séances, matchs, évaluations).
-- **Exception unique** : un Adjoint ou Co-entraîneur ne peut pas modifier la fiche
-  `TeamStaff` de l'Entraîneur principal (protection contre l'auto-promotion).
+  l'équipe (séances, matchs, évaluations) — y compris sur `team_staff` lui-même (CRUD complet,
+  pas seulement lecture : une première version du seed n'avait donné que `READ` au rôle Coach,
+  ce qui rendait l'exception ci-dessous vide de sens puisqu'il n'y avait rien à modifier).
+- **Exception unique** : un Adjoint ou Co-entraîneur ne peut pas modifier ou retirer la fiche
+  `TeamStaff` d'un *autre* membre Principal (protection contre l'auto-promotion). Il peut
+  modifier sa propre fiche même si elle est Principal. Un scope `CLUB`/`ALL` (AdminClub,
+  SuperAdmin) n'est jamais restreint par cette règle.
+  **Cette règle n'est pas exprimable dans le système de permission générique** (même rôle, même
+  scope, seule la ligne ciblée diffère) : elle est appliquée explicitement dans
+  `TeamStaffService.assertCanModifyPrincipal()`, pas dans `PermissionsService`.
+
+### Patterns découverts en implémentant le module Effectif (Phase 2)
+
+Ces cas limites ont cassé silencieusement (403 sans message clair, ou pire — un tableau vide
+sans erreur visible côté frontend) avant d'être identifiés en testant manuellement avec
+plusieurs rôles. À connaître avant d'implémenter le module Calendrier (Partie B), qui aura les
+mêmes scopes `TEAM` sur `Coach`/`Player`.
+
+**Un scope `TEAM` ne peut jamais matcher une route de liste sans `:teamId` dans l'URL.**
+`PermissionsGuard` résout `clubId`/`teamId` uniquement depuis les paramètres de la requête
+(jamais de requête DB) ; si une route liste une ressource "globale" (ex. `GET /clubs/:clubId/teams`
+— toutes les équipes d'un club), un `MemberRole` scopé à une équipe précise (`teamId` non null)
+ne correspond à aucun contexte résolvable, et le guard refuse **avant même** d'atteindre le
+service — y compris pour un Coach qui devrait légitimement voir sa propre équipe.
+
+*Solution retenue* : une route self-service dédiée qui contourne `PermissionsGuard` et résout
+elle-même l'accès, à la place d'un raccourci de rôle interdit par la règle d'or :
+- `GET /clubs/:clubId/players/me` — un Player consulte son propre profil (résolution d'identité
+  pure depuis le JWT, aucune évaluation de scope nécessaire).
+- `GET /clubs/:clubId/teams/mine` — un membre consulte les équipes auxquelles il a accès :
+  club entier si son scope est `CLUB`/`ALL` (vérifié via `PermissionsService.can()` sans
+  `teamId`, qui matche les `MemberRole` club-entiers dont `teamId` est `null`), sinon repli sur
+  les équipes où il a un `MemberRole` scopé équipe — sans consulter le moteur RBAC générique
+  pour ce cas, puisque "voir les équipes dont je suis membre" est vrai par construction.
+
+Ce pattern (route `/me` ou `/mine`, guard générique contourné, résolution directe dans le
+service) est à réutiliser pour toute future route de listing consommée par un rôle scopé équipe
+sans que la ressource elle-même porte de `teamId` dans son URL naturelle.
+
+**Le scope global (`clubId = null` sur `MemberRole`) ne dispense pas d'une fiche `Member` par
+club accédé.** `PermissionsGuard` résout toujours le `Member` de l'appelant pour le `clubId` de
+la requête (`MembersService.findByUserAndClub`) avant même d'évaluer la permission — un
+SuperAdmin ou Proprietaire dont le `MemberRole` a `clubId = null` (scope théoriquement
+multi-club) doit malgré tout avoir une fiche `Member` dans **chaque** club où il opère, sans
+quoi le guard refuse dès la résolution du membre. En pratique, un SuperAdmin n'est donc
+aujourd'hui pas "global" au sens propre — il faut lui créer un `Member` par club à couvrir. Un
+vrai mécanisme multi-club sans cette limitation reste à concevoir si le besoin se confirme
+(voir "Multi-club" dans `docs/roadmap.md` §Évolutions post-MVP).
 
 ### Multi-rôles — règle de test obligatoire
 

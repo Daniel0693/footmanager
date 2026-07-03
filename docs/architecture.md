@@ -108,12 +108,18 @@ Langues cibles : français (MVP), puis anglais, allemand, portugais, italien, es
 ```
 backend/
   src/
-    auth/           # JWT access+refresh, strategies Passport, guards
+    auth/
+      guards/         # JwtAuthGuard, PermissionsGuard (règle d'or, voir auth-roles.md)
+      decorators/      # @RequirePermission, @CurrentUser, @CurrentMember, @CurrentPermissionScope
+      strategies/      # Passport JWT access + refresh
     users/
-    clubs/
-    teams/
+    clubs/            # POST (créer), GET (mes clubs — self-service, voir auth-roles.md)
+    teams/            # CRUD équipes + GET .../mine (self-service, voir auth-roles.md)
     members/
-    roles/          # RolesService + PermissionsService.can() (règle d'or)
+    roles/            # RolesService + PermissionsService.can() (règle d'or)
+    players/          # PlayerProfile : CRUD + GET .../me (self-service)
+    player-teams/     # PlayerTeam : affectation équipe, historisation, numéro de maillot
+    team-staff/       # TeamStaff : CRUD + protection de la fiche du Principal
     prisma/
       prisma.module.ts
       prisma.service.ts
@@ -133,16 +139,23 @@ frontend/
     app/
       [locale]/
         (auth)/login/, (auth)/register/
-        (app)/home/, (app)/layout.tsx      # guard client (redirige si non connecté)
+        (app)/home/                         # bascule créer un club / voir mes clubs
+        (app)/clubs/[clubId]/teams/         # liste + création d'équipes
+        (app)/clubs/[clubId]/teams/[teamId]/players/  # liste effectif, filtres poste/ligne
+        (app)/layout.tsx                    # guard client (redirige si non connecté)
         layout.tsx                          # <html>/<body>, NextIntlClientProvider
         page.tsx                            # redirige vers /login
       globals.css
-    components/ui/   # shadcn/ui (Tailwind v4)
+    components/ui/   # shadcn/ui (Tailwind v4) : button, card, input, label, table, select, badge, sonner
     i18n/             # routing.ts, navigation.ts, request.ts
     lib/
-      api.ts
+      api.ts          # apiFetch, parseErrorCode
       auth/auth-context.tsx   # AuthProvider + silent refresh
+      positions.ts    # enum Position (15 postes) + dérivation de la ligne, voir schema/index.md
+    test-utils/       # render.tsx (NextIntlClientProvider + Suspense), navigation-mock.tsx
     proxy.ts          # ex-middleware.ts (convention Next.js 16) : next-intl
+  jest.config.ts       # next/jest — voir §6
+  jest.setup.ts
   locales/
     fr.json
     en.json
@@ -155,6 +168,13 @@ docs/
 CLAUDE.md
 .nvmrc                # Node 20 — voir §2bis
 ```
+
+**Convention de page Next.js avec `params` asynchrone** (App Router, `use()`) : le composant
+`export default` d'une `page.tsx` ne fait que dépaqueter `params` via `use()` et délègue tout le
+reste à un composant nommé exporté séparément (ex. `TeamsPageContent`, `TeamPlayersPageContent`)
+qui reçoit des props déjà résolues. Raison : `use()` sur une Promise ne se résout pas de façon
+fiable sous Jest/jsdom (limitation documentée par Next.js pour les composants async) — sans
+cette séparation, le composant contenant la logique métier n'est pas testable unitairement.
 
 **Écart avec la structure initialement envisagée** : `schema.prisma` vit dans
 `backend/prisma/` (racine du projet backend, emplacement standard attendu par
@@ -198,13 +218,40 @@ Les principes UX/UI transverses sont les suivants :
 
 ## 6. Tests & qualité
 
-- Tests unitaires (Jest côté NestJS) prioritaires sur :
+### Backend — Jest (NestJS)
+
+- Tests unitaires prioritaires sur :
   - La logique de permission par rôle/scope, **y compris les scénarios multi-rôles**.
   - Le calcul de statistiques et l'agrégation de présences.
   - Toute nouvelle modification des droits doit être couverte par un test de scénario multi-rôles
     avant merge.
+- Scénarios multi-rôles : combiner `PermissionsGuard` + `PermissionsService` + le service métier
+  réels (pas seulement des mocks isolés du service) pour exercer la chaîne complète — voir
+  `backend/src/players/players-permissions.integration.spec.ts` pour le modèle à suivre.
 - Tests d'intégration basiques sur les routes API clés.
-- CI/CD non indispensable pour le MVP, à prévoir ensuite (GitHub Actions + image Docker).
+- `cd backend && npm run test`
+
+### Frontend — Jest + React Testing Library (mis en place Phase 2)
+
+- Intégration officielle `next/jest` (transform SWC de Next.js, `moduleNameMapper` pour l'alias
+  `@/*`, `next.config.ts` doit lister en `transpilePackages` toute dépendance publiant de l'ESM
+  pur consommée en test — ex. `next-intl`/`use-intl` et leur chaîne `@formatjs/*`).
+- `src/test-utils/render.tsx` : rend avec les **vrais messages `fr.json`** (pas de traductions
+  bouchonnées) — un test casse à raison si une clé i18n disparaît ou change de sens. Enveloppe
+  aussi dans `<Suspense>` pour les pages utilisant `use(params)`.
+- `src/test-utils/navigation-mock.tsx` : mock de `@/i18n/navigation`, à charger via
+  `jest.mock("@/i18n/navigation", () => require("@/test-utils/navigation-mock"))` — le `require()`
+  dans la factory est nécessaire (l'automock par dossier `__mocks__` adjacent ne se déclenche pas
+  de façon fiable avec l'alias `@/*`).
+- Piège Base UI à connaître : `<Button render={<Link .../>}>` échoue **silencieusement** (rendu
+  vide, aucune erreur) si l'élément passé en `render` ne transmet pas la prop `ref` — voir le
+  mock ci-dessus pour l'implémentation correcte. Les éléments ainsi rendus exposent
+  `role="button"` (pas `role="link"`) même rendus en `<a>`, à utiliser dans les requêtes RTL.
+- `cd frontend && npm test` (`npm run test:watch` en développement)
+
+### CI/CD
+
+Non indispensable pour le MVP, à prévoir ensuite (GitHub Actions + image Docker).
 
 ## 7. Évolutions futures à ne pas bloquer dans le design actuel
 

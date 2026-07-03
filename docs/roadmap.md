@@ -26,7 +26,7 @@ Légende : ⬜ pas commencé · 🚧 en cours · ✅ terminé
 
 ---
 
-## Phase 2 — Effectif & Calendrier ⬜
+## Phase 2 — Effectif & Calendrier 🚧
 
 _~2–3 semaines_
 
@@ -40,6 +40,30 @@ _~2–3 semaines_
 > `docs/schema/evenements.md`. Notifications email : voir "Évolutions post-MVP".
 > Rôle `Parent` non câblé sur ce module — voir décision ouverte #5 dans
 > `docs/decisions-ouvertes-et-rgpd.md` (liaison Parent ↔ Joueur non modélisée).
+
+### Partie A — Module Effectif
+
+| Étape | Statut | Contenu |
+|---|---|---|
+| Prérequis transverse | ✅ | `PermissionsGuard` + `@RequirePermission` (voir `docs/modules/auth-roles.md`) |
+| Schéma (`PlayerProfile`, `PlayerTeam`, `TeamStaff`) | ✅ | Migration + enum `Position` étendu à 15 postes réels (voir `docs/schema/index.md`) |
+| Backend `players` (profil joueur) | ✅ | CRUD + route self-service `/me` |
+| Backend `player-teams` (effectif d'équipe) | ✅ | Affectation équipe, historisation par `leaveDate`, numéro de maillot |
+| Backend `team-staff` | ✅ | CRUD + protection de la fiche du Principal |
+| Backend `teams` (liste/création d'équipes) | ✅ | Non prévu initialement, nécessaire pour la navigation frontend ; route self-service `/mine` |
+| Backend `clubs` — "mes clubs" | ✅ | `GET /clubs` scopé à l'utilisateur connecté, remplace un bricolage `localStorage` initial |
+| Frontend liste effectif | ✅ | Table + filtres par ligne/poste, navigation club → équipe → effectif |
+| Frontend fiche joueur (onglets) | ⬜ | Reste à faire : shell 7 onglets (1 seul actif : Infos), formulaire ajout/édition |
+| Tests multi-rôles bout-en-bout | ⬜ | Scénario complet + revue de cohérence doc ↔ code |
+
+Tests automatisés : 73 tests backend (Jest/NestJS) + 26 tests frontend (Jest/React Testing
+Library, mis en place pendant cette phase — voir `docs/architecture.md` §6). Plusieurs bugs
+réels ont été trouvés et corrigés en testant manuellement avec les 6 rôles (voir
+`docs/modules/auth-roles.md` §Patterns découverts).
+
+### Partie B — Module Calendrier
+
+Non commencée.
 
 ---
 

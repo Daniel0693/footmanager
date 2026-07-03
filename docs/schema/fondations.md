@@ -99,6 +99,12 @@ dans cette table (un rôle par contexte club/équipe).
 **Règle d'évaluation des permissions** : toujours évaluer rôle par rôle, scopé au club et/ou
 à l'équipe de la ressource demandée. Jamais de raccourci global. Voir `docs/modules/auth-roles.md`.
 
+**`clubId = null` (scope global) n'affranchit pas d'une fiche `Member` par club accédé** : la
+résolution du `Member` de l'appelant se fait toujours pour le `clubId` précis de la requête
+avant même d'évaluer la permission. Un SuperAdmin/Proprietaire doit donc avoir un `Member` dans
+chaque club où il opère, même si son `MemberRole` a `clubId = null`. Détail :
+`docs/modules/auth-roles.md` §Patterns découverts.
+
 ---
 
 ## Role — Définition d'un rôle

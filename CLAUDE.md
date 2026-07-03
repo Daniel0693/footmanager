@@ -110,17 +110,29 @@ Partout dans l'application, la notation est **sur 10** (stockée en base comme u
 permettant des demi-points : 0.0, 0.5, 1.0, ... 10.0). L'UI affiche cette note sous forme
 d'**étoiles sur 5** (valeur / 2, avec demi-étoiles). Jamais d'autre échelle.
 
-## Commandes (à compléter après la Phase 1)
+## Commandes
 
 ```bash
-cd backend && npm run start:dev
-cd backend && npx prisma migrate dev
-cd backend && npm run test
+# Backend (NestJS)
+cd backend && npm run start:dev       # serveur de dev (watch)
+cd backend && npx prisma migrate dev  # nouvelle migration + application
+cd backend && npx prisma db seed      # réinitialise les données système (rôles, permissions, évaluation...)
+cd backend && npm run test            # Jest
+cd backend && npm run lint            # ESLint --fix
+cd backend && npm run typecheck       # tsc --noEmit
 
-cd frontend && npm run dev
+# Frontend (Next.js)
+cd frontend && npm run dev            # serveur de dev
+cd frontend && npm run test           # Jest + React Testing Library
+cd frontend && npm run lint           # ESLint
+cd frontend && npm run typecheck      # tsc --noEmit
 
-docker-compose up
+# Environnement complet (Docker) — docker-compose.yml vit dans docker/, pas à la racine
+cd docker && docker-compose up
 ```
+
+Réinitialisation complète de la base de dev (destructif — jamais sans confirmation explicite) :
+`cd backend && npx prisma migrate reset`.
 
 ## Convention Git — branches et commits
 

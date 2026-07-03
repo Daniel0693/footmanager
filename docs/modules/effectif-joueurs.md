@@ -1,8 +1,25 @@
 # Module — Gestion de l'effectif
 
-## Profil joueur — onglets
+> **État d'implémentation (Phase 2)** : liste de l'effectif par équipe (table + filtres par
+> ligne/poste) et navigation club → équipe → effectif sont construites. La fiche joueur
+> individuelle (onglets ci-dessous) reste à faire — seule sa structure est planifiée. La plupart
+> des onglets dépendent d'entités qui n'existent pas encore (`PlayerMeasurement`,
+> `PlayerEvaluation`, `PlayerObjective`, `PlayerInterview`, `PlayerAbsence` arrivent en Phase 6 ;
+> `Injury` en Phase 8) : seul l'onglet **Infos** (identité + affectation équipe, entités déjà
+> en place) sera fonctionnel à l'ouverture de la fiche, les autres onglets seront visibles mais
+> désactivés/"à venir" jusqu'à leur phase respective.
 
-Chaque joueur dispose d'une fiche profil organisée en onglets :
+## Liste de l'effectif — filtres par poste
+
+Table par équipe : numéro de maillot, nom, poste principal (badge), poste secondaire. Deux
+filtres combinables :
+- **Par ligne** (Gardien/Défense/Milieu/Attaque) — la ligne n'est pas stockée en base, elle est
+  dérivée du poste précis en code (voir `docs/schema/index.md` §enum `Position`). Sélectionner
+  une ligne réduit les postes proposés dans le second filtre à ceux de cette ligne.
+- **Par poste précis** (15 postes réels, voir `docs/schema/index.md`) — filtre sur
+  `mainPosition` uniquement ; le poste secondaire est affiché mais non filtrable.
+
+## Profil joueur — onglets
 
 | Onglet | Contenu | Entité(s) associée(s) |
 |---|---|---|
