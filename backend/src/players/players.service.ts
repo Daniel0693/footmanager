@@ -94,8 +94,17 @@ export class PlayersService {
   }
 
   async findOne(clubId: number, id: number, requester: PlayerRequestContext) {
+    // include member + affectations actives : la fiche joueur (frontend)
+    // affiche identité + équipe(s) courante(s) en un seul appel.
     const profile = await this.prisma.playerProfile.findFirst({
       where: { id, member: { clubId } },
+      include: {
+        member: true,
+        playerTeams: {
+          where: { leaveDate: null },
+          include: { team: true },
+        },
+      },
     });
     if (!profile) {
       throw new AppException('PLAYERS.NOT_FOUND', HttpStatus.NOT_FOUND);

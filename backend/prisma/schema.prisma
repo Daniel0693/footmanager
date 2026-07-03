@@ -89,8 +89,8 @@ model Team {
 
 model Member {
   id        Int      @id @default(autoincrement())
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
   clubId    Int
   club      Club     @relation(fields: [clubId], references: [id])
   firstName String

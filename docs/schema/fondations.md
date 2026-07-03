@@ -62,14 +62,14 @@ L'historique des catégories et noms par saison est capturé dans `Season.catego
 
 ---
 
-## Member — Lien entre un User et un Club
+## Member — Lien entre un User (optionnel) et un Club
 
 Un même `User` peut être `Member` de plusieurs clubs (un enregistrement par club).
 
 | Champ | Type | Notes |
 |---|---|---|
 | `id` | PK | |
-| `userId` | FK → User | |
+| `userId` | FK → User, **nullable** | `null` = membre sans compte de connexion (voir ci-dessous) |
 | `clubId` | FK → Club | |
 | `firstName` | String | |
 | `lastName` | String | |
@@ -77,7 +77,15 @@ Un même `User` peut être `Member` de plusieurs clubs (un enregistrement par cl
 | `avatarUrl` | String, nullable | |
 | `isActive` | Boolean, défaut `true` | |
 
-**Contrainte** : unicité sur `(userId, clubId)` — un User n'a qu'un seul Member par club.
+**Contrainte** : unicité sur `(userId, clubId)` — un User n'a qu'un seul Member par club. `NULL`
+n'étant jamais égal à `NULL` en SQL, cette contrainte n'empêche pas plusieurs membres sans compte
+dans le même club (comportement voulu).
+
+**Membres sans compte** : un club peut créer une fiche `Member` sans `User` associé (`userId =
+null`) — cas des jeunes catégories ou de toute personne que le club veut répertorier sans lui
+donner d'accès à l'application. Créé via `POST /clubs/:clubId/members` (permission `member
+CREATE`). Rien n'empêche de rattacher un `User` à ce `Member` plus tard (mécanisme d'invitation
+non implémenté au MVP). Voir aussi `docs/modules/effectif-joueurs.md` §Joueurs sans compte.
 
 ---
 

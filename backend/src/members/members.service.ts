@@ -6,7 +6,7 @@ export class MembersService {
   constructor(private readonly prisma: PrismaService) {}
 
   create(data: {
-    userId: number;
+    userId?: number;
     clubId: number;
     firstName: string;
     lastName: string;
