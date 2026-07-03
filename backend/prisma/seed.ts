@@ -141,6 +141,8 @@ async function seedRoles() {
     Player: [
       ['member', READ, OWN, 'Consulter son propre profil membre'],
       ['player_profile', READ, OWN, 'Consulter son propre profil joueur'],
+      ['team', READ, TEAM, 'Consulter son équipe'],
+      ['player_team', READ, TEAM, 'Consulter l’effectif de son équipe'],
     ],
     Parent: [['member', READ, OWN, "Consulter le profil membre lié à son enfant"]],
     Coach: [
