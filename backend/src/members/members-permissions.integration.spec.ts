@@ -12,10 +12,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MembersController } from './members.controller';
 
 /**
- * Scénario multi-rôles de référence appliqué à la création de membre
- * (docs/modules/auth-roles.md) : un AdminClub peut ajouter un membre à son
- * club, un Coach (scope TEAM, pas de CREATE sur `member`) et un Player
- * (scope OWN en lecture uniquement) ne le peuvent pas.
+ * Scénario multi-rôles de référence appliqué à la création et à l'édition de
+ * membre (docs/modules/auth-roles.md) : un AdminClub peut ajouter/modifier un
+ * membre de son club (scope CLUB) ; un Coach (scope TEAM) ne peut pas créer
+ * (pas de permission CREATE) mais peut modifier un membre de son équipe à
+ * condition de transmettre `teamId` en query (l'URL ne le porte pas
+ * nativement, voir §"Patterns découverts") ; un Player (scope OWN, lecture
+ * seule) ne peut ni l'un ni l'autre.
  */
 
 const adminClubMember: Member = {
@@ -26,6 +29,7 @@ const adminClubMember: Member = {
   lastName: 'Admin',
   phone: null,
   avatarUrl: null,
+  gender: null,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -39,6 +43,7 @@ const coachMember: Member = {
   lastName: 'Coach',
   phone: null,
   avatarUrl: null,
+  gender: null,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -52,6 +57,7 @@ const playerMember: Member = {
   lastName: 'Joueur',
   phone: null,
   avatarUrl: null,
+  gender: null,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -64,14 +70,20 @@ const permissions = {
     action: 'CREATE',
     scope: 'CLUB',
   },
-  memberUpdateTeam: {
+  memberUpdateClub: {
     id: 2,
+    resource: 'member',
+    action: 'UPDATE',
+    scope: 'CLUB',
+  },
+  memberUpdateTeam: {
+    id: 3,
     resource: 'member',
     action: 'UPDATE',
     scope: 'TEAM',
   },
   memberReadOwn: {
-    id: 3,
+    id: 4,
     resource: 'member',
     action: 'READ',
     scope: 'OWN',
@@ -82,7 +94,10 @@ const roles = {
   adminClub: {
     id: 1,
     isSystem: true,
-    rolePermissions: [{ permission: permissions.memberCreateClub }],
+    rolePermissions: [
+      { permission: permissions.memberCreateClub },
+      { permission: permissions.memberUpdateClub },
+    ],
   },
   coach: {
     id: 2,
@@ -158,6 +173,8 @@ function buildContext(
 // invoquée, donc aucun risque de perte de binding `this`.
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const createHandler = MembersController.prototype.create;
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const updateHandler = MembersController.prototype.update;
 
 describe('Module Effectif — scénario multi-rôles (MembersController.create)', () => {
   let guard: PermissionsGuard;
@@ -228,6 +245,53 @@ describe('Module Effectif — scénario multi-rôles (MembersController.create)'
 
     await expect(
       guard.canActivate(buildContext(request, createHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it('AdminClub peut modifier un membre de son club (scope CLUB)', async () => {
+    const request = {
+      params: { clubId: '1', id: '55' },
+      user: { userId: 70 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, updateHandler)),
+    ).resolves.toBe(true);
+    expect(request.permissionScope).toBe('CLUB');
+  });
+
+  it("Coach (scope TEAM) sans teamId ne peut pas modifier un membre : l'URL ne porte pas de teamId (limitation documentée dans docs/modules/auth-roles.md)", async () => {
+    const request = {
+      params: { clubId: '1', id: '55' },
+      user: { userId: 7 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, updateHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it('Coach peut modifier un membre de son équipe en transmettant teamId en query — bug réel trouvé en test manuel (fiche joueur)', async () => {
+    const request = {
+      params: { clubId: '1', id: '55' },
+      query: { teamId: '8' },
+      user: { userId: 7 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, updateHandler)),
+    ).resolves.toBe(true);
+    expect(request.permissionScope).toBe('TEAM');
+  });
+
+  it('Player (lecture seule) ne peut pas modifier un membre', async () => {
+    const request = {
+      params: { clubId: '1', id: '55' },
+      user: { userId: 8 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, updateHandler)),
     ).rejects.toBeInstanceOf(AppException);
   });
 });

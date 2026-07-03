@@ -75,6 +75,7 @@ Un même `User` peut être `Member` de plusieurs clubs (un enregistrement par cl
 | `lastName` | String | |
 | `phone` | String, nullable | |
 | `avatarUrl` | String, nullable | |
+| `gender` | enum `Gender`, nullable | `MALE` \| `FEMALE` \| `OTHER` — non renseigné par défaut |
 | `isActive` | Boolean, défaut `true` | |
 
 **Contrainte** : unicité sur `(userId, clubId)` — un User n'a qu'un seul Member par club. `NULL`
@@ -86,6 +87,10 @@ null`) — cas des jeunes catégories ou de toute personne que le club veut rép
 donner d'accès à l'application. Créé via `POST /clubs/:clubId/members` (permission `member
 CREATE`). Rien n'empêche de rattacher un `User` à ce `Member` plus tard (mécanisme d'invitation
 non implémenté au MVP). Voir aussi `docs/modules/effectif-joueurs.md` §Joueurs sans compte.
+
+**Édition** : `PATCH /clubs/:clubId/members/:id` (permission `member UPDATE`). Cette route ne porte
+pas de `teamId` dans l'URL : un appelant scopé `TEAM` (Coach) doit le transmettre en query string
+(`?teamId=`) pour être autorisé — voir `docs/modules/auth-roles.md` §"Patterns découverts".
 
 ---
 

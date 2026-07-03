@@ -1,5 +1,6 @@
+import { Foot } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsDate, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsDate, IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
 
 export class CreatePlayerProfileDto {
   @IsInt()
@@ -19,4 +20,8 @@ export class CreatePlayerProfileDto {
   @Type(() => Date)
   @IsDate()
   birthDate?: Date;
+
+  @IsOptional()
+  @IsEnum(Foot)
+  preferredFoot?: Foot;
 }

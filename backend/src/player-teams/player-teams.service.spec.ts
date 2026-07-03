@@ -17,6 +17,7 @@ const player: PlayerProfile = {
   licenseNumber: null,
   nationality: null,
   birthDate: null,
+  preferredFoot: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

@@ -13,6 +13,7 @@ const marcMember: Member = {
   lastName: 'Dupont',
   phone: null,
   avatarUrl: null,
+  gender: null,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -24,6 +25,7 @@ const marcProfile: PlayerProfile = {
   licenseNumber: null,
   nationality: null,
   birthDate: null,
+  preferredFoot: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -104,6 +106,28 @@ describe('PlayersService', () => {
           licenseNumber: undefined,
           nationality: 'FR',
           birthDate: undefined,
+          preferredFoot: undefined,
+        },
+      });
+    });
+
+    it('crée le profil avec le pied fort renseigné', async () => {
+      memberFindUnique.mockResolvedValue(marcMember);
+      profileFindUnique.mockResolvedValue(null);
+      profileCreate.mockResolvedValue({
+        ...marcProfile,
+        preferredFoot: 'LEFT',
+      });
+
+      await service.create(1, { memberId: 42, preferredFoot: 'LEFT' });
+
+      expect(profileCreate).toHaveBeenCalledWith({
+        data: {
+          memberId: 42,
+          licenseNumber: undefined,
+          nationality: undefined,
+          birthDate: undefined,
+          preferredFoot: 'LEFT',
         },
       });
     });
@@ -233,6 +257,28 @@ describe('PlayersService', () => {
           licenseNumber: undefined,
           nationality: 'BE',
           birthDate: undefined,
+          preferredFoot: undefined,
+        },
+      });
+    });
+
+    it('met à jour le pied fort du profil', async () => {
+      profileFindFirst.mockResolvedValue(marcProfile);
+      profileUpdate.mockResolvedValue({
+        ...marcProfile,
+        preferredFoot: 'RIGHT',
+      });
+
+      const result = await service.update(1, 100, { preferredFoot: 'RIGHT' });
+
+      expect(result.preferredFoot).toBe('RIGHT');
+      expect(profileUpdate).toHaveBeenCalledWith({
+        where: { id: 100 },
+        data: {
+          licenseNumber: undefined,
+          nationality: undefined,
+          birthDate: undefined,
+          preferredFoot: 'RIGHT',
         },
       });
     });

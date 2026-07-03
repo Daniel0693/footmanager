@@ -19,6 +19,7 @@ const member: Member = {
   lastName: 'Dupont',
   phone: null,
   avatarUrl: null,
+  gender: null,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),

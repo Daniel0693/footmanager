@@ -28,6 +28,7 @@ const adminClubMember: Member = {
   lastName: 'Admin',
   phone: null,
   avatarUrl: null,
+  gender: null,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -41,6 +42,21 @@ const marcMember: Member = {
   lastName: 'Dupont',
   phone: null,
   avatarUrl: null,
+  gender: null,
+  isActive: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const coachMember: Member = {
+  id: 43,
+  userId: 71,
+  clubId: 1,
+  firstName: 'Daniel',
+  lastName: 'Coach',
+  phone: null,
+  avatarUrl: null,
+  gender: null,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -54,6 +70,7 @@ const noRoleMember: Member = {
   lastName: 'Rôle',
   phone: null,
   avatarUrl: null,
+  gender: null,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -65,6 +82,7 @@ const marcProfile: PlayerProfile = {
   licenseNumber: null,
   nationality: null,
   birthDate: null,
+  preferredFoot: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -75,6 +93,7 @@ const otherProfile: PlayerProfile = {
   licenseNumber: null,
   nationality: null,
   birthDate: null,
+  preferredFoot: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -92,6 +111,12 @@ const permissions = {
     action: 'READ',
     scope: 'OWN',
   },
+  playerProfileReadTeam: {
+    id: 3,
+    resource: 'player_profile',
+    action: 'READ',
+    scope: 'TEAM',
+  },
 } as const;
 
 const roles = {
@@ -105,10 +130,16 @@ const roles = {
     isSystem: true,
     rolePermissions: [{ permission: permissions.playerProfileReadOwn }],
   },
+  coach: {
+    id: 3,
+    isSystem: true,
+    rolePermissions: [{ permission: permissions.playerProfileReadTeam }],
+  },
 };
 
 // memberId 99 = AdminClub du club 1 (scope club entier, teamId null).
 // memberId 42 = Marc, Player du club 1 (scope OWN).
+// memberId 43 = Daniel, Coach de l'équipe 8 du club 1 (scope TEAM).
 // memberId 1000 = membre du club 1 sans aucun rôle.
 const memberRolesByMember: Record<number, any[]> = {
   99: [
@@ -129,6 +160,16 @@ const memberRolesByMember: Record<number, any[]> = {
       startDate: null,
       endDate: null,
       role: roles.player,
+    },
+  ],
+  43: [
+    {
+      memberId: 43,
+      clubId: 1,
+      teamId: 8,
+      startDate: null,
+      endDate: null,
+      role: roles.coach,
     },
   ],
   1000: [],
@@ -178,6 +219,7 @@ describe('Module Effectif — scénario multi-rôles (PlayersController)', () =>
     membersByUserAndClub = {
       '70:1': adminClubMember,
       '7:1': marcMember,
+      '71:1': coachMember,
       '500:1': noRoleMember,
     };
     findByUserAndClub = jest.fn((userId: number, clubId: number) =>
@@ -274,5 +316,37 @@ describe('Module Effectif — scénario multi-rôles (PlayersController)', () =>
     await expect(
       guard.canActivate(buildContext(request, findAllHandler)),
     ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it("Coach (scope TEAM) sans teamId ne peut pas ouvrir la fiche d'un joueur — bug réel trouvé en test manuel (Daniel/Tom)", async () => {
+    const request = {
+      params: { clubId: '1', id: '100' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, findOneHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it('Coach peut ouvrir la fiche d’un joueur de son équipe en transmettant teamId en query', async () => {
+    const request = {
+      params: { clubId: '1', id: '100' },
+      query: { teamId: '8' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, findOneHandler)),
+    ).resolves.toBe(true);
+    expect(request.permissionScope).toBe('TEAM');
+
+    profileFindFirst.mockResolvedValue(marcProfile);
+    await expect(
+      playersService.findOne(1, 100, {
+        memberId: request.member!.id,
+        scope: request.permissionScope!,
+      }),
+    ).resolves.toBe(marcProfile);
   });
 });

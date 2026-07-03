@@ -41,6 +41,12 @@ model RefreshToken {
   @@index([userId])
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
 enum SportType {
   FOOTBALL
   BASKETBALL
@@ -97,6 +103,7 @@ model Member {
   lastName  String
   phone     String?
   avatarUrl String?
+  gender    Gender?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -218,6 +225,12 @@ enum TeamStaffRole {
   ADJOINT
 }
 
+enum Foot {
+  LEFT
+  RIGHT
+  BOTH
+}
+
 model PlayerProfile {
   id            Int       @id @default(autoincrement())
   memberId      Int       @unique
@@ -225,6 +238,7 @@ model PlayerProfile {
   licenseNumber String?   @unique
   nationality   String?
   birthDate     DateTime? @db.Date
+  preferredFoot Foot?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

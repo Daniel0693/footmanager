@@ -75,6 +75,7 @@ export class PlayersService {
         licenseNumber: dto.licenseNumber,
         nationality: dto.nationality,
         birthDate: dto.birthDate,
+        preferredFoot: dto.preferredFoot,
       },
     });
   }
@@ -99,7 +100,7 @@ export class PlayersService {
     const profile = await this.prisma.playerProfile.findFirst({
       where: { id, member: { clubId } },
       include: {
-        member: true,
+        member: { include: { user: { select: { email: true } } } },
         playerTeams: {
           where: { leaveDate: null },
           include: { team: true },
@@ -129,6 +130,7 @@ export class PlayersService {
         licenseNumber: dto.licenseNumber,
         nationality: dto.nationality,
         birthDate: dto.birthDate,
+        preferredFoot: dto.preferredFoot,
       },
     });
   }

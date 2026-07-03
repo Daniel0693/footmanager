@@ -167,6 +167,28 @@ Ce pattern (route `/me` ou `/mine`, guard générique contourné, résolution di
 service) est à réutiliser pour toute future route de listing consommée par un rôle scopé équipe
 sans que la ressource elle-même porte de `teamId` dans son URL naturelle.
 
+**La même limitation s'applique à toute route portant sur une ressource déjà identifiée par id
+(GET/PATCH), pas seulement au listing.** `GET`/`PATCH /clubs/:clubId/players/:id` et
+`PATCH /clubs/:clubId/members/:id` (étape A6) portent des permissions accordées au Coach avec un
+scope `TEAM` dans le seed ("consulter/modifier les profils/membres de ses équipes") — mais leur
+URL ne porte pas de `teamId`, donc un Coach reçoit un 403 malgré sa permission. *Trouvé en testant
+manuellement* : l'Entraîneur (Daniel) ne pouvait pas ouvrir la fiche d'un joueur de sa propre
+équipe ("Impossible de charger le profil du joueur").
+
+*Solution retenue ici* : plus légère que la route self-service `/me`/`/mine` ci-dessus — quand
+l'appelant connaît déjà le `teamId` pertinent (le frontend est toujours dans un contexte équipe
+identifié : fiche joueur, formulaire d'édition depuis l'effectif), il suffit de le transmettre en
+query string (`?teamId=5`). `PermissionsGuard` résout déjà `clubId`/`teamId` depuis les params, le
+body, **ou la query** (voir plus haut) — aucun changement backend n'est nécessaire, seul l'appel
+frontend doit inclure le paramètre. Utilisé par la fiche joueur
+(`GET /clubs/:clubId/players/:id?teamId=`) et par `PlayerFormDialog` en mode édition
+(`PATCH /clubs/:clubId/members/:id?teamId=` et `PATCH /clubs/:clubId/players/:id?teamId=`).
+
+*Quand utiliser quoi* : la route self-service `/me`/`/mine` convient quand l'appelant ne connaît
+pas encore le teamId pertinent (ex. "quelles sont mes équipes ?" avant même d'en avoir choisi
+une) ; le paramètre `?teamId=` en query convient quand le frontend est déjà dans un contexte
+équipe identifié et peut simplement le transmettre.
+
 **Le scope global (`clubId = null` sur `MemberRole`) ne dispense pas d'une fiche `Member` par
 club accédé.** `PermissionsGuard` résout toujours le `Member` de l'appelant pour le `clubId` de
 la requête (`MembersService.findByUserAndClub`) avant même d'évaluer la permission — un

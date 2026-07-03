@@ -17,6 +17,7 @@ Relation **1–1** avec `Member`. Isole les données propres au rôle Player.
 | `licenseNumber` | String, unique, nullable | numéro de licence fédérale |
 | `nationality` | String, nullable | |
 | `birthDate` | Date, nullable | |
+| `preferredFoot` | enum `Foot`, nullable | `LEFT` \| `RIGHT` \| `BOTH` — non renseigné par défaut |
 
 ---
 

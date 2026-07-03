@@ -1,4 +1,5 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { Gender } from '@prisma/client';
+import { IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 
 // Pas de champ userId : cet endpoint crée un membre sans compte de connexion
 // (docs/schema/fondations.md — "Membres sans compte"). Rattacher un User
@@ -15,4 +16,8 @@ export class CreateMemberDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
 }
