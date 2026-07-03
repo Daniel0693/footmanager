@@ -76,14 +76,34 @@ enum NoteVisibility {
   PUBLIC
 }
 
-// Postes sur le terrain — utilisé dans PlayerTeam, MatchLineup, PlayerScoutingReport
+// Postes réels sur le terrain (football) — utilisé dans PlayerTeam, MatchLineup,
+// PlayerScoutingReport. Codes anglais standards (Transfermarkt/FIFA), pensés pour
+// servir directement de clés i18n (ex. `positions.CDM`).
 enum Position {
-  GK   // Gardien
-  DEF  // Défenseur
-  MID  // Milieu
-  ATT  // Attaquant
-  // À affiner si des postes plus granulaires sont nécessaires
+  GK    // Goalkeeper
+
+  CB    // Centre-Back
+  RB    // Right-Back
+  LB    // Left-Back
+  RWB   // Right Wing-Back
+  LWB   // Left Wing-Back
+
+  CDM   // Central Defensive Midfielder
+  CM    // Central Midfielder
+  RM    // Right Midfielder
+  LM    // Left Midfielder
+  CAM   // Central Attacking Midfielder
+
+  RW    // Right Winger
+  LW    // Left Winger
+  CF    // Centre-Forward
+  ST    // Striker
 }
+
+// La ligne (gardien/défense/milieu/attaque) n'est pas stockée en base : elle
+// est dérivée en code applicatif à partir du poste précis (table de
+// correspondance ligne → postes), pour éviter une donnée dénormalisée à
+// synchroniser. Utile pour les filtres UI groupés par ligne (module Effectif).
 
 // Présence à un événement (entraînement ou match)
 enum AttendanceStatus {

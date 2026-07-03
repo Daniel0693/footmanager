@@ -135,12 +135,21 @@ async function seedRoles() {
   const ALL: PermissionScope = 'ALL';
 
   const permissionSpecsByRole: Record<string, [string, PermissionAction, PermissionScope, string][]> = {
-    Player: [['member', READ, OWN, 'Consulter son propre profil membre']],
+    // Le rôle Parent n'a pas encore de permission player_profile/team_staff :
+    // aucune liaison Parent↔Joueur n'est modélisée (voir décision ouverte #5,
+    // docs/decisions-ouvertes-et-rgpd.md). À compléter quand elle existera.
+    Player: [
+      ['member', READ, OWN, 'Consulter son propre profil membre'],
+      ['player_profile', READ, OWN, 'Consulter son propre profil joueur'],
+    ],
     Parent: [['member', READ, OWN, "Consulter le profil membre lié à son enfant"]],
     Coach: [
       ['member', READ, TEAM, 'Consulter les membres de ses équipes'],
       ['member', UPDATE, TEAM, 'Modifier les membres de ses équipes'],
       ['team', READ, TEAM, 'Consulter ses équipes'],
+      ['player_profile', READ, TEAM, 'Consulter les profils joueurs de ses équipes'],
+      ['player_profile', UPDATE, TEAM, 'Modifier les profils joueurs de ses équipes'],
+      ['team_staff', READ, TEAM, 'Consulter le staff de ses équipes'],
     ],
     AdminClub: [
       ['club', READ, CLUB, 'Consulter son club'],
@@ -154,6 +163,14 @@ async function seedRoles() {
       ['member', UPDATE, CLUB, 'Modifier un membre du club'],
       ['member', DELETE, CLUB, 'Retirer un membre du club'],
       ['role', READ, CLUB, 'Consulter les rôles disponibles dans le club'],
+      ['player_profile', READ, CLUB, 'Consulter tous les profils joueurs du club'],
+      ['player_profile', CREATE, CLUB, 'Créer un profil joueur dans le club'],
+      ['player_profile', UPDATE, CLUB, 'Modifier un profil joueur du club'],
+      ['player_profile', DELETE, CLUB, 'Supprimer un profil joueur du club'],
+      ['team_staff', READ, CLUB, 'Consulter le staff de toutes les équipes du club'],
+      ['team_staff', CREATE, CLUB, 'Affecter un membre du staff à une équipe'],
+      ['team_staff', UPDATE, CLUB, 'Modifier une affectation de staff'],
+      ['team_staff', DELETE, CLUB, 'Retirer une affectation de staff'],
     ],
     SuperAdmin: [
       ['club', READ, ALL, 'Consulter tous les clubs'],
@@ -172,6 +189,14 @@ async function seedRoles() {
       ['role', CREATE, ALL, "Créer un rôle dans n'importe quel club"],
       ['role', UPDATE, ALL, "Modifier n'importe quel rôle"],
       ['role', DELETE, ALL, "Supprimer n'importe quel rôle personnalisé"],
+      ['player_profile', READ, ALL, "Consulter n'importe quel profil joueur"],
+      ['player_profile', CREATE, ALL, "Créer un profil joueur dans n'importe quel club"],
+      ['player_profile', UPDATE, ALL, "Modifier n'importe quel profil joueur"],
+      ['player_profile', DELETE, ALL, "Supprimer n'importe quel profil joueur"],
+      ['team_staff', READ, ALL, "Consulter le staff de n'importe quelle équipe"],
+      ['team_staff', CREATE, ALL, "Affecter un membre du staff dans n'importe quelle équipe"],
+      ['team_staff', UPDATE, ALL, "Modifier n'importe quelle affectation de staff"],
+      ['team_staff', DELETE, ALL, "Retirer n'importe quelle affectation de staff"],
     ],
     // Le mécanisme de transfert sécurisé du rôle Proprietaire est une
     // décision ouverte (docs/decisions-ouvertes-et-rgpd.md) — en attendant,

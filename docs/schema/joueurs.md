@@ -318,12 +318,18 @@ entité source est horodatée. Modes de filtrage disponibles dans l'UI :
 
 ```
 @@unique([memberId])                       sur PlayerProfile (relation 1-1)
-@@unique([teamId, jerseyNumber])           sur PlayerTeam
 @@unique([clubId, categoryId])             sur ClubEvaluationConfig
 @@index([playerId])                        sur PlayerTeam, PlayerEvaluation, PlayerNote,
                                               PlayerInterview, PlayerObjective, PlayerAbsence
+@@index([teamId])                          sur PlayerTeam
 @@index([playerId, date])                  sur PlayerEvaluation, PlayerAbsence
 @@index([teamId, memberId])                sur TeamStaff
 @@index([categoryId])                      sur EvaluationCriterion
 @@index([clubId])                          sur EvaluationCategory, ClubEvaluationConfig
 ```
+
+**Pas de contrainte SQL `@@unique([teamId, jerseyNumber])`** sur `PlayerTeam` : l'historisation
+par `joinDate`/`leaveDate` conserve les anciennes affectations, donc un numéro doit pouvoir être
+réattribué à un autre joueur d'une saison à l'autre. L'unicité du numéro parmi les affectations
+**actives** (`leaveDate` `NULL`) d'une même équipe est vérifiée au niveau applicatif (module
+Effectif).

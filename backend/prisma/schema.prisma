@@ -81,6 +81,8 @@ model Team {
   updatedAt DateTime @updatedAt
 
   memberRoles MemberRole[]
+  playerTeams PlayerTeam[]
+  teamStaffs  TeamStaff[]
 
   @@index([clubId])
 }
@@ -99,7 +101,9 @@ model Member {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberRoles MemberRole[]
+  memberRoles   MemberRole[]
+  playerProfile PlayerProfile?
+  teamStaffs    TeamStaff[]
 
   @@unique([userId, clubId])
 }
@@ -177,9 +181,92 @@ model RolePermission {
 
 // ─────────────────────────────────────────────────────────────────────────
 // Joueurs (partiel) — docs/schema/joueurs.md
-// Uniquement les tables nécessaires au seed système Phase 1 (évaluation).
-// Le reste du module (PlayerProfile, PlayerEvaluation, etc.) arrive en Phase 6.
+// PlayerProfile/PlayerTeam/TeamStaff (Phase 2, module Effectif) + tables
+// d'évaluation (seed système Phase 1). Le reste du module (PlayerMeasurement,
+// PlayerEvaluation, PlayerNote, PlayerObjective, PlayerInterview,
+// PlayerAbsence) arrive en Phase 6.
 // ─────────────────────────────────────────────────────────────────────────
+
+// Postes réels sur le terrain (football). La ligne (gardien/défense/milieu/
+// attaque) n'est pas stockée : elle est dérivée en code applicatif à partir
+// du poste précis (voir docs/schema/index.md) pour éviter une donnée
+// dénormalisée à synchroniser.
+enum Position {
+  GK // Goalkeeper
+
+  CB // Centre-Back
+  RB // Right-Back
+  LB // Left-Back
+  RWB // Right Wing-Back
+  LWB // Left Wing-Back
+
+  CDM // Central Defensive Midfielder
+  CM // Central Midfielder
+  RM // Right Midfielder
+  LM // Left Midfielder
+  CAM // Central Attacking Midfielder
+
+  RW // Right Winger
+  LW // Left Winger
+  CF // Centre-Forward
+  ST // Striker
+}
+
+enum TeamStaffRole {
+  PRINCIPAL
+  CO_ENTRAINEUR
+  ADJOINT
+}
+
+model PlayerProfile {
+  id            Int       @id @default(autoincrement())
+  memberId      Int       @unique
+  member        Member    @relation(fields: [memberId], references: [id])
+  licenseNumber String?   @unique
+  nationality   String?
+  birthDate     DateTime? @db.Date
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  playerTeams PlayerTeam[]
+}
+
+model PlayerTeam {
+  id                Int           @id @default(autoincrement())
+  playerId          Int
+  player            PlayerProfile @relation(fields: [playerId], references: [id])
+  teamId            Int
+  team              Team          @relation(fields: [teamId], references: [id])
+  jerseyNumber      Int?
+  mainPosition      Position?
+  secondaryPosition Position?
+  joinDate          DateTime?     @db.Date
+  leaveDate         DateTime?     @db.Date
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Pas de contrainte SQL sur (teamId, jerseyNumber) : l'historisation par
+  // joinDate/leaveDate autorise la réattribution d'un numéro d'une saison à
+  // l'autre. Unicité du numéro parmi les affectations ACTIVES (leaveDate
+  // NULL) vérifiée au niveau applicatif (module players, étape A3).
+  @@index([playerId])
+  @@index([teamId])
+}
+
+model TeamStaff {
+  id        Int           @id @default(autoincrement())
+  teamId    Int
+  team      Team          @relation(fields: [teamId], references: [id])
+  memberId  Int
+  member    Member        @relation(fields: [memberId], references: [id])
+  staffRole TeamStaffRole
+  startDate DateTime?     @db.Date
+  endDate   DateTime?     @db.Date
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([teamId, memberId])
+}
 
 model EvaluationCategory {
   id                  Int        @id @default(autoincrement())
