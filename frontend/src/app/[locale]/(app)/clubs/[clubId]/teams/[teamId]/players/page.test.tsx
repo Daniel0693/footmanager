@@ -32,7 +32,7 @@ function player(
     jerseyNumber,
     mainPosition,
     secondaryPosition: null,
-    player: { member: { firstName, lastName: "Test" } },
+    player: { id, member: { firstName, lastName: "Test" } },
   };
 }
 
@@ -157,5 +157,22 @@ describe("TeamPlayersPageContent", () => {
     const row = (await screen.findByText("Tom Test")).closest("tr");
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getAllByText("—")).toHaveLength(3);
+  });
+
+  it("le nom du joueur pointe vers sa fiche (club + équipe + id du profil joueur)", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse([player(7, "Tom", "CAM")]));
+
+    renderPage("1", "5");
+
+    const link = await screen.findByRole("link", { name: "Tom Test" });
+    expect(link).toHaveAttribute("href", "/clubs/1/teams/5/players/7");
+  });
+
+  it("le bouton \"Ajouter un joueur\" est affiché sur la page effectif", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse([]));
+
+    renderPage();
+
+    expect(await screen.findByRole("button", { name: "Ajouter un joueur" })).toBeInTheDocument();
   });
 });

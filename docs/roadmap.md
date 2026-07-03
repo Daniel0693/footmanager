@@ -52,8 +52,9 @@ _~2–3 semaines_
 | Backend `team-staff` | ✅ | CRUD + protection de la fiche du Principal |
 | Backend `teams` (liste/création d'équipes) | ✅ | Non prévu initialement, nécessaire pour la navigation frontend ; route self-service `/mine` |
 | Backend `clubs` — "mes clubs" | ✅ | `GET /clubs` scopé à l'utilisateur connecté, remplace un bricolage `localStorage` initial |
+| Backend `members` (création/édition sans compte) | ✅ | `POST`/`PATCH /clubs/:clubId/members`, `Member.userId` nullable, champs `gender`/`preferredFoot` |
 | Frontend liste effectif | ✅ | Table + filtres par ligne/poste, navigation club → équipe → effectif |
-| Frontend fiche joueur (onglets) | ⬜ | Reste à faire : shell 7 onglets (1 seul actif : Infos), formulaire ajout/édition |
+| Frontend fiche joueur (2 colonnes) | ⬜ | Reste à faire : panneau infos statiques (identité + affectation, fonctionnel) + zone à 7 onglets (Dashboard, Mesures, Évaluation, Objectifs, Entretien, Absence, Blessure — tous en "à venir"), formulaire ajout/édition |
 | Tests multi-rôles bout-en-bout | ⬜ | Scénario complet + revue de cohérence doc ↔ code |
 
 Tests automatisés : 73 tests backend (Jest/NestJS) + 26 tests frontend (Jest/React Testing

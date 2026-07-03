@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { Link } from "@/i18n/navigation";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -37,6 +39,7 @@ interface PlayerTeamRow {
   mainPosition: Position | null;
   secondaryPosition: Position | null;
   player: {
+    id: number;
     member: {
       firstName: string;
       lastName: string;
@@ -66,16 +69,34 @@ export function TeamPlayersPageContent({
   const [lineFilter, setLineFilter] = useState<PositionLine | typeof ALL>(ALL);
   const [positionFilter, setPositionFilter] = useState<Position | typeof ALL>(ALL);
 
+  const fetchRoster = useCallback(async () => {
+    const response = await apiFetch(`/clubs/${clubId}/teams/${teamId}/players`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) throw new Error();
+    return response.json();
+  }, [clubId, teamId, accessToken]);
+
+  const loadRoster = useCallback(async () => {
+    try {
+      const data = await fetchRoster();
+      setRoster(data);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+      toast.error(t("loadFailed"));
+    }
+  }, [fetchRoster, t]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const response = await apiFetch(`/clubs/${clubId}/teams/${teamId}/players`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!response.ok) throw new Error();
-        const data = await response.json();
-        if (!cancelled) setRoster(data);
+        const data = await fetchRoster();
+        if (!cancelled) {
+          setRoster(data);
+          setHasError(false);
+        }
       } catch {
         if (!cancelled) {
           setHasError(true);
@@ -86,7 +107,7 @@ export function TeamPlayersPageContent({
     return () => {
       cancelled = true;
     };
-  }, [clubId, teamId, accessToken, t]);
+  }, [fetchRoster, t]);
 
   const availablePositions = useMemo(
     () => (lineFilter === ALL ? POSITIONS : LINE_POSITIONS[lineFilter]),
@@ -114,7 +135,15 @@ export function TeamPlayersPageContent({
       <Link href={`/clubs/${clubId}/teams`} className="text-sm text-muted-foreground underline">
         {t("backToTeams")}
       </Link>
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">{t("title")}</h1>
+        <PlayerFormDialog
+          clubId={clubId}
+          teamId={teamId}
+          onSuccess={loadRoster}
+          trigger={<Button>{t("addPlayer")}</Button>}
+        />
+      </div>
 
       <div className="flex flex-wrap gap-4">
         <div className="flex flex-col gap-1.5">
@@ -182,7 +211,12 @@ export function TeamPlayersPageContent({
               <TableRow key={row.id}>
                 <TableCell>{row.jerseyNumber ?? t("emptyValue")}</TableCell>
                 <TableCell>
-                  {row.player.member.firstName} {row.player.member.lastName}
+                  <Link
+                    href={`/clubs/${clubId}/teams/${teamId}/players/${row.player.id}`}
+                    className="underline"
+                  >
+                    {row.player.member.firstName} {row.player.member.lastName}
+                  </Link>
                 </TableCell>
                 <TableCell>
                   {row.mainPosition ? (

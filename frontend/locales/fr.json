@@ -60,7 +60,8 @@
     "filterByLine": "Filtrer par ligne",
     "filterByPosition": "Filtrer par poste",
     "allLines": "Toutes les lignes",
-    "allPositions": "Tous les postes"
+    "allPositions": "Tous les postes",
+    "addPlayer": "Ajouter un joueur"
   },
   "positionLines": {
     "GK": "Gardien",
@@ -85,6 +86,71 @@
     "CF": "Avant-centre",
     "ST": "Buteur"
   },
+  "gender": {
+    "MALE": "Homme",
+    "FEMALE": "Femme",
+    "OTHER": "Autre"
+  },
+  "foot": {
+    "LEFT": "Gauche",
+    "RIGHT": "Droit",
+    "BOTH": "Ambidextre"
+  },
+  "playerDetail": {
+    "backToRoster": "Retour à l'effectif",
+    "edit": "Modifier",
+    "email": "Email",
+    "phone": "Téléphone",
+    "birthDate": "Date de naissance",
+    "gender": "Genre",
+    "sportiveInfo": "Informations sportives",
+    "statusActive": "Actif",
+    "statusInactive": "Inactif",
+    "joinDate": "Rejoint le",
+    "licenseNumber": "N° de licence",
+    "preferredFoot": "Pied fort",
+    "positions": "Positions",
+    "noSecondaryPosition": "Aucun poste secondaire",
+    "loadFailed": "Impossible de charger le profil du joueur",
+    "tabs": {
+      "dashboard": "Dashboard",
+      "measurements": "Mesures",
+      "evaluation": "Évaluation",
+      "objectives": "Objectifs",
+      "interview": "Entretien",
+      "absence": "Absence",
+      "injury": "Blessure"
+    },
+    "comingSoon": "Cette section arrivera dans une prochaine phase."
+  },
+  "playerForm": {
+    "createTitle": "Ajouter un joueur",
+    "editTitle": "Modifier le joueur",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "phone": "Téléphone",
+    "gender": "Genre",
+    "genderUnspecified": "Non renseigné",
+    "licenseNumber": "N° de licence",
+    "nationality": "Nationalité",
+    "birthDate": "Date de naissance",
+    "preferredFoot": "Pied fort",
+    "footUnspecified": "Non renseigné",
+    "jerseyNumber": "Numéro de maillot",
+    "joinDate": "Date d'arrivée dans l'équipe",
+    "mainPosition": "Poste principal",
+    "secondaryPosition": "Poste secondaire",
+    "positionUnspecified": "Aucun",
+    "cancel": "Annuler",
+    "submitCreate": "Ajouter",
+    "submitEdit": "Enregistrer",
+    "created": "Joueur ajouté avec succès",
+    "updated": "Joueur modifié avec succès",
+    "createFailed": "Échec de l'ajout du joueur",
+    "updateFailed": "Échec de la modification du joueur",
+    "firstNameRequired": "Le prénom est requis",
+    "lastNameRequired": "Le nom est requis"
+  },
   "errors": {
     "AUTH": {
       "INVALID_CREDENTIALS": "Adresse e-mail ou mot de passe incorrect",
@@ -93,6 +159,9 @@
       "FORBIDDEN": "Vous n'avez pas les droits nécessaires pour effectuer cette action",
       "REFRESH_TOKEN_INVALID": "Votre session a expiré, merci de vous reconnecter",
       "UNKNOWN": "Une erreur inattendue est survenue"
+    },
+    "MEMBERS": {
+      "NOT_FOUND": "Membre introuvable"
     },
     "PLAYERS": {
       "MEMBER_NOT_IN_CLUB": "Ce membre n'appartient pas à ce club",

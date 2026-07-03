@@ -2,12 +2,12 @@
 
 > **État d'implémentation (Phase 2)** : liste de l'effectif par équipe (table + filtres par
 > ligne/poste) et navigation club → équipe → effectif sont construites. La fiche joueur
-> individuelle (onglets ci-dessous) reste à faire — seule sa structure est planifiée. La plupart
-> des onglets dépendent d'entités qui n'existent pas encore (`PlayerMeasurement`,
-> `PlayerEvaluation`, `PlayerObjective`, `PlayerInterview`, `PlayerAbsence` arrivent en Phase 6 ;
-> `Injury` en Phase 8) : seul l'onglet **Infos** (identité + affectation équipe, entités déjà
-> en place) sera fonctionnel à l'ouverture de la fiche, les autres onglets seront visibles mais
-> désactivés/"à venir" jusqu'à leur phase respective.
+> individuelle reste à faire — seule sa structure est planifiée. La plupart des onglets dépendent
+> d'entités qui n'existent pas encore (`PlayerMeasurement`, `PlayerEvaluation`, `PlayerObjective`,
+> `PlayerInterview`, `PlayerAbsence` arrivent en Phase 6 ; `Injury` en Phase 8) : seul le panneau
+> d'informations (identité + affectation équipe, entités déjà en place) sera fonctionnel à
+> l'ouverture de la fiche, les 7 onglets seront visibles mais désactivés/"à venir" jusqu'à leur
+> phase respective.
 
 ## Liste de l'effectif — filtres par poste
 
@@ -18,6 +18,18 @@ filtres combinables :
   une ligne réduit les postes proposés dans le second filtre à ceux de cette ligne.
 - **Par poste précis** (15 postes réels, voir `docs/schema/index.md`) — filtre sur
   `mainPosition` uniquement ; le poste secondaire est affiché mais non filtrable.
+
+## Profil joueur — mise en page 2 colonnes
+
+La fiche joueur est structurée en deux colonnes :
+- **Colonne de gauche (fixe, toujours visible)** : panneau d'informations statiques —
+  identité (nom, avatar/initiales, rôle, email si compte, téléphone, date de naissance, genre) +
+  informations sportives (statut actif/inactif, date d'arrivée dans l'équipe, numéro de licence,
+  pied fort, numéro de maillot, poste principal/secondaire). Alimenté par `Member` +
+  `PlayerProfile` + l'affectation `PlayerTeam` active — toutes ces entités existent déjà, donc ce
+  panneau est fonctionnel dès sa construction.
+- **Colonne de droite (zone principale)** : barre à 7 onglets, aucun fonctionnel avant sa phase
+  respective (voir tableau ci-dessous).
 
 ## Profil joueur — onglets
 
