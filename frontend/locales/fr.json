@@ -39,6 +39,7 @@
       "INVALID_CREDENTIALS": "Adresse e-mail ou mot de passe incorrect",
       "EMAIL_TAKEN": "Cette adresse e-mail est déjà utilisée",
       "UNAUTHORIZED": "Vous devez être connecté pour accéder à cette page",
+      "FORBIDDEN": "Vous n'avez pas les droits nécessaires pour effectuer cette action",
       "REFRESH_TOKEN_INVALID": "Votre session a expiré, merci de vous reconnecter",
       "UNKNOWN": "Une erreur inattendue est survenue"
     }

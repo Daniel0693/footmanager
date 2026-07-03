@@ -39,6 +39,7 @@
       "INVALID_CREDENTIALS": "Incorrect email or password",
       "EMAIL_TAKEN": "This email address is already in use",
       "UNAUTHORIZED": "You must be signed in to access this page",
+      "FORBIDDEN": "You don't have the required permissions to perform this action",
       "REFRESH_TOKEN_INVALID": "Your session has expired, please sign in again",
       "UNKNOWN": "An unexpected error occurred"
     }
