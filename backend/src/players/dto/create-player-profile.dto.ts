@@ -1,4 +1,5 @@
-import { IsDateString, IsInt, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsDate, IsInt, IsOptional, IsString } from 'class-validator';
 
 export class CreatePlayerProfileDto {
   @IsInt()
@@ -12,7 +13,10 @@ export class CreatePlayerProfileDto {
   @IsString()
   nationality?: string;
 
+  // @Type(() => Date) convertit la chaîne ISO en Date avant validation :
+  // Prisma (@db.Date) rejette une simple chaîne "AAAA-MM-JJ" en entrée client.
   @IsOptional()
-  @IsDateString()
-  birthDate?: string;
+  @Type(() => Date)
+  @IsDate()
+  birthDate?: Date;
 }

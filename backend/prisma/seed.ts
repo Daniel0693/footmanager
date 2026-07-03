@@ -150,6 +150,9 @@ async function seedRoles() {
       ['player_profile', READ, TEAM, 'Consulter les profils joueurs de ses équipes'],
       ['player_profile', UPDATE, TEAM, 'Modifier les profils joueurs de ses équipes'],
       ['team_staff', READ, TEAM, 'Consulter le staff de ses équipes'],
+      ['player_team', READ, TEAM, "Consulter l'effectif de ses équipes"],
+      ['player_team', CREATE, TEAM, 'Affecter un joueur à ses équipes'],
+      ['player_team', UPDATE, TEAM, "Modifier une affectation d'effectif de ses équipes"],
     ],
     AdminClub: [
       ['club', READ, CLUB, 'Consulter son club'],
@@ -171,6 +174,10 @@ async function seedRoles() {
       ['team_staff', CREATE, CLUB, 'Affecter un membre du staff à une équipe'],
       ['team_staff', UPDATE, CLUB, 'Modifier une affectation de staff'],
       ['team_staff', DELETE, CLUB, 'Retirer une affectation de staff'],
+      ['player_team', READ, CLUB, "Consulter l'effectif de toutes les équipes du club"],
+      ['player_team', CREATE, CLUB, 'Affecter un joueur à une équipe du club'],
+      ['player_team', UPDATE, CLUB, "Modifier une affectation d'effectif du club"],
+      ['player_team', DELETE, CLUB, "Supprimer une affectation d'effectif du club"],
     ],
     SuperAdmin: [
       ['club', READ, ALL, 'Consulter tous les clubs'],
@@ -197,6 +204,10 @@ async function seedRoles() {
       ['team_staff', CREATE, ALL, "Affecter un membre du staff dans n'importe quelle équipe"],
       ['team_staff', UPDATE, ALL, "Modifier n'importe quelle affectation de staff"],
       ['team_staff', DELETE, ALL, "Retirer n'importe quelle affectation de staff"],
+      ['player_team', READ, ALL, "Consulter l'effectif de n'importe quelle équipe"],
+      ['player_team', CREATE, ALL, "Affecter un joueur dans n'importe quelle équipe"],
+      ['player_team', UPDATE, ALL, "Modifier n'importe quelle affectation d'effectif"],
+      ['player_team', DELETE, ALL, "Supprimer n'importe quelle affectation d'effectif"],
     ],
     // Le mécanisme de transfert sécurisé du rôle Proprietaire est une
     // décision ouverte (docs/decisions-ouvertes-et-rgpd.md) — en attendant,

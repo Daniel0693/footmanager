@@ -47,6 +47,13 @@
       "MEMBER_NOT_IN_CLUB": "Ce membre n'appartient pas à ce club",
       "PROFILE_ALREADY_EXISTS": "Ce membre a déjà un profil joueur",
       "NOT_FOUND": "Profil joueur introuvable"
+    },
+    "PLAYER_TEAMS": {
+      "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
+      "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
+      "ALREADY_ACTIVE": "Ce joueur a déjà une affectation active dans cette équipe",
+      "JERSEY_NUMBER_TAKEN": "Ce numéro de maillot est déjà attribué dans cette équipe",
+      "NOT_FOUND": "Affectation introuvable"
     }
   }
 }
