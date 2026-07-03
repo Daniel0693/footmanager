@@ -7,6 +7,7 @@ import { PlayerTeamsModule } from './player-teams/player-teams.module';
 import { PlayersModule } from './players/players.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RolesModule } from './roles/roles.module';
+import { TeamStaffModule } from './team-staff/team-staff.module';
 import { TeamsModule } from './teams/teams.module';
 import { UsersModule } from './users/users.module';
 
@@ -22,6 +23,7 @@ import { UsersModule } from './users/users.module';
     RolesModule,
     PlayersModule,
     PlayerTeamsModule,
+    TeamStaffModule,
   ],
 })
 export class AppModule {}

@@ -149,7 +149,14 @@ async function seedRoles() {
       ['team', READ, TEAM, 'Consulter ses équipes'],
       ['player_profile', READ, TEAM, 'Consulter les profils joueurs de ses équipes'],
       ['player_profile', UPDATE, TEAM, 'Modifier les profils joueurs de ses équipes'],
+      // Parité complète PRINCIPAL/CO_ENTRAINEUR/ADJOINT sur la gestion du
+      // staff (docs/schema/joueurs.md), sauf modifier/retirer la fiche du
+      // Principal — exception gérée au niveau service (TeamStaffService),
+      // pas par le système de permission générique.
       ['team_staff', READ, TEAM, 'Consulter le staff de ses équipes'],
+      ['team_staff', CREATE, TEAM, 'Affecter un membre du staff à ses équipes'],
+      ['team_staff', UPDATE, TEAM, 'Modifier une affectation de staff de ses équipes'],
+      ['team_staff', DELETE, TEAM, 'Retirer une affectation de staff de ses équipes'],
       ['player_team', READ, TEAM, "Consulter l'effectif de ses équipes"],
       ['player_team', CREATE, TEAM, 'Affecter un joueur à ses équipes'],
       ['player_team', UPDATE, TEAM, "Modifier une affectation d'effectif de ses équipes"],

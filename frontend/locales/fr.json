@@ -54,6 +54,13 @@
       "ALREADY_ACTIVE": "Ce joueur a déjà une affectation active dans cette équipe",
       "JERSEY_NUMBER_TAKEN": "Ce numéro de maillot est déjà attribué dans cette équipe",
       "NOT_FOUND": "Affectation introuvable"
+    },
+    "TEAM_STAFF": {
+      "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
+      "MEMBER_NOT_IN_CLUB": "Ce membre n'appartient pas à ce club",
+      "ALREADY_ACTIVE": "Ce membre a déjà une affectation active dans le staff de cette équipe",
+      "CANNOT_MODIFY_PRINCIPAL": "Un Adjoint ou Co-entraîneur ne peut pas modifier la fiche de l'Entraîneur principal",
+      "NOT_FOUND": "Affectation de staff introuvable"
     }
   }
 }
