@@ -42,6 +42,11 @@
       "FORBIDDEN": "Vous n'avez pas les droits nécessaires pour effectuer cette action",
       "REFRESH_TOKEN_INVALID": "Votre session a expiré, merci de vous reconnecter",
       "UNKNOWN": "Une erreur inattendue est survenue"
+    },
+    "PLAYERS": {
+      "MEMBER_NOT_IN_CLUB": "Ce membre n'appartient pas à ce club",
+      "PROFILE_ALREADY_EXISTS": "Ce membre a déjà un profil joueur",
+      "NOT_FOUND": "Profil joueur introuvable"
     }
   }
 }

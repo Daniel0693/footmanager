@@ -42,6 +42,11 @@
       "FORBIDDEN": "You don't have the required permissions to perform this action",
       "REFRESH_TOKEN_INVALID": "Your session has expired, please sign in again",
       "UNKNOWN": "An unexpected error occurred"
+    },
+    "PLAYERS": {
+      "MEMBER_NOT_IN_CLUB": "This member does not belong to this club",
+      "PROFILE_ALREADY_EXISTS": "This member already has a player profile",
+      "NOT_FOUND": "Player profile not found"
     }
   }
 }
