@@ -183,6 +183,12 @@ async function seedRoles() {
         OWN,
         'Consulter ses propres comptes-rendus d’entretien',
       ],
+      [
+        'player_note',
+        READ,
+        OWN,
+        'Consulter les notes le concernant (hors notes privées)',
+      ],
     ],
     Parent: [
       ['member', READ, OWN, 'Consulter le profil membre lié à son enfant'],
@@ -270,6 +276,30 @@ async function seedRoles() {
         DELETE,
         TEAM,
         'Supprimer un entretien pour un joueur de ses équipes',
+      ],
+      [
+        'player_note',
+        READ,
+        TEAM,
+        'Consulter les notes des joueurs de ses équipes',
+      ],
+      [
+        'player_note',
+        CREATE,
+        TEAM,
+        'Ajouter une note pour un joueur de ses équipes',
+      ],
+      [
+        'player_note',
+        UPDATE,
+        TEAM,
+        'Modifier une note pour un joueur de ses équipes',
+      ],
+      [
+        'player_note',
+        DELETE,
+        TEAM,
+        'Supprimer une note pour un joueur de ses équipes',
       ],
     ],
     AdminClub: [
@@ -363,6 +393,15 @@ async function seedRoles() {
         CLUB,
         "Supprimer un entretien d'un joueur du club",
       ],
+      [
+        'player_note',
+        READ,
+        CLUB,
+        'Consulter les notes de tous les joueurs du club',
+      ],
+      ['player_note', CREATE, CLUB, 'Ajouter une note pour un joueur du club'],
+      ['player_note', UPDATE, CLUB, "Modifier une note d'un joueur du club"],
+      ['player_note', DELETE, CLUB, "Supprimer une note d'un joueur du club"],
     ],
     SuperAdmin: [
       ['club', READ, ALL, 'Consulter tous les clubs'],
@@ -479,6 +518,30 @@ async function seedRoles() {
         DELETE,
         ALL,
         "Supprimer un entretien de n'importe quel joueur",
+      ],
+      [
+        'player_note',
+        READ,
+        ALL,
+        "Consulter les notes de n'importe quel joueur",
+      ],
+      [
+        'player_note',
+        CREATE,
+        ALL,
+        "Ajouter une note pour n'importe quel joueur",
+      ],
+      [
+        'player_note',
+        UPDATE,
+        ALL,
+        "Modifier une note de n'importe quel joueur",
+      ],
+      [
+        'player_note',
+        DELETE,
+        ALL,
+        "Supprimer une note de n'importe quel joueur",
       ],
     ],
     // Le mécanisme de transfert sécurisé du rôle Proprietaire est une

@@ -112,6 +112,7 @@ model Member {
   playerProfile       PlayerProfile?
   teamStaffs          TeamStaff[]
   conductedInterviews PlayerInterview[] @relation("PlayerInterviewStaff")
+  authoredNotes       PlayerNote[]
 
   @@unique([userId, clubId])
 }
@@ -248,6 +249,7 @@ model PlayerProfile {
   playerTeams        PlayerTeam[]
   playerMeasurements PlayerMeasurement[]
   playerInterviews   PlayerInterview[]
+  playerNotes        PlayerNote[]
 }
 
 enum MeasurementType {
@@ -300,6 +302,42 @@ model PlayerInterview {
   playerFeedback  String?       @db.Text
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
+  @@index([playerId])
+}
+
+// PRIVE = staff seulement. SEMI_PRIVE = joueur + staff. PUBLIC = parents +
+// joueur + staff (docs/decisions-ouvertes-et-rgpd.md). Le rôle Parent n'est
+// pas encore câblé sur le module Effectif (pas de table de liaison
+// Parent↔Joueur, voir la décision ouverte correspondante) : seule la
+// distinction PRIVE vs SEMI_PRIVE/PUBLIC est appliquée pour l'instant côté
+// service (PlayerNotesService.findAllByPlayer).
+enum NoteVisibility {
+  PRIVE
+  SEMI_PRIVE
+  PUBLIC
+}
+
+// Notes du staff sur un joueur (docs/schema/joueurs.md). `authorId` est
+// assigné automatiquement au membre à l'origine de la création, jamais
+// choisi dans un sélecteur (même pattern que PlayerInterview.staffId).
+// `trainingSessionId` (lien optionnel vers une séance) est différé à la
+// Phase 5 — TrainingSession n'existe pas encore (module Entraînement non
+// implémenté).
+//
+// Tension RGPD Article 15 : une note PRIVE n'est jamais transmise à un
+// appelant en scope OWN (Player) — voir docs/decisions-ouvertes-et-rgpd.md.
+model PlayerNote {
+  id         Int            @id @default(autoincrement())
+  playerId   Int
+  player     PlayerProfile  @relation(fields: [playerId], references: [id])
+  authorId   Int
+  author     Member         @relation(fields: [authorId], references: [id])
+  visibility NoteVisibility
+  title      String?
+  content    String         @db.Text
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
   @@index([playerId])
 }

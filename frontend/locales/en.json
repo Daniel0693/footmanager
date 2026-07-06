@@ -176,6 +176,39 @@
     "subjectRequired": "Subject is required",
     "summaryRequired": "Summary is required"
   },
+  "notes": {
+    "filtersTitle": "Filters",
+    "sortOrder": "Sort",
+    "sortDesc": "Most recent first",
+    "sortAsc": "Oldest first",
+    "add": "Add a note",
+    "edit": "Edit",
+    "delete": "Delete",
+    "createTitle": "New note",
+    "editTitle": "Edit note",
+    "visibility": "Visibility",
+    "visibilityPRIVE": "Private",
+    "visibilitySEMI_PRIVE": "Semi-private",
+    "visibilityPUBLIC": "Public",
+    "visibilityPRIVEHint": "Visible to staff only",
+    "visibilitySEMI_PRIVEHint": "Visible to the player and staff",
+    "visibilityPUBLICHint": "Visible to the player, parents, and staff",
+    "title": "Title",
+    "titlePlaceholder": "Note title (optional)",
+    "titleOptional": "optional",
+    "content": "Content",
+    "contentPlaceholder": "Observation, remark, follow-up...",
+    "contentRequired": "Content is required",
+    "authorLabel": "Written by",
+    "cancel": "Cancel",
+    "submitCreate": "Add",
+    "submitEdit": "Save",
+    "created": "Note added successfully",
+    "updated": "Note updated successfully",
+    "deleteFailed": "Failed to delete the note",
+    "loadFailed": "Failed to load notes",
+    "empty": "No notes recorded yet"
+  },
   "playerDetail": {
     "backToRoster": "Back to roster",
     "edit": "Edit",
@@ -201,6 +234,7 @@
       "evaluation": "Evaluation",
       "objectives": "Objectives",
       "interview": "Interview",
+      "notes": "Notes",
       "absence": "Absence",
       "injury": "Injury"
     },
@@ -265,6 +299,10 @@
     "PLAYER_INTERVIEWS": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
       "NOT_FOUND": "Interview not found"
+    },
+    "PLAYER_NOTES": {
+      "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
+      "NOT_FOUND": "Note not found"
     },
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",

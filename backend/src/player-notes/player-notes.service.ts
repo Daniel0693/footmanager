@@ -1,0 +1,147 @@
+import { HttpStatus, Injectable } from '@nestjs/common';
+import type { PermissionScope } from '@prisma/client';
+import { AppException } from '../common/exceptions/app.exception';
+import { assertPlayerInTeam } from '../common/player-team-membership';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreatePlayerNoteDto } from './dto/create-player-note.dto';
+import { FindPlayerNotesQueryDto } from './dto/find-player-notes-query.dto';
+import { UpdatePlayerNoteDto } from './dto/update-player-note.dto';
+
+export interface PlayerNoteRequestContext {
+  memberId: number;
+  scope: PermissionScope;
+  // Résolu depuis la query `?teamId=` (voir controller) — requis uniquement
+  // quand `scope === 'TEAM'` (voir assertPlayerInTeam).
+  teamId?: number;
+}
+
+/**
+ * Notes du staff sur un joueur (docs/schema/joueurs.md), modèle de
+ * visibilité Privé/Semi-privé/Public (docs/decisions-ouvertes-et-rgpd.md).
+ *
+ * PermissionsGuard ne vérifie que "ce membre a-t-il un scope quelconque sur
+ * player_note/ACTION dans ce club ?" — pas que le joueur ciblé par l'URL est
+ * bien lui-même, ni qu'il appartient à l'équipe transmise en query. Pour le
+ * scope OWN (Player), c'est ce service qui compare le `memberId` du joueur
+ * visé à celui de l'appelant et filtre les notes PRIVE ; pour le scope TEAM
+ * (Coach), il vérifie l'appartenance à l'équipe via `assertPlayerInTeam`
+ * (docs/modules/auth-roles.md §Patterns découverts).
+ */
+@Injectable()
+export class PlayerNotesService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(
+    clubId: number,
+    playerId: number,
+    authorMemberId: number,
+    dto: CreatePlayerNoteDto,
+    requester: PlayerNoteRequestContext,
+  ) {
+    await this.assertPlayerInClub(clubId, playerId);
+    if (requester.scope === 'TEAM') {
+      await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
+    }
+
+    return this.prisma.playerNote.create({
+      data: {
+        playerId,
+        authorId: authorMemberId,
+        visibility: dto.visibility,
+        title: dto.title,
+        content: dto.content,
+      },
+      include: { author: true },
+    });
+  }
+
+  async findAllByPlayer(
+    clubId: number,
+    playerId: number,
+    requester: PlayerNoteRequestContext,
+    query: FindPlayerNotesQueryDto = {},
+  ) {
+    const player = await this.assertPlayerInClub(clubId, playerId);
+    if (requester.scope === 'OWN' && player.memberId !== requester.memberId) {
+      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
+    }
+    if (requester.scope === 'TEAM') {
+      await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
+    }
+
+    const notes = await this.prisma.playerNote.findMany({
+      where: { playerId },
+      include: { author: true },
+      orderBy: { createdAt: query.sortOrder ?? 'desc' },
+    });
+
+    if (requester.scope !== 'OWN') return notes;
+
+    // Un Player ne voit jamais les notes PRIVE (staff uniquement) — même
+    // tension RGPD Article 15 que pour PlayerInterview.staffAssessment.
+    return notes.filter((note) => note.visibility !== 'PRIVE');
+  }
+
+  async update(
+    clubId: number,
+    playerId: number,
+    id: number,
+    dto: UpdatePlayerNoteDto,
+    requester: PlayerNoteRequestContext,
+  ) {
+    await this.findNoteOrThrow(clubId, playerId, id, requester);
+
+    return this.prisma.playerNote.update({
+      where: { id },
+      data: {
+        visibility: dto.visibility,
+        title: dto.title,
+        content: dto.content,
+      },
+      include: { author: true },
+    });
+  }
+
+  async remove(
+    clubId: number,
+    playerId: number,
+    id: number,
+    requester: PlayerNoteRequestContext,
+  ) {
+    await this.findNoteOrThrow(clubId, playerId, id, requester);
+    await this.prisma.playerNote.delete({ where: { id } });
+  }
+
+  private async findNoteOrThrow(
+    clubId: number,
+    playerId: number,
+    id: number,
+    requester: PlayerNoteRequestContext,
+  ) {
+    await this.assertPlayerInClub(clubId, playerId);
+    if (requester.scope === 'TEAM') {
+      await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
+    }
+
+    const note = await this.prisma.playerNote.findFirst({
+      where: { id, playerId },
+    });
+    if (!note) {
+      throw new AppException('PLAYER_NOTES.NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+    return note;
+  }
+
+  private async assertPlayerInClub(clubId: number, playerId: number) {
+    const player = await this.prisma.playerProfile.findFirst({
+      where: { id: playerId, member: { clubId } },
+    });
+    if (!player) {
+      throw new AppException(
+        'PLAYER_NOTES.PLAYER_NOT_IN_CLUB',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return player;
+  }
+}

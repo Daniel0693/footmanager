@@ -150,6 +150,30 @@ dans la mesure du possible, être résolu côté backend (query params sur le `G
   doivent le transmettre en query pour être autorisés (voir `docs/modules/auth-roles.md`
   §"Patterns découverts").
 
+### Notes — modèle de visibilité Privé/Semi-privé/Public
+
+- **Timeline** (même présentation que l'onglet Entretien) : une carte par note, badge de
+  visibilité en tête (`Privé` avec icône cadenas, `Semi-privé`, `Public`), titre optionnel,
+  contenu, date de création et auteur.
+- **Trois niveaux de visibilité, un seul filtré côté service** : `PRIVE` (staff seulement),
+  `SEMI_PRIVE` (joueur + staff), `PUBLIC` (parents + joueur + staff — voir
+  `docs/decisions-ouvertes-et-rgpd.md`). Le rôle Parent n'étant pas encore câblé sur le module
+  Effectif (pas de table de liaison Parent↔Joueur), seule la distinction PRIVE vs
+  SEMI_PRIVE/PUBLIC est réellement appliquée aujourd'hui : un Player (scope `OWN`) ne reçoit
+  jamais les notes `PRIVE` dans la réponse — même tension RGPD Article 15 que
+  `PlayerInterview.staffAssessment`. Le frontend ne fait aucune vérification de rôle : c'est
+  l'absence de la note dans le tableau JSON renvoyé qui pilote l'affichage.
+- **`authorId` auto-assigné**, jamais choisi dans un sélecteur (même pattern que
+  `PlayerInterview.staffId`).
+- **Tri backend uniquement** (`sortOrder`, décroissant par défaut) — pas de filtre par plage de
+  dates : `PlayerNote` n'a pas de champ date métier propre, seulement `createdAt`.
+- **Première ressource du module Effectif à appliquer dès sa conception** la vérification
+  d'appartenance à l'équipe précise (`assertPlayerInTeam`) pour un scope `TEAM` — voir le
+  correctif appliqué à Mesures/Entretien/Profil juste avant cette étape
+  (`docs/modules/auth-roles.md` §Patterns découverts). Un Coach ne peut donc agir que sur les
+  notes des joueurs réellement présents dans son équipe, jamais sur ceux d'une autre équipe du
+  même club même en transmettant son propre `teamId`.
+
 ### Évaluation — radar dynamique par catégories configurables
 
 Le radar de l'onglet Évaluation est **dynamique** : ses axes correspondent aux

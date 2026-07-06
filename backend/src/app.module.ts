@@ -5,6 +5,7 @@ import { ClubsModule } from './clubs/clubs.module';
 import { MembersModule } from './members/members.module';
 import { PlayerInterviewsModule } from './player-interviews/player-interviews.module';
 import { PlayerMeasurementsModule } from './player-measurements/player-measurements.module';
+import { PlayerNotesModule } from './player-notes/player-notes.module';
 import { PlayerTeamsModule } from './player-teams/player-teams.module';
 import { PlayersModule } from './players/players.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -28,6 +29,7 @@ import { UsersModule } from './users/users.module';
     TeamStaffModule,
     PlayerMeasurementsModule,
     PlayerInterviewsModule,
+    PlayerNotesModule,
   ],
 })
 export class AppModule {}

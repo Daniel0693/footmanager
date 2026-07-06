@@ -176,6 +176,39 @@
     "subjectRequired": "Le sujet est requis",
     "summaryRequired": "Le résumé est requis"
   },
+  "notes": {
+    "filtersTitle": "Filtres",
+    "sortOrder": "Tri",
+    "sortDesc": "Plus récent d'abord",
+    "sortAsc": "Plus ancien d'abord",
+    "add": "Ajouter une note",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "createTitle": "Nouvelle note",
+    "editTitle": "Modifier la note",
+    "visibility": "Visibilité",
+    "visibilityPRIVE": "Privé",
+    "visibilitySEMI_PRIVE": "Semi-privé",
+    "visibilityPUBLIC": "Public",
+    "visibilityPRIVEHint": "Visible par le staff uniquement",
+    "visibilitySEMI_PRIVEHint": "Visible par le joueur et le staff",
+    "visibilityPUBLICHint": "Visible par le joueur, les parents et le staff",
+    "title": "Titre",
+    "titlePlaceholder": "Titre de la note (optionnel)",
+    "titleOptional": "optionnel",
+    "content": "Contenu",
+    "contentPlaceholder": "Observation, remarque, suivi...",
+    "contentRequired": "Le contenu est requis",
+    "authorLabel": "Écrit par",
+    "cancel": "Annuler",
+    "submitCreate": "Ajouter",
+    "submitEdit": "Enregistrer",
+    "created": "Note ajoutée avec succès",
+    "updated": "Note modifiée avec succès",
+    "deleteFailed": "Échec de la suppression de la note",
+    "loadFailed": "Impossible de charger les notes",
+    "empty": "Aucune note enregistrée pour l'instant"
+  },
   "playerDetail": {
     "backToRoster": "Retour à l'effectif",
     "edit": "Modifier",
@@ -201,6 +234,7 @@
       "evaluation": "Évaluation",
       "objectives": "Objectifs",
       "interview": "Entretien",
+      "notes": "Notes",
       "absence": "Absence",
       "injury": "Blessure"
     },
@@ -265,6 +299,10 @@
     "PLAYER_INTERVIEWS": {
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
       "NOT_FOUND": "Entretien introuvable"
+    },
+    "PLAYER_NOTES": {
+      "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
+      "NOT_FOUND": "Note introuvable"
     },
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",

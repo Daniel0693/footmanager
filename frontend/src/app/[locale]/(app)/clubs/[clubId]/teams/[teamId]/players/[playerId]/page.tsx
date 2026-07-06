@@ -24,6 +24,7 @@ import {
 } from "@/components/players/player-form-dialog";
 import { InterviewsTab } from "@/components/players/interviews-tab";
 import { MeasurementsTab } from "@/components/players/measurements-tab";
+import { NotesTab } from "@/components/players/notes-tab";
 import { PositionPitch } from "@/components/players/position-pitch";
 
 interface PlayerDetail {
@@ -57,6 +58,7 @@ const DETAIL_TABS = [
   "evaluation",
   "objectives",
   "interview",
+  "notes",
   "absence",
   "injury",
 ] as const;
@@ -334,8 +336,11 @@ export function PlayerDetailPageContent({
           <TabsContent value="interview">
             <InterviewsTab clubId={clubId} teamId={teamId} playerId={playerId} />
           </TabsContent>
+          <TabsContent value="notes">
+            <NotesTab clubId={clubId} teamId={teamId} playerId={playerId} />
+          </TabsContent>
           {DETAIL_TABS.filter(
-            (tab) => tab !== "measurements" && tab !== "interview",
+            (tab) => tab !== "measurements" && tab !== "interview" && tab !== "notes",
           ).map((tab) => (
             <TabsContent key={tab} value={tab}>
               <Card>

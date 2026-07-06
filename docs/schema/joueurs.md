@@ -196,14 +196,20 @@ ou ajouter ses propres critères dans n'importe quelle catégorie (system ou cus
 |---|---|---|
 | `id` | PK | |
 | `playerId` | FK → PlayerProfile | |
-| `authorId` | FK → Member | |
+| `authorId` | FK → Member | assigné automatiquement au membre à l'origine de la création, jamais choisi dans un sélecteur (même pattern que `PlayerInterview.staffId`) |
 | `visibility` | enum `NoteVisibility` | voir `index.md` |
 | `title` | String, nullable | |
 | `content` | Text | |
-| `trainingSessionId` | FK → TrainingSession, nullable | |
 
-**Tension RGPD** : les notes `PRIVE` ne sont pas visibles par le joueur dans l'UI normale.
-Voir `docs/decisions-ouvertes-et-rgpd.md` (Article 15).
+**`trainingSessionId` (lien optionnel vers une séance) différé à la Phase 5** : `TrainingSession`
+n'existe pas encore (module Entraînement non implémenté) — champ ajouté par migration une fois
+ce modèle disponible, pas anticipé ici.
+
+**Tension RGPD** : les notes `PRIVE` ne sont jamais transmises à un appelant en scope `OWN`
+(Player) — voir `docs/decisions-ouvertes-et-rgpd.md` (Article 15). Le rôle Parent n'est pas
+encore câblé sur ce modèle de visibilité (pas de table de liaison Parent↔Joueur, voir la
+décision ouverte correspondante) : seule la distinction PRIVE vs SEMI_PRIVE/PUBLIC est
+actuellement appliquée par `PlayerNotesService.findAllByPlayer`.
 
 ---
 
