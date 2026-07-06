@@ -108,9 +108,10 @@ model Member {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberRoles   MemberRole[]
-  playerProfile PlayerProfile?
-  teamStaffs    TeamStaff[]
+  memberRoles         MemberRole[]
+  playerProfile       PlayerProfile?
+  teamStaffs          TeamStaff[]
+  conductedInterviews PlayerInterview[] @relation("PlayerInterviewStaff")
 
   @@unique([userId, clubId])
 }
@@ -246,6 +247,7 @@ model PlayerProfile {
 
   playerTeams        PlayerTeam[]
   playerMeasurements PlayerMeasurement[]
+  playerInterviews   PlayerInterview[]
 }
 
 enum MeasurementType {
@@ -265,6 +267,39 @@ model PlayerMeasurement {
   date      DateTime        @db.Date
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+
+  @@index([playerId])
+}
+
+// Entretien individuel joueur-staff (docs/schema/joueurs.md). Permet de
+// planifier un entretien à l'avance (date/subject/summary seuls requis) puis
+// de le compléter après coup : `staffFeedback`, `staffAssessment` et
+// `playerFeedback` sont tous les trois optionnels (décision du 2026-07-06,
+// étape A7.2). `staffId` est assigné automatiquement au membre à l'origine de
+// la création, jamais choisi dans un sélecteur.
+//
+// Visibilité par champ pour le rôle Player (scope OWN, voir
+// PlayerInterviewsService.findAllByPlayer) : un Player ne voit que les
+// entretiens passés (jamais ceux à venir) et jamais `staffAssessment` — c'est
+// le ressenti/évaluation interne de l'encadrant, jamais communiqué au joueur.
+// `staffFeedback` (conclusions retenues avec le joueur) et `playerFeedback`
+// (ce que le joueur a exprimé, résumé par le staff) restent visibles par le
+// joueur concerné, à la différence des notes `PRIVE` de `PlayerNote`. Même
+// tension RGPD Article 15 que les notes privées (docs/decisions-ouvertes-et-rgpd.md).
+model PlayerInterview {
+  id              Int           @id @default(autoincrement())
+  playerId        Int
+  player          PlayerProfile @relation(fields: [playerId], references: [id])
+  staffId         Int?
+  staff           Member?       @relation("PlayerInterviewStaff", fields: [staffId], references: [id])
+  date            DateTime      @db.Date
+  subject         String
+  summary         String        @db.Text
+  staffFeedback   String?       @db.Text
+  staffAssessment String?       @db.Text
+  playerFeedback  String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([playerId])
 }

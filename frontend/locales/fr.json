@@ -136,6 +136,46 @@
     "valueRequired": "La valeur est requise",
     "dateRequired": "La date est requise"
   },
+  "interviews": {
+    "filtersTitle": "Filtres",
+    "dateFrom": "Du",
+    "dateTo": "Au",
+    "sortOrder": "Tri",
+    "sortDesc": "Plus récent d'abord",
+    "sortAsc": "Plus ancien d'abord",
+    "add": "Ajouter un entretien",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "scheduled": "Planifié",
+    "createTitle": "Nouvel entretien",
+    "editTitle": "Modifier l'entretien",
+    "date": "Date",
+    "subject": "Sujet",
+    "subjectPlaceholder": "Ex. Bilan mi-saison",
+    "summary": "Résumé de l'entretien",
+    "summaryPlaceholder": "Points à aborder...",
+    "staffFeedback": "Retour de l'encadrant",
+    "staffFeedbackPlaceholder": "Conclusions, axes de progression, objectifs fixés...",
+    "staffFeedbackHint": "Visible par le joueur",
+    "staffAssessment": "Évaluation interne de l'encadrant",
+    "staffAssessmentPlaceholder": "Votre ressenti sur le joueur...",
+    "staffAssessmentHint": "Privé — jamais visible par le joueur",
+    "playerFeedback": "Retour du joueur",
+    "playerFeedbackPlaceholder": "Ce que le joueur a exprimé, résumé par vos soins...",
+    "playerFeedbackHint": "Visible par le joueur",
+    "conductedBy": "Réalisé par",
+    "cancel": "Annuler",
+    "submitCreate": "Ajouter",
+    "submitEdit": "Enregistrer",
+    "created": "Entretien ajouté avec succès",
+    "updated": "Entretien modifié avec succès",
+    "deleteFailed": "Échec de la suppression de l'entretien",
+    "loadFailed": "Impossible de charger les entretiens",
+    "empty": "Aucun entretien enregistré pour l'instant",
+    "dateRequired": "La date est requise",
+    "subjectRequired": "Le sujet est requis",
+    "summaryRequired": "Le résumé est requis"
+  },
   "playerDetail": {
     "backToRoster": "Retour à l'effectif",
     "edit": "Modifier",
@@ -221,6 +261,10 @@
     "PLAYER_MEASUREMENTS": {
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
       "NOT_FOUND": "Mesure introuvable"
+    },
+    "PLAYER_INTERVIEWS": {
+      "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
+      "NOT_FOUND": "Entretien introuvable"
     },
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",

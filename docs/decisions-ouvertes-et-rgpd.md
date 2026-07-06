@@ -44,6 +44,7 @@
 | Accès `TEAM`-scopé sur une route de liste sans `:teamId` | Pattern self-service (`GET .../me`, `GET .../mine`) : contourne `PermissionsGuard`, résolution directe dans le service. Voir `docs/modules/auth-roles.md` §Patterns découverts. |
 | Protection de la fiche `TeamStaff` du Principal | Appliquée explicitement dans `TeamStaffService`, pas dans le moteur RBAC générique (règle non exprimable en `resource`/`action`/`scope`). |
 | "Mes clubs" (`GET /clubs`) | Scope : clubs où l'utilisateur a une fiche `Member`. Remplace un suivi `localStorage` non fiable (id de club persistant entre comptes dans le même navigateur). Un compte ne peut pour l'instant créer qu'un seul club (aucun flux "rejoindre un club" existant) — à revisiter si le multi-club post-MVP est implémenté. |
+| Visibilité par champ sur `PlayerInterview` | `staffAssessment` (ressenti/évaluation interne de l'encadrant) n'est **jamais** transmis à un appelant en scope `OWN` (Player) — même tension RGPD Article 15 que les notes `PRIVE`. Un Player ne voit en plus que les entretiens déjà passés, jamais ceux à venir. `staffFeedback`/`staffAssessment`/`playerFeedback` sont tous optionnels : un entretien peut être planifié à l'avance (date/sujet/résumé seuls) puis complété après coup. Voir `docs/modules/effectif-joueurs.md` §Entretien. |
 
 ---
 
@@ -90,7 +91,9 @@ avant de câbler le rôle `Parent` sur le module Effectif ou Calendrier — non 
 ### Tension Article 15 (droit d'accès) vs notes privées
 
 Les notes `PRIVE` ne sont pas visibles par le joueur dans l'UI normale — tension légale à
-résoudre avant la mise en production (ex. procédure d'export manuel encadré).
+résoudre avant la mise en production (ex. procédure d'export manuel encadré). Même tension pour
+`PlayerInterview.staffAssessment` (étape A7.2) : le ressenti/évaluation interne de l'encadrant sur
+un entretien n'est jamais transmis au joueur concerné.
 
 ### Export formel des données (DSAR)
 

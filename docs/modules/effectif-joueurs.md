@@ -103,6 +103,53 @@ dans la mesure du possible, être résolu côté backend (query params sur le `G
   toujours chronologique. Bouton Supprimer en `variant="destructive"` (rouge) pour signaler une
   action irréversible.
 
+### Entretien — timeline, staffId auto-assigné, planification à l'avance
+
+- **Présentation en timeline** (pas un tableau) : chaque entretien est une carte reliée par une
+  ligne verticale, triée par date (tri backend `sortOrder`, décroissant par défaut — plus récent
+  en haut). Chaque carte affiche la date, le sujet en titre (avec un badge **Planifié** si la date
+  est future), le résumé, puis — chacun dans son propre bloc, uniquement s'il est renseigné —
+  le retour de l'encadrant, le retour du joueur et l'évaluation interne (bordure en pointillés +
+  icône cadenas), et enfin le nom du membre du staff qui a conduit l'entretien.
+- **Planifier un entretien à l'avance, le compléter après coup** (décision du 2026-07-06) : seuls
+  date/sujet/résumé sont requis à la création — on peut créer un entretien pour une date future en
+  ne renseignant que ce qu'on prévoit d'aborder. `staffFeedback`/`staffAssessment`/`playerFeedback`
+  sont tous les trois optionnels, à la création comme à l'édition, pour être remplis une fois
+  l'entretien passé.
+- **Trois champs de retour, deux niveaux de visibilité** :
+  - `staffFeedback` ("Retour de l'encadrant") — conclusions retenues avec le joueur.
+  - `playerFeedback` ("Retour du joueur") — ce que le joueur a exprimé, résumé par le staff.
+  - `staffAssessment` ("Évaluation interne de l'encadrant") — ressenti/évaluation interne, jamais
+    communiqué au joueur.
+
+  Les deux premiers sont **visibles par le joueur concerné** ; `staffAssessment` ne l'est **jamais** —
+  même tension RGPD Article 15 que les notes `PRIVE` de `PlayerNote` (voir
+  `docs/decisions-ouvertes-et-rgpd.md`). Le frontend ne fait aucune vérification de rôle pour
+  décider quoi afficher : c'est le backend qui omet purement et simplement `staffAssessment` de la
+  réponse JSON pour un appelant en scope `OWN` (`PlayerInterviewsService.findAllByPlayer`) — la
+  présence/absence de la clé dans la réponse pilote le rendu, comme partout ailleurs dans
+  l'application.
+- **Un Player ne voit jamais les entretiens à venir** : `findAllByPlayer` plafonne la borne haute
+  de la plage de dates à la fin de la journée courante pour un appelant en scope `OWN`, quelle que
+  soit la valeur de `dateTo` transmise en query. Un Coach/AdminClub voit l'intégralité (passé et
+  futur), y compris ceux qui ne sont pas encore complétés.
+- **Filtres backend** (même règle que Mesures, décision du 2026-07-06) : plage de dates
+  (`Du`/`Au`) + tri (`Plus récent d'abord`/`Plus ancien d'abord`), tous deux résolus via les query
+  params `dateFrom`/`dateTo`/`sortOrder` du `GET`, jamais par un tri/filtre client.
+- **Ajout/édition via un dialogue** (`InterviewFormDialog`, réutilisé pour les deux modes) :
+  formulaire avec date, sujet, résumé, puis les trois champs de retour optionnels — chacun annoté
+  d'un indice de visibilité ("Visible par le joueur" / "Privé — jamais visible par le joueur") pour
+  que l'encadrant sache ce qu'il écrit où (`react-hook-form` + `zod`, même pattern que
+  `PlayerFormDialog`). Le champ `staffId` n'est **jamais** proposé dans un sélecteur : il est
+  assigné automatiquement côté backend au membre à l'origine de la requête (voir
+  `PlayerInterviewsService.create`).
+- **Suppression directe** depuis la carte (bouton icône, pas de confirmation dédiée — cohérent
+  avec le reste du module).
+- Comme pour les Mesures, la route ne porte pas `teamId` dans son URL naturelle
+  (`/clubs/:clubId/players/:playerId/interviews`) : Coach (scope `TEAM`) et Player (scope `OWN`)
+  doivent le transmettre en query pour être autorisés (voir `docs/modules/auth-roles.md`
+  §"Patterns découverts").
+
 ### Évaluation — radar dynamique par catégories configurables
 
 Le radar de l'onglet Évaluation est **dynamique** : ses axes correspondent aux

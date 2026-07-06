@@ -177,6 +177,12 @@ async function seedRoles() {
         OWN,
         'Consulter ses propres mesures physiques',
       ],
+      [
+        'player_interview',
+        READ,
+        OWN,
+        'Consulter ses propres comptes-rendus d’entretien',
+      ],
     ],
     Parent: [
       ['member', READ, OWN, 'Consulter le profil membre lié à son enfant'],
@@ -240,6 +246,30 @@ async function seedRoles() {
         DELETE,
         TEAM,
         'Supprimer une mesure erronée pour un joueur de ses équipes',
+      ],
+      [
+        'player_interview',
+        READ,
+        TEAM,
+        'Consulter les entretiens des joueurs de ses équipes',
+      ],
+      [
+        'player_interview',
+        CREATE,
+        TEAM,
+        'Créer un entretien pour un joueur de ses équipes',
+      ],
+      [
+        'player_interview',
+        UPDATE,
+        TEAM,
+        'Modifier un entretien pour un joueur de ses équipes',
+      ],
+      [
+        'player_interview',
+        DELETE,
+        TEAM,
+        'Supprimer un entretien pour un joueur de ses équipes',
       ],
     ],
     AdminClub: [
@@ -308,6 +338,30 @@ async function seedRoles() {
         DELETE,
         CLUB,
         "Supprimer une mesure d'un joueur du club",
+      ],
+      [
+        'player_interview',
+        READ,
+        CLUB,
+        'Consulter les entretiens de tous les joueurs du club',
+      ],
+      [
+        'player_interview',
+        CREATE,
+        CLUB,
+        'Créer un entretien pour un joueur du club',
+      ],
+      [
+        'player_interview',
+        UPDATE,
+        CLUB,
+        "Modifier un entretien d'un joueur du club",
+      ],
+      [
+        'player_interview',
+        DELETE,
+        CLUB,
+        "Supprimer un entretien d'un joueur du club",
       ],
     ],
     SuperAdmin: [
@@ -401,6 +455,30 @@ async function seedRoles() {
         DELETE,
         ALL,
         "Supprimer une mesure de n'importe quel joueur",
+      ],
+      [
+        'player_interview',
+        READ,
+        ALL,
+        "Consulter les entretiens de n'importe quel joueur",
+      ],
+      [
+        'player_interview',
+        CREATE,
+        ALL,
+        "Créer un entretien pour n'importe quel joueur",
+      ],
+      [
+        'player_interview',
+        UPDATE,
+        ALL,
+        "Modifier un entretien de n'importe quel joueur",
+      ],
+      [
+        'player_interview',
+        DELETE,
+        ALL,
+        "Supprimer un entretien de n'importe quel joueur",
       ],
     ],
     // Le mécanisme de transfert sécurisé du rôle Proprietaire est une

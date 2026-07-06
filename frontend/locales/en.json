@@ -136,6 +136,46 @@
     "valueRequired": "Value is required",
     "dateRequired": "Date is required"
   },
+  "interviews": {
+    "filtersTitle": "Filters",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "sortOrder": "Sort",
+    "sortDesc": "Most recent first",
+    "sortAsc": "Oldest first",
+    "add": "Add an interview",
+    "edit": "Edit",
+    "delete": "Delete",
+    "scheduled": "Scheduled",
+    "createTitle": "New interview",
+    "editTitle": "Edit interview",
+    "date": "Date",
+    "subject": "Subject",
+    "subjectPlaceholder": "E.g. Mid-season review",
+    "summary": "Interview summary",
+    "summaryPlaceholder": "Topics to cover...",
+    "staffFeedback": "Staff feedback",
+    "staffFeedbackPlaceholder": "Conclusions, areas to improve, goals set...",
+    "staffFeedbackHint": "Visible to the player",
+    "staffAssessment": "Staff's internal assessment",
+    "staffAssessmentPlaceholder": "Your impression of the player...",
+    "staffAssessmentHint": "Private — never visible to the player",
+    "playerFeedback": "Player's feedback",
+    "playerFeedbackPlaceholder": "What the player expressed, summarized by you...",
+    "playerFeedbackHint": "Visible to the player",
+    "conductedBy": "Conducted by",
+    "cancel": "Cancel",
+    "submitCreate": "Add",
+    "submitEdit": "Save",
+    "created": "Interview added successfully",
+    "updated": "Interview updated successfully",
+    "deleteFailed": "Failed to delete the interview",
+    "loadFailed": "Failed to load interviews",
+    "empty": "No interviews recorded yet",
+    "dateRequired": "Date is required",
+    "subjectRequired": "Subject is required",
+    "summaryRequired": "Summary is required"
+  },
   "playerDetail": {
     "backToRoster": "Back to roster",
     "edit": "Edit",
@@ -221,6 +261,10 @@
     "PLAYER_MEASUREMENTS": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
       "NOT_FOUND": "Measurement not found"
+    },
+    "PLAYER_INTERVIEWS": {
+      "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
+      "NOT_FOUND": "Interview not found"
     },
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",

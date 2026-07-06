@@ -63,8 +63,8 @@ depuis la Phase 6 dans la Partie A)_
 
 | Sous-étape | Statut | Entité | Contenu |
 |---|---|---|---|
-| A7.1 — Mesures | ✅ | `PlayerMeasurement` | Backend (schéma/migration, CRUD READ/CREATE/DELETE — pas d'UPDATE, historique append-only —, filtres/tri via query params `type`/`dateFrom`/`dateTo`/`sortBy`/`sortOrder`, permissions, 17 tests) + onglet frontend (graphique unique 2 courbes avec légende cliquable, filtres du graphique et du tableau indépendants, tri de colonnes, ligne d'ajout compacte, suppression en rouge — tout le filtrage/tri résolu côté backend, décision du 2026-07-06, 12 tests) |
-| A7.2 — Entretien | ⬜ | `PlayerInterview` | Idem. `playerFeedback` (saisie par le joueur lui-même) reste hors scope — champ réservé pour plus tard, non exposé en écriture au rôle Player |
+| A7.1 — Mesures | ✅ | `PlayerMeasurement` | Backend (schéma/migration, CRUD READ/CREATE/DELETE — pas d'UPDATE, historique append-only —, filtres/tri via query params `type`/`dateFrom`/`dateTo`/`sortBy`/`sortOrder`, permissions, 17 tests) + onglet frontend (graphique unique 2 courbes avec légende cliquable, filtres du graphique et du tableau **partagés** — un seul jeu d'état pilote les deux —, tri de colonnes propre au tableau, ligne d'ajout compacte, suppression en rouge — tout le filtrage/tri résolu côté backend, décision du 2026-07-06, 12 tests) |
+| A7.2 — Entretien | ✅ | `PlayerInterview` | Backend (schéma/migration, CRUD READ/CREATE/UPDATE/DELETE, `staffId` auto-assigné au membre appelant, filtres/tri via query params `dateFrom`/`dateTo`/`sortOrder`, permissions, 27 tests + smoke test Docker multi-rôles) + onglet frontend en **timeline** (carte par entretien, badge "Planifié" pour les entretiens à venir, dialogue unique réutilisé pour créer/éditer, suppression directe, 19 tests). Peut être **planifié à l'avance** (date/sujet/résumé seuls requis) puis complété après coup (décision du 2026-07-06) : `staffFeedback`/`staffAssessment`/`playerFeedback` sont tous optionnels. Visibilité par champ pour le Player : ne voit jamais `staffAssessment` (ressenti interne, même tension RGPD Article 15 que les notes `PRIVE`) ni les entretiens futurs — voir `docs/modules/effectif-joueurs.md` §Entretien |
 | A7.3 — Notes | ⬜ | `PlayerNote` | Idem + introduit le modèle de visibilité Privé/Semi-privé/Public. **Relire `docs/decisions-ouvertes-et-rgpd.md` (Article 15) avant d'implémenter** — notes `PRIVE` non visibles par le joueur |
 | A7.4 — Objectifs | ⬜ | `PlayerObjective` | Idem + réutilise le modèle de visibilité construit en A7.3 ; 4 statuts (`PLANNED`/`IN_PROGRESS`/`ACHIEVED`/`FAILED`), défaut `SEMI_PRIVE` |
 | A7.5 — Évaluation | ⬜ | `PlayerEvaluation` | Idem + radar dynamique (N axes selon `ClubEvaluationConfig` du club, voir `docs/schema/joueurs.md`) ; `EvaluationCategory`/`EvaluationCriterion` déjà seedés depuis la Phase 1 |
@@ -88,8 +88,8 @@ puis le duo Notes → Objectifs qui partage le modèle de visibilité, puis Éva
 
 Tests automatisés (avant A7) : 92 tests backend (Jest/NestJS) + 47 tests frontend (Jest/React
 Testing Library — voir `docs/architecture.md` §6). A7.1 (Mesures) : 109 tests backend + 59
-tests frontend au total. Plusieurs bugs réels ont été trouvés et corrigés en testant
-manuellement avec les 6
+tests frontend au total. A7.2 (Entretien) : 136 tests backend + 78 tests frontend au total.
+Plusieurs bugs réels ont été trouvés et corrigés en testant manuellement avec les 6
 rôles (voir `docs/modules/auth-roles.md` §Patterns
 découverts).
 

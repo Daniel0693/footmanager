@@ -209,6 +209,10 @@ Voir `docs/decisions-ouvertes-et-rgpd.md` (Article 15).
 
 ## PlayerInterview — Entretien individuel joueur-staff
 
+Seuls `date`/`subject`/`summary` sont requis à la création : un entretien peut être **planifié à
+l'avance** (ce qu'on prévoit d'aborder) puis complété après coup via UPDATE une fois qu'il a eu
+lieu (décision du 2026-07-06).
+
 | Champ | Type | Notes |
 |---|---|---|
 | `id` | PK | |
@@ -216,9 +220,15 @@ Voir `docs/decisions-ouvertes-et-rgpd.md` (Article 15).
 | `staffId` | FK → Member, nullable | conducteur principal de l'entretien |
 | `date` | Date | |
 | `subject` | String | ex. "Bilan mi-saison U17" |
-| `summary` | Text | |
-| `staffFeedback` | Text | retours/conseils donnés au joueur |
-| `playerFeedback` | Text, nullable | réservé pour une future saisie par le joueur |
+| `summary` | Text | ce qui est prévu d'être abordé |
+| `staffFeedback` | Text, nullable | conclusions retenues avec le joueur — **visible par le joueur** |
+| `staffAssessment` | Text, nullable | ressenti/évaluation interne de l'encadrant — **jamais visible par le joueur** |
+| `playerFeedback` | Text, nullable | ce que le joueur a exprimé, résumé par le staff — **visible par le joueur** |
+
+**Visibilité par champ pour le rôle Player (scope OWN)** : en plus de ne jamais voir
+`staffAssessment`, un Player ne voit que les entretiens dont `date` est passée ou égale à
+aujourd'hui — jamais ceux à venir. Voir `PlayerInterviewsService.findAllByPlayer` et
+`docs/modules/effectif-joueurs.md` §Entretien.
 
 ---
 
