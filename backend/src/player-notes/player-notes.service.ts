@@ -69,8 +69,25 @@ export class PlayerNotesService {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
 
+    // `createdAt` est un horodatage complet (pas un `@db.Date` comme les
+    // filtres de date des autres onglets) : une borne haute "2026-01-15"
+    // désérialisée à minuit exclurait à tort les notes créées plus tard ce
+    // même jour. On l'étend donc à la fin de journée pour que dateTo reste
+    // inclusif du jour choisi.
+    const dateTo = query.dateTo
+      ? new Date(
+          query.dateTo.getFullYear(),
+          query.dateTo.getMonth(),
+          query.dateTo.getDate(),
+          23,
+          59,
+          59,
+          999,
+        )
+      : undefined;
+
     const notes = await this.prisma.playerNote.findMany({
-      where: { playerId },
+      where: { playerId, createdAt: { gte: query.dateFrom, lte: dateTo } },
       include: { author: true },
       orderBy: { createdAt: query.sortOrder ?? 'desc' },
     });

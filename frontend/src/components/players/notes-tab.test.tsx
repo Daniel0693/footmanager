@@ -94,6 +94,21 @@ describe("NotesTab", () => {
     expect(await screen.findByText("Privé")).toBeInTheDocument();
   });
 
+  it("changer les filtres de date refetch avec dateFrom/dateTo", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse([]));
+    const user = userEvent.setup();
+
+    renderTab("1", "5", "10");
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+    mockApiFetch.mockClear();
+
+    await user.type(screen.getByLabelText("Du"), "2026-01-01");
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+    const [url] = mockApiFetch.mock.calls[0];
+    expect(queryOf(url).get("dateFrom")).toBe("2026-01-01");
+  });
+
   it("changer le tri refetch avec sortOrder=asc", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse([]));
     const user = userEvent.setup();

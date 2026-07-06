@@ -165,8 +165,11 @@ dans la mesure du possible, être résolu côté backend (query params sur le `G
   l'absence de la note dans le tableau JSON renvoyé qui pilote l'affichage.
 - **`authorId` auto-assigné**, jamais choisi dans un sélecteur (même pattern que
   `PlayerInterview.staffId`).
-- **Tri backend uniquement** (`sortOrder`, décroissant par défaut) — pas de filtre par plage de
-  dates : `PlayerNote` n'a pas de champ date métier propre, seulement `createdAt`.
+- **Filtre par plage de dates et tri, tous deux sur `createdAt`** (`PlayerNote` n'a pas de champ
+  date métier propre) : `GET .../notes?dateFrom=...&dateTo=...&sortOrder=...`. `createdAt` est un
+  horodatage complet (pas un `@db.Date` comme les autres onglets) — `dateTo` est étendu à la fin
+  de la journée choisie côté service pour rester inclusif du jour entier (sans ce réglage, une
+  note créée l'après-midi serait exclue par un filtre `dateTo` fixé au même jour).
 - **Première ressource du module Effectif à appliquer dès sa conception** la vérification
   d'appartenance à l'équipe précise (`assertPlayerInTeam`) pour un scope `TEAM` — voir le
   correctif appliqué à Mesures/Entretien/Profil juste avant cette étape
@@ -205,10 +208,35 @@ Toutes les notes sont **sur 10**, stockées en `Decimal(4,1)` par paliers de 0.5
 ### Objectifs — 4 statuts, visibilité par défaut Semi-privé
 
 - Statuts : **Programmé** (`PLANNED`), **En cours** (`IN_PROGRESS`), **Réussi** (`ACHIEVED`),
-  **Échec** (`FAILED`).
-- Visibilité par défaut d'un nouvel objectif : **Semi-privé** (le joueur peut voir ses propres
-  objectifs — defaulter à Privé était un bug identifié et corrigé).
-- Conçus sans lien à une saison fixe → suivi multi-saisons natif.
+  **Échec** (`FAILED`). Thèmes : Technique, Physique, Mental, Tactique. Horizons : court/moyen/long
+  terme. Aucune règle de transition entre statuts n'est imposée (freeform, cohérent avec
+  "ne pas ajouter de complexité non demandée").
+- **Réutilise le modèle de visibilité Privé/Semi-privé/Public de l'onglet Notes**, avec un défaut
+  différent : **Semi-privé** au lieu de Privé (le joueur voit ses propres objectifs par défaut —
+  defaulter à Privé était un bug identifié et corrigé). Même filtrage backend qu'ailleurs : un
+  Player (scope `OWN`) ne reçoit jamais les objectifs `PRIVE` dans la réponse
+  (`PlayerObjectivesService.findAllByPlayer`), le frontend affiche simplement ce que l'API renvoie.
+- **Timeline** (même présentation que Entretien/Notes) : badges statut (couleur distincte par
+  statut), thème et visibilité (icône cadenas si `PRIVE`) en tête de carte, description, dates
+  optionnelles affichées seulement si renseignées (`startDate`/`dueDate`/`completedDate`),
+  auteur (`assignedBy`, auto-assigné comme `PlayerInterview.staffId`/`PlayerNote.authorId`).
+- **Filtres par statut, par thème ET par plage de dates** (tous combinables), en plus du tri
+  (`sortOrder`), tous résolus côté backend
+  (`GET .../objectives?status=ACHIEVED&theme=PHYSIQUE&dateFrom=...&dateTo=...&sortOrder=...`).
+- **Tri et filtre de date sur `startDate`, pas `createdAt`** (décision du 2026-07-06) : la date de
+  début a du sens pour l'utilisateur, contrairement à la date de saisie en base. `startDate` étant
+  nullable (objectif pas encore planifié) :
+  - au tri, les objectifs sans date sont **toujours classés en dernier**, quel que soit le sens
+    (`orderBy: { startDate: { sort, nulls: 'last' } }`) — sans ce réglage explicite, Postgres
+    place les `NULL` en tête en tri décroissant, ce qui ferait artificiellement remonter les
+    objectifs non datés au sommet de la timeline ;
+  - au filtre, un objectif sans `startDate` sort naturellement des résultats dès qu'une borne
+    `dateFrom`/`dateTo` est active (`NULL` ne peut satisfaire aucune comparaison en SQL) — aucun
+    traitement particulier à ajouter pour ce cas.
+- **Conçus sans lien à une saison fixe** → suivi multi-saisons natif : un objectif reste
+  `IN_PROGRESS` d'une saison à l'autre tant qu'il n'est pas `ACHIEVED` ou `FAILED`.
+- Comme Notes, applique `assertPlayerInTeam` dès sa conception pour le scope `TEAM` (Coach) —
+  voir `docs/modules/auth-roles.md` §Patterns découverts.
 
 ---
 

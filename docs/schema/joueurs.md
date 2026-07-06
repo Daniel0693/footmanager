@@ -244,18 +244,22 @@ aujourd'hui — jamais ceux à venir. Voir `PlayerInterviewsService.findAllByPla
 |---|---|---|
 | `id` | PK | |
 | `playerId` | FK → PlayerProfile | |
-| `theme` | enum `ObjectiveTheme` | |
+| `theme` | enum `ObjectiveTheme` | `TECHNIQUE` / `PHYSIQUE` / `MENTAL` / `TACTIQUE` |
 | `description` | Text | |
-| `horizon` | enum `ObjectiveHorizon` | |
-| `status` | enum `ObjectiveStatus` | |
-| `visibility` | enum `NoteVisibility`, **défaut `SEMI_PRIVE`** | le joueur voit ses propres objectifs |
+| `horizon` | enum `ObjectiveHorizon` | `SHORT_TERM` / `MID_TERM` / `LONG_TERM` |
+| `status` | enum `ObjectiveStatus`, **défaut `PLANNED`** | `PLANNED` / `IN_PROGRESS` / `ACHIEVED` / `FAILED` |
+| `visibility` | enum `NoteVisibility`, **défaut `SEMI_PRIVE`** | le joueur voit ses propres objectifs — voir `PlayerNote` pour le modèle de visibilité complet |
 | `startDate` | Date, nullable | |
 | `dueDate` | Date, nullable | |
 | `completedDate` | Date, nullable | |
-| `assignedById` | FK → Member, nullable | staff ayant créé l'objectif |
+| `assignedById` | FK → Member, nullable | staff ayant créé l'objectif — assigné automatiquement, jamais choisi dans un sélecteur (même pattern que `PlayerInterview.staffId`/`PlayerNote.authorId`) |
 
 **Pas de lien à une saison fixe** → suivi multi-saisons natif. Un objectif reste `IN_PROGRESS`
-d'une saison à l'autre tant qu'il n'est pas `ACHIEVED` ou `FAILED`.
+d'une saison à l'autre tant qu'il n'est pas `ACHIEVED` ou `FAILED`. Aucune règle de transition
+entre statuts n'est imposée par le backend (freeform).
+
+**Tension RGPD** : comme `PlayerNote`, un objectif `PRIVE` n'est jamais transmis à un appelant en
+scope `OWN` (Player) — voir `docs/decisions-ouvertes-et-rgpd.md` (Article 15).
 
 ---
 

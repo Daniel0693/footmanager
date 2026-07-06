@@ -147,7 +147,7 @@ describe('PlayerNotesService', () => {
 
       expect(result).toEqual([existingNote]);
       expect(noteFindMany).toHaveBeenCalledWith({
-        where: { playerId: 100 },
+        where: { playerId: 100, createdAt: { gte: undefined, lte: undefined } },
         include: { author: true },
         orderBy: { createdAt: 'desc' },
       });
@@ -165,10 +165,32 @@ describe('PlayerNotesService', () => {
       );
 
       expect(noteFindMany).toHaveBeenCalledWith({
-        where: { playerId: 100 },
+        where: { playerId: 100, createdAt: { gte: undefined, lte: undefined } },
         include: { author: true },
         orderBy: { createdAt: 'asc' },
       });
+    });
+
+    it('applique la plage de dates transmise en query, en étendant dateTo à la fin de journée (createdAt est un horodatage complet)', async () => {
+      playerFindFirst.mockResolvedValue(player);
+      noteFindMany.mockResolvedValue([note()]);
+      const dateFrom = new Date('2026-01-01');
+      const dateTo = new Date('2026-01-15');
+
+      await service.findAllByPlayer(
+        1,
+        100,
+        { memberId: 99, scope: 'CLUB' },
+        { dateFrom, dateTo },
+      );
+
+      const [{ where }] = noteFindMany.mock.calls[0] as [
+        { where: { createdAt: { gte: Date; lte: Date } } },
+      ];
+      expect(where.createdAt.gte).toBe(dateFrom);
+      expect(where.createdAt.lte.getDate()).toBe(15);
+      expect(where.createdAt.lte.getHours()).toBe(23);
+      expect(where.createdAt.lte.getMinutes()).toBe(59);
     });
 
     it('scope CLUB/TEAM : renvoie aussi les notes PRIVE (staff)', async () => {

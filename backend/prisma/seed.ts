@@ -189,6 +189,12 @@ async function seedRoles() {
         OWN,
         'Consulter les notes le concernant (hors notes privées)',
       ],
+      [
+        'player_objective',
+        READ,
+        OWN,
+        'Consulter ses propres objectifs (hors objectifs privés)',
+      ],
     ],
     Parent: [
       ['member', READ, OWN, 'Consulter le profil membre lié à son enfant'],
@@ -301,6 +307,30 @@ async function seedRoles() {
         TEAM,
         'Supprimer une note pour un joueur de ses équipes',
       ],
+      [
+        'player_objective',
+        READ,
+        TEAM,
+        'Consulter les objectifs des joueurs de ses équipes',
+      ],
+      [
+        'player_objective',
+        CREATE,
+        TEAM,
+        'Ajouter un objectif pour un joueur de ses équipes',
+      ],
+      [
+        'player_objective',
+        UPDATE,
+        TEAM,
+        'Modifier un objectif pour un joueur de ses équipes',
+      ],
+      [
+        'player_objective',
+        DELETE,
+        TEAM,
+        'Supprimer un objectif pour un joueur de ses équipes',
+      ],
     ],
     AdminClub: [
       ['club', READ, CLUB, 'Consulter son club'],
@@ -402,6 +432,30 @@ async function seedRoles() {
       ['player_note', CREATE, CLUB, 'Ajouter une note pour un joueur du club'],
       ['player_note', UPDATE, CLUB, "Modifier une note d'un joueur du club"],
       ['player_note', DELETE, CLUB, "Supprimer une note d'un joueur du club"],
+      [
+        'player_objective',
+        READ,
+        CLUB,
+        'Consulter les objectifs de tous les joueurs du club',
+      ],
+      [
+        'player_objective',
+        CREATE,
+        CLUB,
+        'Ajouter un objectif pour un joueur du club',
+      ],
+      [
+        'player_objective',
+        UPDATE,
+        CLUB,
+        "Modifier un objectif d'un joueur du club",
+      ],
+      [
+        'player_objective',
+        DELETE,
+        CLUB,
+        "Supprimer un objectif d'un joueur du club",
+      ],
     ],
     SuperAdmin: [
       ['club', READ, ALL, 'Consulter tous les clubs'],
@@ -542,6 +596,30 @@ async function seedRoles() {
         DELETE,
         ALL,
         "Supprimer une note de n'importe quel joueur",
+      ],
+      [
+        'player_objective',
+        READ,
+        ALL,
+        "Consulter les objectifs de n'importe quel joueur",
+      ],
+      [
+        'player_objective',
+        CREATE,
+        ALL,
+        "Ajouter un objectif pour n'importe quel joueur",
+      ],
+      [
+        'player_objective',
+        UPDATE,
+        ALL,
+        "Modifier un objectif de n'importe quel joueur",
+      ],
+      [
+        'player_objective',
+        DELETE,
+        ALL,
+        "Supprimer un objectif de n'importe quel joueur",
       ],
     ],
     // Le mécanisme de transfert sécurisé du rôle Proprietaire est une

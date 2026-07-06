@@ -316,7 +316,7 @@ export function MeasurementsTab({
         <CardHeader>
           <CardTitle>{t("chartFiltersTitle")}</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-end gap-3">
+        <CardContent className="flex flex-wrap items-end gap-x-4 gap-y-3">
           <div className="flex flex-col gap-1.5">
             <Label>{t("type")}</Label>
             <Select
@@ -338,23 +338,29 @@ export function MeasurementsTab({
               </SelectContent>
             </Select>
           </div>
+          {/* Plage de dates groupée en un seul bloc : les deux champs
+              wrappent ensemble plutôt que de se retrouver séparés sur deux
+              lignes (retour du 2026-07-06, appliqué aux onglets
+              Entretien/Notes/Objectifs puis ici pour garder le même gabarit). */}
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="filter-date-from">{t("dateFrom")}</Label>
-            <Input
-              id="filter-date-from"
-              type="date"
-              value={dateFrom}
-              onChange={(event) => setDateFrom(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="filter-date-to">{t("dateTo")}</Label>
-            <Input
-              id="filter-date-to"
-              type="date"
-              value={dateTo}
-              onChange={(event) => setDateTo(event.target.value)}
-            />
+            <Label>{t("dateRangeLabel")}</Label>
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="date"
+                aria-label={t("dateFrom")}
+                value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)}
+                className="w-36"
+              />
+              <span className="text-xs text-muted-foreground">–</span>
+              <Input
+                type="date"
+                aria-label={t("dateTo")}
+                value={dateTo}
+                onChange={(event) => setDateTo(event.target.value)}
+                className="w-36"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

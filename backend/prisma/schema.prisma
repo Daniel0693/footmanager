@@ -113,6 +113,7 @@ model Member {
   teamStaffs          TeamStaff[]
   conductedInterviews PlayerInterview[] @relation("PlayerInterviewStaff")
   authoredNotes       PlayerNote[]
+  assignedObjectives  PlayerObjective[]
 
   @@unique([userId, clubId])
 }
@@ -250,6 +251,7 @@ model PlayerProfile {
   playerMeasurements PlayerMeasurement[]
   playerInterviews   PlayerInterview[]
   playerNotes        PlayerNote[]
+  playerObjectives   PlayerObjective[]
 }
 
 enum MeasurementType {
@@ -338,6 +340,58 @@ model PlayerNote {
   content    String         @db.Text
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
+
+  @@index([playerId])
+}
+
+enum ObjectiveTheme {
+  TECHNIQUE
+  PHYSIQUE
+  MENTAL
+  TACTIQUE
+}
+
+enum ObjectiveHorizon {
+  SHORT_TERM
+  MID_TERM
+  LONG_TERM
+}
+
+enum ObjectiveStatus {
+  PLANNED
+  IN_PROGRESS
+  ACHIEVED
+  FAILED
+}
+
+// Objectif de développement d'un joueur (docs/schema/joueurs.md). Pas de lien
+// à une saison fixe : suivi multi-saisons natif, reste `IN_PROGRESS` d'une
+// saison à l'autre tant qu'il n'est pas `ACHIEVED` ou `FAILED`. `assignedById`
+// est assigné automatiquement au membre à l'origine de la création (même
+// pattern que `PlayerInterview.staffId`/`PlayerNote.authorId`), jamais choisi
+// dans un sélecteur.
+//
+// Visibilité par défaut `SEMI_PRIVE` (décision documentée dans
+// effectif-joueurs.md — défaut `PRIVE` était un bug identifié et corrigé) :
+// contrairement à `PlayerNote`, un joueur voit ses propres objectifs par
+// défaut. Même modèle de visibilité et même filtrage PRIVE pour le scope OWN
+// que `PlayerNotesService.findAllByPlayer`.
+model PlayerObjective {
+  id            Int              @id @default(autoincrement())
+  playerId      Int
+  player        PlayerProfile    @relation(fields: [playerId], references: [id])
+  theme         ObjectiveTheme
+  description   String           @db.Text
+  horizon       ObjectiveHorizon
+  status        ObjectiveStatus  @default(PLANNED)
+  visibility    NoteVisibility   @default(SEMI_PRIVE)
+  startDate     DateTime?        @db.Date
+  dueDate       DateTime?        @db.Date
+  completedDate DateTime?        @db.Date
+  assignedById  Int?
+  assignedBy    Member?          @relation(fields: [assignedById], references: [id])
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   @@index([playerId])
 }

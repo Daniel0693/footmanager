@@ -25,6 +25,7 @@ import {
 import { InterviewsTab } from "@/components/players/interviews-tab";
 import { MeasurementsTab } from "@/components/players/measurements-tab";
 import { NotesTab } from "@/components/players/notes-tab";
+import { ObjectivesTab } from "@/components/players/objectives-tab";
 import { PositionPitch } from "@/components/players/position-pitch";
 
 interface PlayerDetail {
@@ -339,8 +340,15 @@ export function PlayerDetailPageContent({
           <TabsContent value="notes">
             <NotesTab clubId={clubId} teamId={teamId} playerId={playerId} />
           </TabsContent>
+          <TabsContent value="objectives">
+            <ObjectivesTab clubId={clubId} teamId={teamId} playerId={playerId} />
+          </TabsContent>
           {DETAIL_TABS.filter(
-            (tab) => tab !== "measurements" && tab !== "interview" && tab !== "notes",
+            (tab) =>
+              tab !== "measurements" &&
+              tab !== "interview" &&
+              tab !== "notes" &&
+              tab !== "objectives",
           ).map((tab) => (
             <TabsContent key={tab} value={tab}>
               <Card>

@@ -150,43 +150,50 @@ export function InterviewsTab({
     <div className="flex flex-col gap-4">
       {/* Filtres (backend) + ajout */}
       <Card>
-        <CardContent className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="interview-filter-from">{t("dateFrom")}</Label>
-            <Input
-              id="interview-filter-from"
-              type="date"
-              value={dateFrom}
-              onChange={(event) => setDateFrom(event.target.value)}
-            />
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+            {/* Plage de dates groupée en un seul bloc : les deux champs
+                wrappent ensemble plutôt que de se retrouver séparés sur deux
+                lignes (retour du 2026-07-06). */}
+            <div className="flex flex-col gap-1.5">
+              <Label>{t("dateRangeLabel")}</Label>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="date"
+                  aria-label={t("dateFrom")}
+                  value={dateFrom}
+                  onChange={(event) => setDateFrom(event.target.value)}
+                  className="w-36"
+                />
+                <span className="text-xs text-muted-foreground">–</span>
+                <Input
+                  type="date"
+                  aria-label={t("dateTo")}
+                  value={dateTo}
+                  onChange={(event) => setDateTo(event.target.value)}
+                  className="w-36"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>{t("sortOrder")}</Label>
+              <Select
+                value={sortOrder}
+                onValueChange={(v) => setSortOrder((v as SortOrder) ?? "desc")}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue>
+                    {(v: string | null) => (v === "asc" ? t("sortAsc") : t("sortDesc"))}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">{t("sortDesc")}</SelectItem>
+                  <SelectItem value="asc">{t("sortAsc")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="interview-filter-to">{t("dateTo")}</Label>
-            <Input
-              id="interview-filter-to"
-              type="date"
-              value={dateTo}
-              onChange={(event) => setDateTo(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("sortOrder")}</Label>
-            <Select
-              value={sortOrder}
-              onValueChange={(v) => setSortOrder((v as SortOrder) ?? "desc")}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue>
-                  {(v: string | null) => (v === "asc" ? t("sortAsc") : t("sortDesc"))}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="desc">{t("sortDesc")}</SelectItem>
-                <SelectItem value="asc">{t("sortAsc")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="ml-auto">
+          <div className="flex justify-end">
             <InterviewFormDialog
               clubId={clubId}
               teamId={teamId}

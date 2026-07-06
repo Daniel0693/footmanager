@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -58,22 +59,29 @@ export function NotesTab({
   const locale = useLocale();
   const { accessToken } = useAuth();
 
-  // Tri toujours résolu côté backend (décision du 2026-07-06, réappliquée
-  // depuis les onglets Mesures/Entretien — docs/modules/effectif-joueurs.md).
+  // Filtre/tri toujours résolus côté backend (décision du 2026-07-06,
+  // réappliquée depuis les onglets Mesures/Entretien — docs/modules/effectif-joueurs.md).
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [hasError, setHasError] = useState(false);
 
   const fetchNotes = useCallback(async () => {
-    const query = toQueryString({ teamId, sortOrder });
+    const query = toQueryString({
+      teamId,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      sortOrder,
+    });
     const response = await apiFetch(
       `/clubs/${clubId}/players/${playerId}/notes?${query}`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     if (!response.ok) throw new Error();
     return response.json();
-  }, [clubId, playerId, teamId, sortOrder, accessToken]);
+  }, [clubId, playerId, teamId, dateFrom, dateTo, sortOrder, accessToken]);
 
   const load = useCallback(async () => {
     try {
@@ -131,25 +139,50 @@ export function NotesTab({
     <div className="flex flex-col gap-4">
       {/* Filtres (backend) + ajout */}
       <Card>
-        <CardContent className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("sortOrder")}</Label>
-            <Select
-              value={sortOrder}
-              onValueChange={(v) => setSortOrder((v as SortOrder) ?? "desc")}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue>
-                  {(v: string | null) => (v === "asc" ? t("sortAsc") : t("sortDesc"))}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="desc">{t("sortDesc")}</SelectItem>
-                <SelectItem value="asc">{t("sortAsc")}</SelectItem>
-              </SelectContent>
-            </Select>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+            {/* Plage de dates groupée en un seul bloc : les deux champs
+                wrappent ensemble plutôt que de se retrouver séparés sur deux
+                lignes (retour du 2026-07-06). */}
+            <div className="flex flex-col gap-1.5">
+              <Label>{t("dateRangeLabel")}</Label>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="date"
+                  aria-label={t("dateFrom")}
+                  value={dateFrom}
+                  onChange={(event) => setDateFrom(event.target.value)}
+                  className="w-36"
+                />
+                <span className="text-xs text-muted-foreground">–</span>
+                <Input
+                  type="date"
+                  aria-label={t("dateTo")}
+                  value={dateTo}
+                  onChange={(event) => setDateTo(event.target.value)}
+                  className="w-36"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>{t("sortOrder")}</Label>
+              <Select
+                value={sortOrder}
+                onValueChange={(v) => setSortOrder((v as SortOrder) ?? "desc")}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue>
+                    {(v: string | null) => (v === "asc" ? t("sortAsc") : t("sortDesc"))}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">{t("sortDesc")}</SelectItem>
+                  <SelectItem value="asc">{t("sortAsc")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="ml-auto">
+          <div className="flex justify-end">
             <NoteFormDialog
               clubId={clubId}
               teamId={teamId}
