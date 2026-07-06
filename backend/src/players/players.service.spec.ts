@@ -38,6 +38,7 @@ describe('PlayersService', () => {
   let profileCreate: jest.Mock;
   let profileUpdate: jest.Mock;
   let profileDelete: jest.Mock;
+  let playerTeamFindFirst: jest.Mock;
   let findByUserAndClub: jest.Mock;
   let service: PlayersService;
 
@@ -49,6 +50,7 @@ describe('PlayersService', () => {
     profileCreate = jest.fn();
     profileUpdate = jest.fn();
     profileDelete = jest.fn();
+    playerTeamFindFirst = jest.fn().mockResolvedValue({ id: 1 });
     findByUserAndClub = jest.fn();
 
     const prismaStub = {
@@ -61,6 +63,7 @@ describe('PlayersService', () => {
         update: profileUpdate,
         delete: profileDelete,
       },
+      playerTeam: { findFirst: playerTeamFindFirst },
     } as unknown as PrismaService;
     const membersServiceStub = {
       findByUserAndClub,
@@ -232,6 +235,31 @@ describe('PlayersService', () => {
         service.findOne(1, 100, { memberId: 99, scope: 'CLUB' }),
       ).resolves.toBe(marcProfile);
     });
+
+    it('scope TEAM : autorise la lecture si le joueur appartient à cette équipe', async () => {
+      profileFindFirst.mockResolvedValue(marcProfile);
+      playerTeamFindFirst.mockResolvedValue({
+        id: 1,
+        playerId: 100,
+        teamId: 8,
+      });
+
+      await expect(
+        service.findOne(1, 100, { memberId: 43, scope: 'TEAM', teamId: 8 }),
+      ).resolves.toBe(marcProfile);
+      expect(playerTeamFindFirst).toHaveBeenCalledWith({
+        where: { playerId: 100, teamId: 8, leaveDate: null },
+      });
+    });
+
+    it("scope TEAM : refuse la lecture d'un joueur qui n'appartient pas à cette équipe (faille A7.3)", async () => {
+      profileFindFirst.mockResolvedValue(marcProfile);
+      playerTeamFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.findOne(1, 100, { memberId: 43, scope: 'TEAM', teamId: 8 }),
+      ).rejects.toBeInstanceOf(AppException);
+    });
   });
 
   describe('update', () => {
@@ -239,7 +267,12 @@ describe('PlayersService', () => {
       profileFindFirst.mockResolvedValue(null);
 
       await expect(
-        service.update(1, 100, { nationality: 'BE' }),
+        service.update(
+          1,
+          100,
+          { nationality: 'BE' },
+          { memberId: 99, scope: 'CLUB' },
+        ),
       ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(profileUpdate).not.toHaveBeenCalled();
     });
@@ -248,7 +281,12 @@ describe('PlayersService', () => {
       profileFindFirst.mockResolvedValue(marcProfile);
       profileUpdate.mockResolvedValue({ ...marcProfile, nationality: 'BE' });
 
-      const result = await service.update(1, 100, { nationality: 'BE' });
+      const result = await service.update(
+        1,
+        100,
+        { nationality: 'BE' },
+        { memberId: 99, scope: 'CLUB' },
+      );
 
       expect(result.nationality).toBe('BE');
       expect(profileUpdate).toHaveBeenCalledWith({
@@ -269,7 +307,12 @@ describe('PlayersService', () => {
         preferredFoot: 'RIGHT',
       });
 
-      const result = await service.update(1, 100, { preferredFoot: 'RIGHT' });
+      const result = await service.update(
+        1,
+        100,
+        { preferredFoot: 'RIGHT' },
+        { memberId: 99, scope: 'CLUB' },
+      );
 
       expect(result.preferredFoot).toBe('RIGHT');
       expect(profileUpdate).toHaveBeenCalledWith({
@@ -282,13 +325,30 @@ describe('PlayersService', () => {
         },
       });
     });
+
+    it("scope TEAM : refuse la modification d'un joueur qui n'appartient pas à cette équipe (faille A7.3)", async () => {
+      profileFindFirst.mockResolvedValue(marcProfile);
+      playerTeamFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(
+          1,
+          100,
+          { nationality: 'BE' },
+          { memberId: 43, scope: 'TEAM', teamId: 8 },
+        ),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(profileUpdate).not.toHaveBeenCalled();
+    });
   });
 
   describe('remove', () => {
     it('renvoie 404 si le profil est introuvable dans ce club', async () => {
       profileFindFirst.mockResolvedValue(null);
 
-      await expect(service.remove(1, 100)).rejects.toMatchObject({
+      await expect(
+        service.remove(1, 100, { memberId: 99, scope: 'CLUB' }),
+      ).rejects.toMatchObject({
         status: HttpStatus.NOT_FOUND,
       });
       expect(profileDelete).not.toHaveBeenCalled();
@@ -297,9 +357,19 @@ describe('PlayersService', () => {
     it('supprime le profil trouvé dans ce club', async () => {
       profileFindFirst.mockResolvedValue(marcProfile);
 
-      await service.remove(1, 100);
+      await service.remove(1, 100, { memberId: 99, scope: 'CLUB' });
 
       expect(profileDelete).toHaveBeenCalledWith({ where: { id: 100 } });
+    });
+
+    it("scope TEAM : refuse la suppression d'un joueur qui n'appartient pas à cette équipe (faille A7.3)", async () => {
+      profileFindFirst.mockResolvedValue(marcProfile);
+      playerTeamFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.remove(1, 100, { memberId: 43, scope: 'TEAM', teamId: 8 }),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(profileDelete).not.toHaveBeenCalled();
     });
   });
 });

@@ -210,6 +210,7 @@ describe('Module Effectif — scénario multi-rôles (PlayersController)', () =>
   let profileFindFirst: jest.Mock;
   let profileFindMany: jest.Mock;
   let profileFindUnique: jest.Mock;
+  let playerTeamFindFirst: jest.Mock;
   let findByUserAndClub: jest.Mock;
   let membersByUserAndClub: Record<string, Member>;
 
@@ -238,12 +239,14 @@ describe('Module Effectif — scénario multi-rôles (PlayersController)', () =>
     profileFindFirst = jest.fn();
     profileFindMany = jest.fn();
     profileFindUnique = jest.fn();
+    playerTeamFindFirst = jest.fn().mockResolvedValue({ id: 1 });
     const prismaStub = {
       playerProfile: {
         findFirst: profileFindFirst,
         findMany: profileFindMany,
         findUnique: profileFindUnique,
       },
+      playerTeam: { findFirst: playerTeamFindFirst },
     } as unknown as PrismaService;
     playersService = new PlayersService(prismaStub, membersService);
   });
@@ -342,11 +345,42 @@ describe('Module Effectif — scénario multi-rôles (PlayersController)', () =>
     expect(request.permissionScope).toBe('TEAM');
 
     profileFindFirst.mockResolvedValue(marcProfile);
+    playerTeamFindFirst.mockResolvedValue({ id: 1, playerId: 100, teamId: 8 });
     await expect(
       playersService.findOne(1, 100, {
         memberId: request.member!.id,
         scope: request.permissionScope!,
+        teamId: 8,
       }),
     ).resolves.toBe(marcProfile);
+  });
+
+  it("Coach ne peut PAS ouvrir la fiche d'un joueur d'une AUTRE équipe, même en transmettant sa propre équipe en query (faille trouvée en concevant A7.3)", async () => {
+    // Le guard ne vérifie que "Daniel a-t-il un rôle sur l'équipe 8 ?" — pas
+    // que le joueur 100 appartient à l'équipe 8. Avant le correctif,
+    // PlayersService.findOne ne vérifiait pas non plus cette appartenance :
+    // Daniel pouvait consulter n'importe quel joueur du club en transmettant
+    // sa propre équipe. Voir docs/modules/auth-roles.md §Patterns découverts.
+    const request = {
+      params: { clubId: '1', id: '100' },
+      query: { teamId: '8' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await guard.canActivate(buildContext(request, findOneHandler));
+    expect(request.permissionScope).toBe('TEAM');
+
+    // Le joueur 100 n'a aucune affectation active dans l'équipe 8 (il est
+    // dans une autre équipe du même club).
+    profileFindFirst.mockResolvedValue(marcProfile);
+    playerTeamFindFirst.mockResolvedValue(null);
+
+    await expect(
+      playersService.findOne(1, 100, {
+        memberId: request.member!.id,
+        scope: request.permissionScope!,
+        teamId: 8,
+      }),
+    ).rejects.toBeInstanceOf(AppException);
   });
 });

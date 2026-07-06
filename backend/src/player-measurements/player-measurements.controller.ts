@@ -36,8 +36,15 @@ export class PlayerMeasurementsController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('playerId', ParseIntPipe) playerId: number,
     @Body() dto: CreatePlayerMeasurementDto,
+    @CurrentMember() member: Member,
+    @CurrentPermissionScope() scope: PermissionScope,
+    @Query('teamId') teamId?: string,
   ) {
-    return this.playerMeasurementsService.create(clubId, playerId, dto);
+    return this.playerMeasurementsService.create(clubId, playerId, dto, {
+      memberId: member.id,
+      scope,
+      teamId: teamId !== undefined ? Number(teamId) : undefined,
+    });
   }
 
   @RequirePermission('player_measurement', 'READ')
@@ -48,11 +55,16 @@ export class PlayerMeasurementsController {
     @CurrentMember() member: Member,
     @CurrentPermissionScope() scope: PermissionScope,
     @Query() query: FindPlayerMeasurementsQueryDto,
+    @Query('teamId') teamId?: string,
   ) {
     return this.playerMeasurementsService.findAllByPlayer(
       clubId,
       playerId,
-      { memberId: member.id, scope },
+      {
+        memberId: member.id,
+        scope,
+        teamId: teamId !== undefined ? Number(teamId) : undefined,
+      },
       query,
     );
   }
@@ -63,7 +75,14 @@ export class PlayerMeasurementsController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('playerId', ParseIntPipe) playerId: number,
     @Param('id', ParseIntPipe) id: number,
+    @CurrentMember() member: Member,
+    @CurrentPermissionScope() scope: PermissionScope,
+    @Query('teamId') teamId?: string,
   ) {
-    return this.playerMeasurementsService.remove(clubId, playerId, id);
+    return this.playerMeasurementsService.remove(clubId, playerId, id, {
+      memberId: member.id,
+      scope,
+      teamId: teamId !== undefined ? Number(teamId) : undefined,
+    });
   }
 }

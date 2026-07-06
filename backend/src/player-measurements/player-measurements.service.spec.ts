@@ -31,6 +31,7 @@ describe('PlayerMeasurementsService', () => {
   let measurementFindMany: jest.Mock;
   let measurementFindFirst: jest.Mock;
   let measurementDelete: jest.Mock;
+  let playerTeamFindFirst: jest.Mock;
   let service: PlayerMeasurementsService;
 
   beforeEach(() => {
@@ -39,6 +40,7 @@ describe('PlayerMeasurementsService', () => {
     measurementFindMany = jest.fn();
     measurementFindFirst = jest.fn();
     measurementDelete = jest.fn();
+    playerTeamFindFirst = jest.fn().mockResolvedValue({ id: 1 });
 
     const prismaStub = {
       playerProfile: { findFirst: playerFindFirst },
@@ -48,6 +50,7 @@ describe('PlayerMeasurementsService', () => {
         findFirst: measurementFindFirst,
         delete: measurementDelete,
       },
+      playerTeam: { findFirst: playerTeamFindFirst },
     } as unknown as PrismaService;
 
     service = new PlayerMeasurementsService(prismaStub);
@@ -58,11 +61,12 @@ describe('PlayerMeasurementsService', () => {
       playerFindFirst.mockResolvedValue(null);
 
       await expect(
-        service.create(1, 100, {
-          type: 'HEIGHT',
-          value: 178.5,
-          date: new Date(),
-        }),
+        service.create(
+          1,
+          100,
+          { type: 'HEIGHT', value: 178.5, date: new Date() },
+          { memberId: 99, scope: 'CLUB' },
+        ),
       ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
       expect(measurementCreate).not.toHaveBeenCalled();
     });
@@ -72,16 +76,32 @@ describe('PlayerMeasurementsService', () => {
       measurementCreate.mockResolvedValue(measurement);
       const date = new Date('2026-01-15');
 
-      const result = await service.create(1, 100, {
-        type: 'HEIGHT',
-        value: 178.5,
-        date,
-      });
+      const result = await service.create(
+        1,
+        100,
+        { type: 'HEIGHT', value: 178.5, date },
+        { memberId: 99, scope: 'CLUB' },
+      );
 
       expect(result).toBe(measurement);
       expect(measurementCreate).toHaveBeenCalledWith({
         data: { playerId: 100, type: 'HEIGHT', value: 178.5, date },
       });
+    });
+
+    it("scope TEAM : refuse si le joueur n'appartient pas à cette équipe (faille A7.3)", async () => {
+      playerFindFirst.mockResolvedValue(player);
+      playerTeamFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          1,
+          100,
+          { type: 'HEIGHT', value: 178.5, date: new Date() },
+          { memberId: 43, scope: 'TEAM', teamId: 8 },
+        ),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(measurementCreate).not.toHaveBeenCalled();
     });
   });
 
@@ -175,13 +195,50 @@ describe('PlayerMeasurementsService', () => {
         service.findAllByPlayer(1, 100, { memberId: 42, scope: 'OWN' }),
       ).resolves.toEqual([measurement]);
     });
+
+    it('scope TEAM : autorise la lecture si le joueur appartient à cette équipe', async () => {
+      playerFindFirst.mockResolvedValue(player);
+      measurementFindMany.mockResolvedValue([measurement]);
+      playerTeamFindFirst.mockResolvedValue({
+        id: 1,
+        playerId: 100,
+        teamId: 8,
+      });
+
+      await expect(
+        service.findAllByPlayer(1, 100, {
+          memberId: 43,
+          scope: 'TEAM',
+          teamId: 8,
+        }),
+      ).resolves.toEqual([measurement]);
+      expect(playerTeamFindFirst).toHaveBeenCalledWith({
+        where: { playerId: 100, teamId: 8, leaveDate: null },
+      });
+    });
+
+    it("scope TEAM : refuse la lecture d'un joueur qui n'appartient pas à cette équipe (faille A7.3)", async () => {
+      playerFindFirst.mockResolvedValue(player);
+      playerTeamFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.findAllByPlayer(1, 100, {
+          memberId: 43,
+          scope: 'TEAM',
+          teamId: 8,
+        }),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(measurementFindMany).not.toHaveBeenCalled();
+    });
   });
 
   describe('remove', () => {
     it("refuse si le joueur n'appartient pas au club", async () => {
       playerFindFirst.mockResolvedValue(null);
 
-      await expect(service.remove(1, 100, 1)).rejects.toMatchObject({
+      await expect(
+        service.remove(1, 100, 1, { memberId: 99, scope: 'CLUB' }),
+      ).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
       });
       expect(measurementDelete).not.toHaveBeenCalled();
@@ -191,7 +248,9 @@ describe('PlayerMeasurementsService', () => {
       playerFindFirst.mockResolvedValue(player);
       measurementFindFirst.mockResolvedValue(null);
 
-      await expect(service.remove(1, 100, 1)).rejects.toMatchObject({
+      await expect(
+        service.remove(1, 100, 1, { memberId: 99, scope: 'CLUB' }),
+      ).rejects.toMatchObject({
         status: HttpStatus.NOT_FOUND,
       });
       expect(measurementDelete).not.toHaveBeenCalled();
@@ -201,9 +260,19 @@ describe('PlayerMeasurementsService', () => {
       playerFindFirst.mockResolvedValue(player);
       measurementFindFirst.mockResolvedValue(measurement);
 
-      await service.remove(1, 100, 1);
+      await service.remove(1, 100, 1, { memberId: 99, scope: 'CLUB' });
 
       expect(measurementDelete).toHaveBeenCalledWith({ where: { id: 1 } });
+    });
+
+    it("scope TEAM : refuse la suppression d'un joueur qui n'appartient pas à cette équipe (faille A7.3)", async () => {
+      playerFindFirst.mockResolvedValue(player);
+      playerTeamFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.remove(1, 100, 1, { memberId: 43, scope: 'TEAM', teamId: 8 }),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(measurementDelete).not.toHaveBeenCalled();
     });
   });
 });

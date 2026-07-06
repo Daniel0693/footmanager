@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertPlayerInTeam } from '../common/player-team-membership';
 import { MembersService } from '../members/members.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerProfileDto } from './dto/create-player-profile.dto';
@@ -9,14 +10,20 @@ import { UpdatePlayerProfileDto } from './dto/update-player-profile.dto';
 export interface PlayerRequestContext {
   memberId: number;
   scope: PermissionScope;
+  // Résolu depuis la query `?teamId=` (voir controller) — requis uniquement
+  // quand `scope === 'TEAM'`, pour vérifier que le joueur ciblé appartient
+  // bien à CETTE équipe (voir assertPlayerInTeam).
+  teamId?: number;
 }
 
 /**
  * PermissionsGuard ne vérifie que "ce membre a-t-il un scope quelconque sur
  * player_profile/ACTION dans ce club ?" — pas que la ressource ciblée est
  * bien la sienne. Pour le scope OWN, c'est ce service qui compare le
- * `memberId` du profil visé à celui de l'appelant (docs/modules/auth-roles.md
- * — le filtrage fin reste la responsabilité du service).
+ * `memberId` du profil visé à celui de l'appelant ; pour le scope TEAM
+ * (Coach), il vérifie que le joueur appartient bien à l'équipe transmise en
+ * query (docs/modules/auth-roles.md — le filtrage fin reste la
+ * responsabilité du service).
  */
 @Injectable()
 export class PlayersService {
@@ -113,15 +120,26 @@ export class PlayersService {
     if (requester.scope === 'OWN' && profile.memberId !== requester.memberId) {
       throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
     }
+    if (requester.scope === 'TEAM') {
+      await assertPlayerInTeam(this.prisma, id, requester.teamId);
+    }
     return profile;
   }
 
-  async update(clubId: number, id: number, dto: UpdatePlayerProfileDto) {
+  async update(
+    clubId: number,
+    id: number,
+    dto: UpdatePlayerProfileDto,
+    requester: PlayerRequestContext,
+  ) {
     const profile = await this.prisma.playerProfile.findFirst({
       where: { id, member: { clubId } },
     });
     if (!profile) {
       throw new AppException('PLAYERS.NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+    if (requester.scope === 'TEAM') {
+      await assertPlayerInTeam(this.prisma, id, requester.teamId);
     }
 
     return this.prisma.playerProfile.update({
@@ -135,12 +153,15 @@ export class PlayersService {
     });
   }
 
-  async remove(clubId: number, id: number) {
+  async remove(clubId: number, id: number, requester: PlayerRequestContext) {
     const profile = await this.prisma.playerProfile.findFirst({
       where: { id, member: { clubId } },
     });
     if (!profile) {
       throw new AppException('PLAYERS.NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+    if (requester.scope === 'TEAM') {
+      await assertPlayerInTeam(this.prisma, id, requester.teamId);
     }
 
     await this.prisma.playerProfile.delete({ where: { id } });

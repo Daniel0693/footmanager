@@ -252,6 +252,7 @@ describe('Module Effectif — scénario multi-rôles (PlayerInterviewsController
   let interviewFindFirst: jest.Mock;
   let interviewUpdate: jest.Mock;
   let interviewDelete: jest.Mock;
+  let playerTeamFindFirst: jest.Mock;
 
   beforeEach(() => {
     const permissionsService = new PermissionsService(buildPrismaStub());
@@ -279,6 +280,7 @@ describe('Module Effectif — scénario multi-rôles (PlayerInterviewsController
     interviewFindFirst = jest.fn().mockResolvedValue({ id: 1, playerId: 100 });
     interviewUpdate = jest.fn().mockResolvedValue({ id: 1 });
     interviewDelete = jest.fn().mockResolvedValue({ id: 1 });
+    playerTeamFindFirst = jest.fn().mockResolvedValue({ id: 1 });
     const prismaStub = {
       playerProfile: { findFirst: playerFindFirst },
       playerInterview: {
@@ -288,6 +290,7 @@ describe('Module Effectif — scénario multi-rôles (PlayerInterviewsController
         update: interviewUpdate,
         delete: interviewDelete,
       },
+      playerTeam: { findFirst: playerTeamFindFirst },
     } as unknown as PrismaService;
     interviewsService = new PlayerInterviewsService(prismaStub);
   });
@@ -322,6 +325,27 @@ describe('Module Effectif — scénario multi-rôles (PlayerInterviewsController
     ).rejects.toBeInstanceOf(AppException);
   });
 
+  it("Coach ne peut PAS consulter les entretiens d'un joueur d'une AUTRE équipe, même en transmettant sa propre équipe en query (faille A7.3)", async () => {
+    const request = {
+      params: { clubId: '1', playerId: '100' },
+      query: { teamId: '8' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await guard.canActivate(buildContext(request, findAllHandler));
+    expect(request.permissionScope).toBe('TEAM');
+
+    playerTeamFindFirst.mockResolvedValue(null);
+    await expect(
+      interviewsService.findAllByPlayer(1, 100, {
+        memberId: request.member!.id,
+        scope: request.permissionScope!,
+        teamId: 8,
+      }),
+    ).rejects.toBeInstanceOf(AppException);
+    expect(interviewFindMany).not.toHaveBeenCalled();
+  });
+
   it('Coach peut créer un entretien en transmettant teamId en query, staffId auto-assigné', async () => {
     const request = {
       params: { clubId: '1', playerId: '100' },
@@ -342,13 +366,53 @@ describe('Module Effectif — scénario multi-rôles (PlayerInterviewsController
       },
     );
 
-    await interviewsService.create(1, 100, request.member!.id, {
-      date: new Date('2026-01-15'),
-      subject: 'Bilan',
-      summary: 'Résumé',
-      staffFeedback: 'Feedback',
-    });
+    await interviewsService.create(
+      1,
+      100,
+      request.member!.id,
+      {
+        date: new Date('2026-01-15'),
+        subject: 'Bilan',
+        summary: 'Résumé',
+        staffFeedback: 'Feedback',
+      },
+      {
+        memberId: request.member!.id,
+        scope: request.permissionScope!,
+        teamId: 8,
+      },
+    );
     expect(createdStaffId).toBe(coachMember.id);
+  });
+
+  it("Coach ne peut PAS créer un entretien pour un joueur d'une AUTRE équipe, même en transmettant sa propre équipe en query (faille A7.3)", async () => {
+    const request = {
+      params: { clubId: '1', playerId: '100' },
+      query: { teamId: '8' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await guard.canActivate(buildContext(request, createHandler));
+    playerTeamFindFirst.mockResolvedValue(null);
+
+    await expect(
+      interviewsService.create(
+        1,
+        100,
+        request.member!.id,
+        {
+          date: new Date('2026-01-15'),
+          subject: 'Bilan',
+          summary: 'Résumé',
+        },
+        {
+          memberId: request.member!.id,
+          scope: request.permissionScope!,
+          teamId: 8,
+        },
+      ),
+    ).rejects.toBeInstanceOf(AppException);
+    expect(interviewCreate).not.toHaveBeenCalled();
   });
 
   it('Coach peut modifier et supprimer un entretien en transmettant teamId en query', async () => {
@@ -370,10 +434,58 @@ describe('Module Effectif — scénario multi-rôles (PlayerInterviewsController
       guard.canActivate(buildContext(removeRequest, removeHandler)),
     ).resolves.toBe(true);
 
-    await interviewsService.update(1, 100, 1, { subject: 'Nouveau' });
-    await interviewsService.remove(1, 100, 1);
+    await interviewsService.update(
+      1,
+      100,
+      1,
+      { subject: 'Nouveau' },
+      {
+        memberId: updateRequest.member!.id,
+        scope: updateRequest.permissionScope!,
+        teamId: 8,
+      },
+    );
+    await interviewsService.remove(1, 100, 1, {
+      memberId: removeRequest.member!.id,
+      scope: removeRequest.permissionScope!,
+      teamId: 8,
+    });
     expect(interviewUpdate).toHaveBeenCalled();
     expect(interviewDelete).toHaveBeenCalled();
+  });
+
+  it("Coach ne peut PAS modifier/supprimer un entretien d'un joueur d'une AUTRE équipe, même en transmettant sa propre équipe en query (faille A7.3)", async () => {
+    const updateRequest = {
+      params: { clubId: '1', playerId: '100', id: '1' },
+      query: { teamId: '8' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+    await guard.canActivate(buildContext(updateRequest, updateHandler));
+    playerTeamFindFirst.mockResolvedValue(null);
+
+    await expect(
+      interviewsService.update(
+        1,
+        100,
+        1,
+        { subject: 'Nouveau' },
+        {
+          memberId: updateRequest.member!.id,
+          scope: updateRequest.permissionScope!,
+          teamId: 8,
+        },
+      ),
+    ).rejects.toBeInstanceOf(AppException);
+    expect(interviewUpdate).not.toHaveBeenCalled();
+
+    await expect(
+      interviewsService.remove(1, 100, 1, {
+        memberId: updateRequest.member!.id,
+        scope: updateRequest.permissionScope!,
+        teamId: 8,
+      }),
+    ).rejects.toBeInstanceOf(AppException);
+    expect(interviewDelete).not.toHaveBeenCalled();
   });
 
   it('Player (Marc, scope OWN) consulte ses propres entretiens (teamId en query, même limitation que Coach)', async () => {
@@ -463,6 +575,7 @@ describe('Module Effectif — scénario multi-rôles (PlayerInterviewsController
     const [coachResult] = await interviewsService.findAllByPlayer(1, 100, {
       memberId: coachRequest.member!.id,
       scope: coachRequest.permissionScope!,
+      teamId: 8,
     });
     expect((coachResult as { staffAssessment?: string }).staffAssessment).toBe(
       'Ressenti privé de l’encadrant',

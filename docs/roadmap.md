@@ -93,6 +93,13 @@ Plusieurs bugs réels ont été trouvés et corrigés en testant manuellement av
 rôles (voir `docs/modules/auth-roles.md` §Patterns
 découverts).
 
+**Correctif de sécurité (avant A7.3)** : un Coach pouvait agir sur les mesures/entretiens/profils
+de n'importe quel joueur du club en transmettant sa propre équipe en `?teamId=` — ni
+`PlayersService`, ni `PlayerMeasurementsService`, ni `PlayerInterviewsService` ne vérifiaient que
+le joueur ciblé appartient réellement à cette équipe (seulement au club). Corrigé via
+`assertPlayerInTeam` avant de démarrer A7.3, avec tests de régression dédiés. 153 tests backend
+au total après correctif. Voir `docs/modules/auth-roles.md` §Patterns découverts.
+
 ### Partie B — Module Calendrier
 
 Non commencée. À la conception, statuer sur l'emplacement de `PlayerAbsence` (voir note A7

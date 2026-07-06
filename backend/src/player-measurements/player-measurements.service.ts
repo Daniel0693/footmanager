@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertPlayerInTeam } from '../common/player-team-membership';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerMeasurementDto } from './dto/create-player-measurement.dto';
 import { FindPlayerMeasurementsQueryDto } from './dto/find-player-measurements-query.dto';
@@ -8,6 +9,9 @@ import { FindPlayerMeasurementsQueryDto } from './dto/find-player-measurements-q
 export interface PlayerMeasurementRequestContext {
   memberId: number;
   scope: PermissionScope;
+  // Résolu depuis la query `?teamId=` (voir controller) — requis uniquement
+  // quand `scope === 'TEAM'` (voir assertPlayerInTeam).
+  teamId?: number;
 }
 
 /**
@@ -18,8 +22,9 @@ export interface PlayerMeasurementRequestContext {
  * PermissionsGuard ne vérifie que "ce membre a-t-il un scope quelconque sur
  * player_measurement/ACTION dans ce club ?" — pas que le joueur ciblé par
  * l'URL est bien lui-même. Pour le scope OWN (Player), c'est ce service qui
- * compare le `memberId` du joueur visé à celui de l'appelant (même pattern
- * que PlayersService.findOne, docs/modules/auth-roles.md).
+ * compare le `memberId` du joueur visé à celui de l'appelant ; pour le scope
+ * TEAM (Coach), il vérifie que le joueur appartient bien à l'équipe transmise
+ * en query (même pattern que PlayersService.findOne, docs/modules/auth-roles.md).
  */
 @Injectable()
 export class PlayerMeasurementsService {
@@ -29,8 +34,12 @@ export class PlayerMeasurementsService {
     clubId: number,
     playerId: number,
     dto: CreatePlayerMeasurementDto,
+    requester: PlayerMeasurementRequestContext,
   ) {
     await this.assertPlayerInClub(clubId, playerId);
+    if (requester.scope === 'TEAM') {
+      await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
+    }
 
     return this.prisma.playerMeasurement.create({
       data: {
@@ -52,6 +61,9 @@ export class PlayerMeasurementsService {
     if (requester.scope === 'OWN' && player.memberId !== requester.memberId) {
       throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
     }
+    if (requester.scope === 'TEAM') {
+      await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
+    }
 
     return this.prisma.playerMeasurement.findMany({
       where: {
@@ -63,8 +75,16 @@ export class PlayerMeasurementsService {
     });
   }
 
-  async remove(clubId: number, playerId: number, id: number) {
+  async remove(
+    clubId: number,
+    playerId: number,
+    id: number,
+    requester: PlayerMeasurementRequestContext,
+  ) {
     await this.assertPlayerInClub(clubId, playerId);
+    if (requester.scope === 'TEAM') {
+      await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
+    }
 
     const measurement = await this.prisma.playerMeasurement.findFirst({
       where: { id, playerId },

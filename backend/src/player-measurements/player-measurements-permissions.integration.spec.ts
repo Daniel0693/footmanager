@@ -197,6 +197,7 @@ describe('Module Effectif — scénario multi-rôles (PlayerMeasurementsControll
   let measurementsService: PlayerMeasurementsService;
   let playerFindFirst: jest.Mock;
   let measurementFindMany: jest.Mock;
+  let playerTeamFindFirst: jest.Mock;
 
   beforeEach(() => {
     const permissionsService = new PermissionsService(buildPrismaStub());
@@ -220,9 +221,11 @@ describe('Module Effectif — scénario multi-rôles (PlayerMeasurementsControll
 
     playerFindFirst = jest.fn().mockResolvedValue(marcProfile);
     measurementFindMany = jest.fn().mockResolvedValue([]);
+    playerTeamFindFirst = jest.fn().mockResolvedValue({ id: 1 });
     const prismaStub = {
       playerProfile: { findFirst: playerFindFirst },
       playerMeasurement: { findMany: measurementFindMany },
+      playerTeam: { findFirst: playerTeamFindFirst },
     } as unknown as PrismaService;
     measurementsService = new PlayerMeasurementsService(prismaStub);
   });
@@ -257,7 +260,7 @@ describe('Module Effectif — scénario multi-rôles (PlayerMeasurementsControll
     ).rejects.toBeInstanceOf(AppException);
   });
 
-  it('Coach peut consulter les mesures en transmettant teamId en query', async () => {
+  it('Coach peut consulter les mesures d’un joueur de son équipe en transmettant teamId en query', async () => {
     const request = {
       params: { clubId: '1', playerId: '100' },
       query: { teamId: '8' },
@@ -268,6 +271,36 @@ describe('Module Effectif — scénario multi-rôles (PlayerMeasurementsControll
       guard.canActivate(buildContext(request, findAllHandler)),
     ).resolves.toBe(true);
     expect(request.permissionScope).toBe('TEAM');
+
+    playerTeamFindFirst.mockResolvedValue({ id: 1, playerId: 100, teamId: 8 });
+    await expect(
+      measurementsService.findAllByPlayer(1, 100, {
+        memberId: request.member!.id,
+        scope: request.permissionScope!,
+        teamId: 8,
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it("Coach ne peut PAS consulter les mesures d'un joueur d'une AUTRE équipe, même en transmettant sa propre équipe en query (faille trouvée en concevant A7.3)", async () => {
+    const request = {
+      params: { clubId: '1', playerId: '100' },
+      query: { teamId: '8' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await guard.canActivate(buildContext(request, findAllHandler));
+    expect(request.permissionScope).toBe('TEAM');
+
+    // Le joueur 100 n'a aucune affectation active dans l'équipe 8.
+    playerTeamFindFirst.mockResolvedValue(null);
+    await expect(
+      measurementsService.findAllByPlayer(1, 100, {
+        memberId: request.member!.id,
+        scope: request.permissionScope!,
+        teamId: 8,
+      }),
+    ).rejects.toBeInstanceOf(AppException);
   });
 
   it('Player (Marc, scope OWN) consulte ses propres mesures (teamId en query, même limitation que Coach)', async () => {

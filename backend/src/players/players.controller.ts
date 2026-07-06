@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type { Member, PermissionScope } from '@prisma/client';
@@ -65,10 +66,12 @@ export class PlayersController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentMember() member: Member,
     @CurrentPermissionScope() scope: PermissionScope,
+    @Query('teamId') teamId?: string,
   ) {
     return this.playersService.findOne(clubId, id, {
       memberId: member.id,
       scope,
+      teamId: teamId !== undefined ? Number(teamId) : undefined,
     });
   }
 
@@ -78,8 +81,15 @@ export class PlayersController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePlayerProfileDto,
+    @CurrentMember() member: Member,
+    @CurrentPermissionScope() scope: PermissionScope,
+    @Query('teamId') teamId?: string,
   ) {
-    return this.playersService.update(clubId, id, dto);
+    return this.playersService.update(clubId, id, dto, {
+      memberId: member.id,
+      scope,
+      teamId: teamId !== undefined ? Number(teamId) : undefined,
+    });
   }
 
   @RequirePermission('player_profile', 'DELETE')
@@ -87,7 +97,14 @@ export class PlayersController {
   remove(
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('id', ParseIntPipe) id: number,
+    @CurrentMember() member: Member,
+    @CurrentPermissionScope() scope: PermissionScope,
+    @Query('teamId') teamId?: string,
   ) {
-    return this.playersService.remove(clubId, id);
+    return this.playersService.remove(clubId, id, {
+      memberId: member.id,
+      scope,
+      teamId: teamId !== undefined ? Number(teamId) : undefined,
+    });
   }
 }

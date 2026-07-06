@@ -189,6 +189,26 @@ pas encore le teamId pertinent (ex. "quelles sont mes équipes ?" avant même d'
 une) ; le paramètre `?teamId=` en query convient quand le frontend est déjà dans un contexte
 équipe identifié et peut simplement le transmettre.
 
+**Le paramètre `?teamId=` transmis en query n'est vérifié par `PermissionsGuard` que pour
+résoudre le SCOPE (Coach a-t-il un rôle sur CE teamId ?) — jamais pour vérifier que la
+RESSOURCE ciblée par l'URL appartient bien à cette équipe.** Faille trouvée en concevant A7.3
+(Notes) : `PlayersService.findOne/update/remove`, `PlayerMeasurementsService` et
+`PlayerInterviewsService` ne vérifiaient que l'appartenance du joueur au **club** (via
+`assertPlayerInClub`), jamais à l'équipe précise transmise en query. Un Coach de l'équipe 8
+pouvait donc consulter/modifier/supprimer les mesures, entretiens ou le profil de **n'importe
+quel joueur du club**, y compris d'une équipe où il n'a aucun rôle, simplement en transmettant
+sa propre équipe (`?teamId=8`) — la guard ne pouvait pas détecter le problème puisqu'elle ne
+raisonne que sur "ce membre a-t-il un rôle sur cette équipe", jamais sur la ressource ciblée.
+
+*Solution retenue* : `assertPlayerInTeam(prisma, playerId, teamId)` (`src/common/player-team-membership.ts`)
+vérifie qu'une affectation **active** (`PlayerTeam.leaveDate: null`) existe entre le joueur ciblé
+et le `teamId` transmis. Appelée par le service (jamais par le guard, qui reste générique) chaque
+fois que `requester.scope === 'TEAM'`, en plus (jamais à la place) de la vérification
+club/scope OWN existante. Coach/AdminClub/SuperAdmin gardent un comportement inchangé pour les
+joueurs réellement dans leur périmètre. **Pattern à réutiliser pour toute nouvelle ressource
+scopée équipe** (Notes, Objectifs, Évaluation...) — ne pas se contenter de `assertPlayerInClub`
+dès qu'un scope `TEAM` existe sur la permission.
+
 **Le scope global (`clubId = null` sur `MemberRole`) ne dispense pas d'une fiche `Member` par
 club accédé.** `PermissionsGuard` résout toujours le `Member` de l'appelant pour le `clubId` de
 la requête (`MembersService.findByUserAndClub`) avant même d'évaluer la permission — un

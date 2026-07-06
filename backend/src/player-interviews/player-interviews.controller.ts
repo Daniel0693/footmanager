@@ -38,13 +38,20 @@ export class PlayerInterviewsController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('playerId', ParseIntPipe) playerId: number,
     @CurrentMember() member: Member,
+    @CurrentPermissionScope() scope: PermissionScope,
     @Body() dto: CreatePlayerInterviewDto,
+    @Query('teamId') teamId?: string,
   ) {
     return this.playerInterviewsService.create(
       clubId,
       playerId,
       member.id,
       dto,
+      {
+        memberId: member.id,
+        scope,
+        teamId: teamId !== undefined ? Number(teamId) : undefined,
+      },
     );
   }
 
@@ -56,11 +63,16 @@ export class PlayerInterviewsController {
     @CurrentMember() member: Member,
     @CurrentPermissionScope() scope: PermissionScope,
     @Query() query: FindPlayerInterviewsQueryDto,
+    @Query('teamId') teamId?: string,
   ) {
     return this.playerInterviewsService.findAllByPlayer(
       clubId,
       playerId,
-      { memberId: member.id, scope },
+      {
+        memberId: member.id,
+        scope,
+        teamId: teamId !== undefined ? Number(teamId) : undefined,
+      },
       query,
     );
   }
@@ -72,8 +84,15 @@ export class PlayerInterviewsController {
     @Param('playerId', ParseIntPipe) playerId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePlayerInterviewDto,
+    @CurrentMember() member: Member,
+    @CurrentPermissionScope() scope: PermissionScope,
+    @Query('teamId') teamId?: string,
   ) {
-    return this.playerInterviewsService.update(clubId, playerId, id, dto);
+    return this.playerInterviewsService.update(clubId, playerId, id, dto, {
+      memberId: member.id,
+      scope,
+      teamId: teamId !== undefined ? Number(teamId) : undefined,
+    });
   }
 
   @RequirePermission('player_interview', 'DELETE')
@@ -82,7 +101,14 @@ export class PlayerInterviewsController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('playerId', ParseIntPipe) playerId: number,
     @Param('id', ParseIntPipe) id: number,
+    @CurrentMember() member: Member,
+    @CurrentPermissionScope() scope: PermissionScope,
+    @Query('teamId') teamId?: string,
   ) {
-    return this.playerInterviewsService.remove(clubId, playerId, id);
+    return this.playerInterviewsService.remove(clubId, playerId, id, {
+      memberId: member.id,
+      scope,
+      teamId: teamId !== undefined ? Number(teamId) : undefined,
+    });
   }
 }

@@ -50,6 +50,7 @@ describe('PlayerInterviewsService', () => {
   let interviewFindFirst: jest.Mock;
   let interviewUpdate: jest.Mock;
   let interviewDelete: jest.Mock;
+  let playerTeamFindFirst: jest.Mock;
   let service: PlayerInterviewsService;
 
   beforeEach(() => {
@@ -59,6 +60,7 @@ describe('PlayerInterviewsService', () => {
     interviewFindFirst = jest.fn();
     interviewUpdate = jest.fn();
     interviewDelete = jest.fn();
+    playerTeamFindFirst = jest.fn().mockResolvedValue({ id: 1 });
 
     const prismaStub = {
       playerProfile: { findFirst: playerFindFirst },
@@ -69,6 +71,7 @@ describe('PlayerInterviewsService', () => {
         update: interviewUpdate,
         delete: interviewDelete,
       },
+      playerTeam: { findFirst: playerTeamFindFirst },
     } as unknown as PrismaService;
 
     service = new PlayerInterviewsService(prismaStub);
@@ -79,11 +82,13 @@ describe('PlayerInterviewsService', () => {
       playerFindFirst.mockResolvedValue(null);
 
       await expect(
-        service.create(1, 100, staffMember.id, {
-          date: new Date('2026-01-15'),
-          subject: 'Bilan',
-          summary: 'Résumé',
-        }),
+        service.create(
+          1,
+          100,
+          staffMember.id,
+          { date: new Date('2026-01-15'), subject: 'Bilan', summary: 'Résumé' },
+          { memberId: 99, scope: 'CLUB' },
+        ),
       ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
       expect(interviewCreate).not.toHaveBeenCalled();
     });
@@ -93,13 +98,19 @@ describe('PlayerInterviewsService', () => {
       interviewCreate.mockResolvedValue(interview);
       const date = new Date('2026-01-15');
 
-      const result = await service.create(1, 100, 99, {
-        date,
-        subject: 'Bilan mi-saison',
-        summary: 'Bonne progression technique',
-        staffFeedback: 'Continuer sur cette lancée',
-        staffAssessment: 'Joueur en confiance, à responsabiliser',
-      });
+      const result = await service.create(
+        1,
+        100,
+        99,
+        {
+          date,
+          subject: 'Bilan mi-saison',
+          summary: 'Bonne progression technique',
+          staffFeedback: 'Continuer sur cette lancée',
+          staffAssessment: 'Joueur en confiance, à responsabiliser',
+        },
+        { memberId: 99, scope: 'CLUB' },
+      );
 
       expect(result).toBe(interview);
       expect(interviewCreate).toHaveBeenCalledWith({
@@ -122,11 +133,17 @@ describe('PlayerInterviewsService', () => {
       interviewCreate.mockResolvedValue(interview);
       const date = new Date('2026-12-01');
 
-      await service.create(1, 100, 99, {
-        date,
-        subject: 'Bilan de fin de saison (planifié)',
-        summary: 'Points à aborder : temps de jeu, objectifs été',
-      });
+      await service.create(
+        1,
+        100,
+        99,
+        {
+          date,
+          subject: 'Bilan de fin de saison (planifié)',
+          summary: 'Points à aborder : temps de jeu, objectifs été',
+        },
+        { memberId: 99, scope: 'CLUB' },
+      );
 
       expect(interviewCreate).toHaveBeenCalledWith({
         data: {
@@ -141,6 +158,22 @@ describe('PlayerInterviewsService', () => {
         },
         include: { staff: true },
       });
+    });
+
+    it("scope TEAM : refuse si le joueur n'appartient pas à cette équipe (faille A7.3)", async () => {
+      playerFindFirst.mockResolvedValue(player);
+      playerTeamFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          1,
+          100,
+          43,
+          { date: new Date('2026-01-15'), subject: 'Bilan', summary: 'Résumé' },
+          { memberId: 43, scope: 'TEAM', teamId: 8 },
+        ),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(interviewCreate).not.toHaveBeenCalled();
     });
   });
 
@@ -198,7 +231,7 @@ describe('PlayerInterviewsService', () => {
       const result = await service.findAllByPlayer(
         1,
         100,
-        { memberId: 999, scope: 'TEAM' },
+        { memberId: 999, scope: 'TEAM', teamId: 8 },
         { dateTo: farFuture },
       );
 
@@ -295,6 +328,20 @@ describe('PlayerInterviewsService', () => {
         orderBy: { date: 'desc' },
       });
     });
+
+    it("scope TEAM : refuse la lecture d'un joueur qui n'appartient pas à cette équipe (faille A7.3)", async () => {
+      playerFindFirst.mockResolvedValue(player);
+      playerTeamFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.findAllByPlayer(1, 100, {
+          memberId: 43,
+          scope: 'TEAM',
+          teamId: 8,
+        }),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(interviewFindMany).not.toHaveBeenCalled();
+    });
   });
 
   describe('update', () => {
@@ -303,7 +350,13 @@ describe('PlayerInterviewsService', () => {
       interviewFindFirst.mockResolvedValue(null);
 
       await expect(
-        service.update(1, 100, 1, { subject: 'Nouveau sujet' }),
+        service.update(
+          1,
+          100,
+          1,
+          { subject: 'Nouveau sujet' },
+          { memberId: 99, scope: 'CLUB' },
+        ),
       ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(interviewUpdate).not.toHaveBeenCalled();
     });
@@ -316,9 +369,13 @@ describe('PlayerInterviewsService', () => {
         subject: 'Nouveau sujet',
       });
 
-      const result = await service.update(1, 100, 1, {
-        subject: 'Nouveau sujet',
-      });
+      const result = await service.update(
+        1,
+        100,
+        1,
+        { subject: 'Nouveau sujet' },
+        { memberId: 99, scope: 'CLUB' },
+      );
 
       expect(result.subject).toBe('Nouveau sujet');
       expect(interviewUpdate).toHaveBeenCalledWith({
@@ -340,11 +397,17 @@ describe('PlayerInterviewsService', () => {
       interviewFindFirst.mockResolvedValue(interview);
       interviewUpdate.mockResolvedValue(interview);
 
-      await service.update(1, 100, 1, {
-        staffFeedback: 'Conclusions transmises au joueur',
-        staffAssessment: 'Ressenti positif',
-        playerFeedback: 'Le joueur se sent prêt',
-      });
+      await service.update(
+        1,
+        100,
+        1,
+        {
+          staffFeedback: 'Conclusions transmises au joueur',
+          staffAssessment: 'Ressenti positif',
+          playerFeedback: 'Le joueur se sent prêt',
+        },
+        { memberId: 99, scope: 'CLUB' },
+      );
 
       expect(interviewUpdate).toHaveBeenCalledWith({
         where: { id: 1 },
@@ -359,6 +422,22 @@ describe('PlayerInterviewsService', () => {
         include: { staff: true },
       });
     });
+
+    it("scope TEAM : refuse la modification d'un entretien d'un joueur qui n'appartient pas à cette équipe (faille A7.3)", async () => {
+      playerFindFirst.mockResolvedValue(player);
+      playerTeamFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(
+          1,
+          100,
+          1,
+          { subject: 'Nouveau sujet' },
+          { memberId: 43, scope: 'TEAM', teamId: 8 },
+        ),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(interviewUpdate).not.toHaveBeenCalled();
+    });
   });
 
   describe('remove', () => {
@@ -366,7 +445,9 @@ describe('PlayerInterviewsService', () => {
       playerFindFirst.mockResolvedValue(player);
       interviewFindFirst.mockResolvedValue(null);
 
-      await expect(service.remove(1, 100, 1)).rejects.toMatchObject({
+      await expect(
+        service.remove(1, 100, 1, { memberId: 99, scope: 'CLUB' }),
+      ).rejects.toMatchObject({
         status: HttpStatus.NOT_FOUND,
       });
       expect(interviewDelete).not.toHaveBeenCalled();
@@ -376,9 +457,19 @@ describe('PlayerInterviewsService', () => {
       playerFindFirst.mockResolvedValue(player);
       interviewFindFirst.mockResolvedValue(interview);
 
-      await service.remove(1, 100, 1);
+      await service.remove(1, 100, 1, { memberId: 99, scope: 'CLUB' });
 
       expect(interviewDelete).toHaveBeenCalledWith({ where: { id: 1 } });
+    });
+
+    it("scope TEAM : refuse la suppression d'un entretien d'un joueur qui n'appartient pas à cette équipe (faille A7.3)", async () => {
+      playerFindFirst.mockResolvedValue(player);
+      playerTeamFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.remove(1, 100, 1, { memberId: 43, scope: 'TEAM', teamId: 8 }),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(interviewDelete).not.toHaveBeenCalled();
     });
   });
 });
