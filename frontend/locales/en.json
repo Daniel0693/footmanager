@@ -53,7 +53,7 @@
     "jerseyNumber": "No.",
     "name": "Name",
     "mainPosition": "Main position",
-    "secondaryPosition": "Secondary position",
+    "secondaryPosition": "Secondary positions",
     "emptyValue": "—",
     "empty": "No players in this team",
     "loadFailed": "Failed to load the roster",
@@ -86,6 +86,23 @@
     "CF": "Centre-Forward",
     "ST": "Striker"
   },
+  "positionAbbreviations": {
+    "GK": "GK",
+    "CB": "CB",
+    "RB": "RB",
+    "LB": "LB",
+    "RWB": "RWB",
+    "LWB": "LWB",
+    "CDM": "CDM",
+    "CM": "CM",
+    "RM": "RM",
+    "LM": "LM",
+    "CAM": "CAM",
+    "RW": "RW",
+    "LW": "LW",
+    "CF": "CF",
+    "ST": "ST"
+  },
   "gender": {
     "MALE": "Male",
     "FEMALE": "Female",
@@ -110,7 +127,10 @@
     "licenseNumber": "License no.",
     "preferredFoot": "Preferred foot",
     "positions": "Positions",
+    "positionsMain": "Main",
+    "positionsOther": "Other",
     "noSecondaryPosition": "No secondary position",
+    "positionUpdateFailed": "Failed to update the position",
     "loadFailed": "Failed to load the player profile",
     "tabs": {
       "dashboard": "Dashboard",

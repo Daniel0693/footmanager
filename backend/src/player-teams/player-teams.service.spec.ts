@@ -28,7 +28,7 @@ const assignment: PlayerTeam = {
   teamId: 5,
   jerseyNumber: 9,
   mainPosition: 'ST',
-  secondaryPosition: null,
+  secondaryPositions: [],
   joinDate: null,
   leaveDate: null,
   createdAt: new Date(),
@@ -132,7 +132,34 @@ describe('PlayerTeamsService', () => {
           teamId: 5,
           jerseyNumber: 9,
           mainPosition: 'ST',
-          secondaryPosition: undefined,
+          secondaryPositions: undefined,
+          joinDate: undefined,
+        },
+      });
+    });
+
+    it('accepte plusieurs postes secondaires (décision du 2026-07-06)', async () => {
+      teamFindFirst.mockResolvedValue(team);
+      playerFindFirst.mockResolvedValue(player);
+      ptFindFirst.mockResolvedValue(null);
+      ptCreate.mockResolvedValue({
+        ...assignment,
+        secondaryPositions: ['CF', 'CAM'],
+      });
+
+      await service.create(1, 5, {
+        playerId: 100,
+        mainPosition: 'ST',
+        secondaryPositions: ['CF', 'CAM'],
+      });
+
+      expect(ptCreate).toHaveBeenCalledWith({
+        data: {
+          playerId: 100,
+          teamId: 5,
+          jerseyNumber: undefined,
+          mainPosition: 'ST',
+          secondaryPositions: ['CF', 'CAM'],
           joinDate: undefined,
         },
       });
@@ -211,6 +238,29 @@ describe('PlayerTeamsService', () => {
       });
     });
 
+    it('met à jour plusieurs postes secondaires en une fois (décision du 2026-07-06)', async () => {
+      ptFindFirst.mockResolvedValue(assignment);
+      ptUpdate.mockResolvedValue({
+        ...assignment,
+        secondaryPositions: ['LW', 'RW', 'CAM'],
+      });
+
+      await service.update(1, 5, 200, {
+        secondaryPositions: ['LW', 'RW', 'CAM'],
+      });
+
+      expect(ptUpdate).toHaveBeenCalledWith({
+        where: { id: 200 },
+        data: {
+          jerseyNumber: undefined,
+          mainPosition: undefined,
+          secondaryPositions: ['LW', 'RW', 'CAM'],
+          joinDate: undefined,
+          leaveDate: undefined,
+        },
+      });
+    });
+
     it('permet de clôturer une affectation via leaveDate (historisation)', async () => {
       ptFindFirst.mockResolvedValue(assignment);
       const leaveDate = new Date('2026-06-30');
@@ -223,7 +273,7 @@ describe('PlayerTeamsService', () => {
         data: {
           jerseyNumber: undefined,
           mainPosition: undefined,
-          secondaryPosition: undefined,
+          secondaryPositions: undefined,
           joinDate: undefined,
           leaveDate,
         },

@@ -34,7 +34,7 @@ const existingPlayer: ExistingPlayer = {
   preferredFoot: "RIGHT",
   jerseyNumber: 8,
   mainPosition: "CAM",
-  secondaryPosition: null,
+  secondaryPositions: [],
   joinDate: "2025-09-05",
 };
 
@@ -106,7 +106,7 @@ describe("PlayerFormDialog", () => {
           playerId: 100,
           jerseyNumber: undefined,
           mainPosition: undefined,
-          secondaryPosition: undefined,
+          secondaryPositions: [],
           joinDate: undefined,
         }),
       }),

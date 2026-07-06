@@ -1,6 +1,6 @@
 import { Position } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsDate, IsEnum, IsInt, IsOptional } from 'class-validator';
+import { IsArray, IsDate, IsEnum, IsInt, IsOptional } from 'class-validator';
 
 export class CreatePlayerTeamDto {
   @IsInt()
@@ -15,8 +15,9 @@ export class CreatePlayerTeamDto {
   mainPosition?: Position;
 
   @IsOptional()
-  @IsEnum(Position)
-  secondaryPosition?: Position;
+  @IsArray()
+  @IsEnum(Position, { each: true })
+  secondaryPositions?: Position[];
 
   // @Type(() => Date) convertit la chaîne ISO en Date avant validation :
   // Prisma (@db.Date) rejette une simple chaîne "AAAA-MM-JJ" en entrée client.

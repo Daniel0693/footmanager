@@ -48,7 +48,7 @@ Chaque entrée correspond à une période d'appartenance d'un joueur à une équ
 | `teamId` | FK → Team | |
 | `jerseyNumber` | Int, nullable | unicité sur `(teamId, jerseyNumber)` recommandée |
 | `mainPosition` | enum `Position`, nullable | voir `index.md` |
-| `secondaryPosition` | enum `Position`, nullable | |
+| `secondaryPositions` | `Position[]`, défaut `[]` | un joueur peut couvrir plusieurs postes secondaires (décision du 2026-07-06) ; tableau plutôt qu'une table de jointure séparée, jamais interrogé indépendamment de son `PlayerTeam` |
 | `joinDate` | Date, nullable | début de la période dans cette équipe |
 | `leaveDate` | Date, nullable | fin de la période (null = toujours actif) |
 

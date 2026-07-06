@@ -11,13 +11,13 @@
 
 ## Liste de l'effectif — filtres par poste
 
-Table par équipe : numéro de maillot, nom, poste principal (badge), poste secondaire. Deux
+Table par équipe : numéro de maillot, nom, poste principal (badge), poste(s) secondaire(s). Deux
 filtres combinables :
 - **Par ligne** (Gardien/Défense/Milieu/Attaque) — la ligne n'est pas stockée en base, elle est
   dérivée du poste précis en code (voir `docs/schema/index.md` §enum `Position`). Sélectionner
   une ligne réduit les postes proposés dans le second filtre à ceux de cette ligne.
 - **Par poste précis** (15 postes réels, voir `docs/schema/index.md`) — filtre sur
-  `mainPosition` uniquement ; le poste secondaire est affiché mais non filtrable.
+  `mainPosition` uniquement ; les postes secondaires sont affichés mais non filtrables.
 
 ## Profil joueur — mise en page 2 colonnes
 
@@ -25,11 +25,31 @@ La fiche joueur est structurée en deux colonnes :
 - **Colonne de gauche (fixe, toujours visible)** : panneau d'informations statiques —
   identité (nom, avatar/initiales, rôle, email si compte, téléphone, date de naissance, genre) +
   informations sportives (statut actif/inactif, date d'arrivée dans l'équipe, numéro de licence,
-  pied fort, numéro de maillot, poste principal/secondaire). Alimenté par `Member` +
-  `PlayerProfile` + l'affectation `PlayerTeam` active — toutes ces entités existent déjà, donc ce
-  panneau est fonctionnel dès sa construction.
+  pied fort, numéro de maillot) + un **sélecteur de poste visuel** (terrain interactif, voir
+  ci-dessous). Alimenté par `Member` + `PlayerProfile` + l'affectation `PlayerTeam` active —
+  toutes ces entités existent déjà, donc ce panneau est fonctionnel dès sa construction.
 - **Colonne de droite (zone principale)** : barre à 7 onglets, aucun fonctionnel avant sa phase
   respective (voir tableau ci-dessous).
+
+### Sélecteur de poste — terrain interactif
+
+Le poste (principal et secondaires) se choisit par clic sur une représentation visuelle du
+terrain (inspirée de Football Manager), pas via un menu déroulant, dans la carte "Positions" de
+la fiche joueur :
+- Deux onglets **Principal** / **Autres** au-dessus du terrain déterminent ce que fait un clic :
+  en mode Principal, cliquer sur un poste le définit comme poste principal (sélection unique —
+  cliquer à nouveau sur le poste déjà principal le désélectionne) ; en mode Autres, cliquer
+  bascule ce poste dans/hors des postes secondaires (sélection multiple). Un poste déjà principal
+  est désactivé dans l'onglet Autres pour éviter une confusion (pas de doublon principal/secondaire).
+- Code couleur : poste principal en bleu, postes secondaires en orange, postes non sélectionnés en
+  gris — cohérent avec les badges affichés sous le terrain.
+- **Sauvegarde immédiate** : chaque clic déclenche un `PATCH` sur l'affectation `PlayerTeam`
+  concernée (pas de bouton "Enregistrer" séparé) ; en cas d'échec réseau, la sélection est
+  restaurée à son état précédent et une erreur est affichée.
+- Le formulaire d'ajout/édition (`PlayerFormDialog`, effectif équipe) garde pour l'instant de
+  simples menus déroulants pour le poste principal — un seul poste secondaire y est éditable
+  (le premier élément du tableau) ; le terrain interactif n'y est pas encore utilisé (décision du
+  2026-07-06, à revoir si besoin).
 
 ## Profil joueur — onglets
 

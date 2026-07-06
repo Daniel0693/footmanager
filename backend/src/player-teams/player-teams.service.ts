@@ -39,7 +39,7 @@ export class PlayerTeamsService {
         teamId,
         jerseyNumber: dto.jerseyNumber,
         mainPosition: dto.mainPosition,
-        secondaryPosition: dto.secondaryPosition,
+        secondaryPositions: dto.secondaryPositions,
         joinDate: dto.joinDate,
       },
     });
@@ -77,7 +77,7 @@ export class PlayerTeamsService {
       data: {
         jerseyNumber: dto.jerseyNumber,
         mainPosition: dto.mainPosition,
-        secondaryPosition: dto.secondaryPosition,
+        secondaryPositions: dto.secondaryPositions,
         joinDate: dto.joinDate,
         leaveDate: dto.leaveDate,
       },

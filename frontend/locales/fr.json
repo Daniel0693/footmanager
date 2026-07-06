@@ -53,7 +53,7 @@
     "jerseyNumber": "N°",
     "name": "Nom",
     "mainPosition": "Poste principal",
-    "secondaryPosition": "Poste secondaire",
+    "secondaryPosition": "Postes secondaires",
     "emptyValue": "—",
     "empty": "Aucun joueur dans cette équipe",
     "loadFailed": "Impossible de charger l'effectif",
@@ -86,6 +86,23 @@
     "CF": "Avant-centre",
     "ST": "Buteur"
   },
+  "positionAbbreviations": {
+    "GK": "GB",
+    "CB": "DC",
+    "RB": "DD",
+    "LB": "DG",
+    "RWB": "DLD",
+    "LWB": "DLG",
+    "CDM": "MDC",
+    "CM": "MC",
+    "RM": "MD",
+    "LM": "MG",
+    "CAM": "MOC",
+    "RW": "AD",
+    "LW": "AG",
+    "CF": "AT",
+    "ST": "BU"
+  },
   "gender": {
     "MALE": "Homme",
     "FEMALE": "Femme",
@@ -110,7 +127,10 @@
     "licenseNumber": "N° de licence",
     "preferredFoot": "Pied fort",
     "positions": "Positions",
+    "positionsMain": "Principal",
+    "positionsOther": "Autres",
     "noSecondaryPosition": "Aucun poste secondaire",
+    "positionUpdateFailed": "Échec de la mise à jour du poste",
     "loadFailed": "Impossible de charger le profil du joueur",
     "tabs": {
       "dashboard": "Dashboard",

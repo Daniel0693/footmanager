@@ -37,7 +37,7 @@ interface PlayerTeamRow {
   id: number;
   jerseyNumber: number | null;
   mainPosition: Position | null;
-  secondaryPosition: Position | null;
+  secondaryPositions: Position[];
   player: {
     id: number;
     member: {
@@ -226,8 +226,14 @@ export function TeamPlayersPageContent({
                   )}
                 </TableCell>
                 <TableCell>
-                  {row.secondaryPosition ? (
-                    <Badge variant="outline">{tPositions(row.secondaryPosition)}</Badge>
+                  {row.secondaryPositions.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {row.secondaryPositions.map((position) => (
+                        <Badge key={position} variant="outline">
+                          {tPositions(position)}
+                        </Badge>
+                      ))}
+                    </div>
                   ) : (
                     t("emptyValue")
                   )}

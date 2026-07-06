@@ -46,7 +46,7 @@ export interface ExistingPlayer {
   preferredFoot: Foot | null;
   jerseyNumber: number | null;
   mainPosition: Position | null;
-  secondaryPosition: Position | null;
+  secondaryPositions: Position[];
   joinDate: string | null;
 }
 
@@ -93,7 +93,10 @@ function defaultValues(player?: ExistingPlayer): FormValues {
       ? String(player.jerseyNumber)
       : "",
     mainPosition: player?.mainPosition ?? NONE,
-    secondaryPosition: player?.secondaryPosition ?? NONE,
+    // Le formulaire ne gère qu'un seul poste secondaire (le premier du
+    // tableau) : la sélection de plusieurs postes secondaires se fait via le
+    // terrain interactif de la fiche joueur (décision du 2026-07-06).
+    secondaryPosition: player?.secondaryPositions[0] ?? NONE,
     joinDate: player?.joinDate ?? "",
   };
 }
@@ -161,11 +164,11 @@ export function PlayerFormDialog({
         values.jerseyNumber && values.jerseyNumber.trim() !== ""
           ? Number(values.jerseyNumber)
           : undefined;
+      const secondaryPosition = toSelectOrNull<Position>(values.secondaryPosition);
       const teamPayload = {
         jerseyNumber,
         mainPosition: toSelectOrNull<Position>(values.mainPosition) ?? undefined,
-        secondaryPosition:
-          toSelectOrNull<Position>(values.secondaryPosition) ?? undefined,
+        secondaryPositions: secondaryPosition ? [secondaryPosition] : [],
         joinDate: toIsoDateOrNull(values.joinDate) ?? undefined,
       };
 

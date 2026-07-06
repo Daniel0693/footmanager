@@ -62,7 +62,7 @@ const rosterU15: PlayerTeam[] = [
     teamId: 5,
     jerseyNumber: 9,
     mainPosition: 'ST',
-    secondaryPosition: null,
+    secondaryPositions: [],
     joinDate: null,
     leaveDate: null,
     createdAt: new Date(),

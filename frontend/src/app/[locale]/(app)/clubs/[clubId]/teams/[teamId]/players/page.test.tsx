@@ -31,7 +31,7 @@ function player(
     id,
     jerseyNumber,
     mainPosition,
-    secondaryPosition: null,
+    secondaryPositions: [],
     player: { id, member: { firstName, lastName: "Test" } },
   };
 }

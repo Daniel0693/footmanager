@@ -22,6 +22,7 @@ import {
   ExistingPlayer,
   PlayerFormDialog,
 } from "@/components/players/player-form-dialog";
+import { PositionPitch } from "@/components/players/position-pitch";
 
 interface PlayerDetail {
   id: number;
@@ -43,7 +44,7 @@ interface PlayerDetail {
     teamId: number;
     jerseyNumber: number | null;
     mainPosition: Position | null;
-    secondaryPosition: Position | null;
+    secondaryPositions: Position[];
     joinDate: string | null;
   }>;
 }
@@ -72,12 +73,12 @@ export function PlayerDetailPageContent({
 }) {
   const t = useTranslations("playerDetail");
   const tPlayers = useTranslations("players");
-  const tPositions = useTranslations("positions");
   const tGender = useTranslations("gender");
   const tFoot = useTranslations("foot");
   const { accessToken } = useAuth();
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [hasError, setHasError] = useState(false);
+  const [isSavingPosition, setIsSavingPosition] = useState(false);
 
   const fetchPlayer = useCallback(async () => {
     // teamId en query : /clubs/:clubId/players/:id ne porte pas de teamId
@@ -162,13 +163,55 @@ export function PlayerDetailPageContent({
         preferredFoot: player.preferredFoot,
         jerseyNumber: assignment.jerseyNumber,
         mainPosition: assignment.mainPosition,
-        secondaryPosition: assignment.secondaryPosition,
+        secondaryPositions: assignment.secondaryPositions,
         joinDate: assignment.joinDate,
       }
     : undefined;
 
   const initials =
     `${player.member.firstName.charAt(0)}${player.member.lastName.charAt(0)}`.toUpperCase();
+
+  // Sauvegarde immédiate au clic (pas de bouton "Enregistrer" séparé) :
+  // PATCH optimiste avec retour à l'état précédent si l'appel échoue.
+  const patchAssignment = async (body: Record<string, unknown>) => {
+    if (!assignment) return;
+    const previousPlayer = player;
+    setPlayer({
+      ...player,
+      playerTeams: player.playerTeams.map((pt) =>
+        pt.id === assignment.id ? { ...pt, ...body } : pt,
+      ),
+    });
+    setIsSavingPosition(true);
+    try {
+      const response = await apiFetch(
+        `/clubs/${clubId}/teams/${teamId}/players/${assignment.id}`,
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify(body),
+        },
+      );
+      if (!response.ok) throw new Error();
+    } catch {
+      setPlayer(previousPlayer);
+      toast.error(t("positionUpdateFailed"));
+    } finally {
+      setIsSavingPosition(false);
+    }
+  };
+
+  const handleSelectMain = (position: Position | null) => {
+    patchAssignment({ mainPosition: position });
+  };
+
+  const handleToggleSecondary = (position: Position) => {
+    if (!assignment) return;
+    const nextSecondary = assignment.secondaryPositions.includes(position)
+      ? assignment.secondaryPositions.filter((p) => p !== position)
+      : [...assignment.secondaryPositions, position];
+    patchAssignment({ secondaryPositions: nextSecondary });
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
@@ -257,21 +300,22 @@ export function PlayerDetailPageContent({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("positions")}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              {assignment?.mainPosition ? (
-                <Badge>{tPositions(assignment.mainPosition)}</Badge>
-              ) : (
-                <span className="text-sm text-muted-foreground">{tPlayers("emptyValue")}</span>
-              )}
-              {assignment?.secondaryPosition ? (
-                <Badge variant="outline">{tPositions(assignment.secondaryPosition)}</Badge>
-              ) : null}
-            </CardContent>
-          </Card>
+          {assignment && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("positions")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PositionPitch
+                  mainPosition={assignment.mainPosition}
+                  secondaryPositions={assignment.secondaryPositions}
+                  onSelectMain={handleSelectMain}
+                  onToggleSecondary={handleToggleSecondary}
+                  disabled={isSavingPosition}
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <Tabs defaultValue="dashboard">

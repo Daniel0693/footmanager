@@ -1,4 +1,6 @@
-import { renderWithIntl, screen } from "@/test-utils/render";
+import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
+import { renderWithIntl, screen, waitFor } from "@/test-utils/render";
 import { PlayerDetailPageContent } from "./page";
 
 // require() dans la factory jest.mock : nécessaire pour un mock fiable, voir navigation-mock.tsx.
@@ -43,7 +45,7 @@ function playerDetail(overrides: Record<string, unknown> = {}) {
         teamId: 5,
         jerseyNumber: 8,
         mainPosition: "CAM",
-        secondaryPosition: "CDM",
+        secondaryPositions: ["CDM", "CM"],
         joinDate: "2025-09-05",
       },
     ],
@@ -145,5 +147,46 @@ describe("PlayerDetailPageContent", () => {
     renderPage();
 
     expect(await screen.findByRole("button", { name: "Modifier" })).toBeInTheDocument();
+  });
+
+  it("cliquer un poste sur le terrain sauvegarde immédiatement (PATCH), sans bouton Enregistrer", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce(jsonResponse(playerDetail())) // GET initial
+      .mockResolvedValueOnce(jsonResponse({})); // PATCH
+    const user = userEvent.setup();
+
+    renderPage("1", "5", "1");
+    await screen.findByText("Tom Joueur");
+
+    await user.click(screen.getByRole("button", { name: "Buteur" })); // ST, pas encore sélectionné
+
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenLastCalledWith(
+        "/clubs/1/teams/5/players/1",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ mainPosition: "ST" }),
+        }),
+      ),
+    );
+    // mise à jour optimiste immédiate, sans attendre de bouton "Enregistrer"
+    expect(screen.getByText("Buteur")).toBeInTheDocument();
+  });
+
+  it("échec du PATCH de poste : la sélection est restaurée et une erreur est affichée", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce(jsonResponse(playerDetail()))
+      .mockResolvedValueOnce(jsonResponse(null, false));
+    const user = userEvent.setup();
+
+    renderPage("1", "5", "1");
+    await screen.findByText("Tom Joueur");
+
+    await user.click(screen.getByRole("button", { name: "Buteur" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    // revert optimiste : "Buteur" disparaît, le poste principal d'origine revient
+    expect(screen.queryByText("Buteur")).not.toBeInTheDocument();
+    expect(screen.getByText("Milieu offensif")).toBeInTheDocument();
   });
 });

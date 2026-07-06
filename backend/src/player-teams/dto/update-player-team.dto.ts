@@ -1,6 +1,6 @@
 import { Position } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsDate, IsEnum, IsInt, IsOptional } from 'class-validator';
+import { IsArray, IsDate, IsEnum, IsInt, IsOptional } from 'class-validator';
 
 export class UpdatePlayerTeamDto {
   @IsOptional()
@@ -12,8 +12,9 @@ export class UpdatePlayerTeamDto {
   mainPosition?: Position;
 
   @IsOptional()
-  @IsEnum(Position)
-  secondaryPosition?: Position;
+  @IsArray()
+  @IsEnum(Position, { each: true })
+  secondaryPositions?: Position[];
 
   @IsOptional()
   @Type(() => Date)

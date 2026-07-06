@@ -246,18 +246,22 @@ model PlayerProfile {
 }
 
 model PlayerTeam {
-  id                Int           @id @default(autoincrement())
-  playerId          Int
-  player            PlayerProfile @relation(fields: [playerId], references: [id])
-  teamId            Int
-  team              Team          @relation(fields: [teamId], references: [id])
-  jerseyNumber      Int?
-  mainPosition      Position?
-  secondaryPosition Position?
-  joinDate          DateTime?     @db.Date
-  leaveDate         DateTime?     @db.Date
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  id                 Int           @id @default(autoincrement())
+  playerId           Int
+  player             PlayerProfile @relation(fields: [playerId], references: [id])
+  teamId             Int
+  team               Team          @relation(fields: [teamId], references: [id])
+  jerseyNumber       Int?
+  mainPosition       Position?
+  // Un joueur peut couvrir plusieurs postes secondaires (décision du
+  // 2026-07-06) — tableau plutôt qu'une table de jointure séparée : borné
+  // aux 15 valeurs de l'enum, jamais interrogé indépendamment de son
+  // PlayerTeam (pas besoin de filtrer/jointurer dessus).
+  secondaryPositions Position[]    @default([])
+  joinDate           DateTime?     @db.Date
+  leaveDate          DateTime?     @db.Date
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   // Pas de contrainte SQL sur (teamId, jerseyNumber) : l'historisation par
   // joinDate/leaveDate autorise la réattribution d'un numéro d'une saison à
