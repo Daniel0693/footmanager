@@ -63,7 +63,7 @@ depuis la Phase 6 dans la Partie A)_
 
 | Sous-étape | Statut | Entité | Contenu |
 |---|---|---|---|
-| A7.1 — Mesures | ⬜ | `PlayerMeasurement` | Schéma/migration, CRUD backend + permissions, onglet frontend (graphique d'évolution taille/poids, pas de filtre de saison — voir note ci-dessous), tests |
+| A7.1 — Mesures | ✅ | `PlayerMeasurement` | Backend (schéma/migration, CRUD READ/CREATE/DELETE — pas d'UPDATE, historique append-only —, filtres/tri via query params `type`/`dateFrom`/`dateTo`/`sortBy`/`sortOrder`, permissions, 17 tests) + onglet frontend (graphique unique 2 courbes avec légende cliquable, filtres du graphique et du tableau indépendants, tri de colonnes, ligne d'ajout compacte, suppression en rouge — tout le filtrage/tri résolu côté backend, décision du 2026-07-06, 12 tests) |
 | A7.2 — Entretien | ⬜ | `PlayerInterview` | Idem. `playerFeedback` (saisie par le joueur lui-même) reste hors scope — champ réservé pour plus tard, non exposé en écriture au rôle Player |
 | A7.3 — Notes | ⬜ | `PlayerNote` | Idem + introduit le modèle de visibilité Privé/Semi-privé/Public. **Relire `docs/decisions-ouvertes-et-rgpd.md` (Article 15) avant d'implémenter** — notes `PRIVE` non visibles par le joueur |
 | A7.4 — Objectifs | ⬜ | `PlayerObjective` | Idem + réutilise le modèle de visibilité construit en A7.3 ; 4 statuts (`PLANNED`/`IN_PROGRESS`/`ACHIEVED`/`FAILED`), défaut `SEMI_PRIVE` |
@@ -87,8 +87,10 @@ puis le duo Notes → Objectifs qui partage le modèle de visibilité, puis Éva
 - **Onglet Blessure** : reste en Phase 8 (données de santé, traitement RGPD dédié).
 
 Tests automatisés (avant A7) : 92 tests backend (Jest/NestJS) + 47 tests frontend (Jest/React
-Testing Library — voir `docs/architecture.md` §6). Plusieurs bugs réels ont été trouvés et
-corrigés en testant manuellement avec les 6 rôles (voir `docs/modules/auth-roles.md` §Patterns
+Testing Library — voir `docs/architecture.md` §6). A7.1 (Mesures) : 109 tests backend + 59
+tests frontend au total. Plusieurs bugs réels ont été trouvés et corrigés en testant
+manuellement avec les 6
+rôles (voir `docs/modules/auth-roles.md` §Patterns
 découverts).
 
 ### Partie B — Module Calendrier

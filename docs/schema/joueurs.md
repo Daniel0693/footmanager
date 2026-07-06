@@ -326,7 +326,8 @@ ci-dessous est à ajouter rétroactivement en Phase 3 — voir `docs/roadmap.md`
 @@unique([memberId])                       sur PlayerProfile (relation 1-1)
 @@unique([clubId, categoryId])             sur ClubEvaluationConfig
 @@index([playerId])                        sur PlayerTeam, PlayerEvaluation, PlayerNote,
-                                              PlayerInterview, PlayerObjective, PlayerAbsence
+                                              PlayerInterview, PlayerObjective, PlayerAbsence,
+                                              PlayerMeasurement
 @@index([teamId])                          sur PlayerTeam
 @@index([playerId, date])                  sur PlayerEvaluation, PlayerAbsence
 @@index([teamId, memberId])                sur TeamStaff

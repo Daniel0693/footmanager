@@ -16,11 +16,18 @@ const prisma = new PrismaClient();
 // ─────────────────────────────────────────────────────────────────────────
 
 async function upsertSystemRole(name: string, description: string) {
-  const existing = await prisma.role.findFirst({ where: { name, isSystem: true, clubId: null } });
+  const existing = await prisma.role.findFirst({
+    where: { name, isSystem: true, clubId: null },
+  });
   if (existing) {
-    return prisma.role.update({ where: { id: existing.id }, data: { description } });
+    return prisma.role.update({
+      where: { id: existing.id },
+      data: { description },
+    });
   }
-  return prisma.role.create({ data: { name, description, isSystem: true, clubId: null } });
+  return prisma.role.create({
+    data: { name, description, isSystem: true, clubId: null },
+  });
 }
 
 async function upsertPermission(
@@ -60,7 +67,14 @@ async function upsertEvaluationCategory(
     });
   }
   return prisma.evaluationCategory.create({
-    data: { name, description, defaultDisplayOrder, sport, isSystem: true, clubId: null },
+    data: {
+      name,
+      description,
+      defaultDisplayOrder,
+      sport,
+      isSystem: true,
+      clubId: null,
+    },
   });
 }
 
@@ -79,10 +93,15 @@ async function upsertPlayingStyleTag(name: string) {
     where: { name, isSystem: true, clubId: null },
   });
   if (existing) return existing;
-  return prisma.playingStyleTag.create({ data: { name, isSystem: true, clubId: null } });
+  return prisma.playingStyleTag.create({
+    data: { name, isSystem: true, clubId: null },
+  });
 }
 
-async function upsertScoutingCriterion(name: string, dimension: ScoutingDimension) {
+async function upsertScoutingCriterion(
+  name: string,
+  dimension: ScoutingDimension,
+) {
   const existing = await prisma.playerScoutingCriterion.findFirst({
     where: { name, dimension, isSystem: true, clubId: null },
   });
@@ -98,7 +117,10 @@ async function upsertScoutingCriterion(name: string, dimension: ScoutingDimensio
 
 async function seedRoles() {
   const roles = await Promise.all([
-    upsertSystemRole('Player', "Joueur — accès à son profil, calendrier, convocations, feedback"),
+    upsertSystemRole(
+      'Player',
+      'Joueur — accès à son profil, calendrier, convocations, feedback',
+    ),
     upsertSystemRole(
       'Parent',
       "Parent d'un joueur — convocations, confirmation de présence, suivi de l'enfant",
@@ -115,7 +137,10 @@ async function seedRoles() {
       'SuperAdmin',
       'Rôle technique le plus élevé — accès multi-club et administration de la plateforme',
     ),
-    upsertSystemRole('Proprietaire', 'Propriétaire du club, au-dessus de SuperAdmin'),
+    upsertSystemRole(
+      'Proprietaire',
+      'Propriétaire du club, au-dessus de SuperAdmin',
+    ),
   ]);
 
   const byName = Object.fromEntries(roles.map((role) => [role.name, role]));
@@ -134,7 +159,10 @@ async function seedRoles() {
   const CLUB: PermissionScope = 'CLUB';
   const ALL: PermissionScope = 'ALL';
 
-  const permissionSpecsByRole: Record<string, [string, PermissionAction, PermissionScope, string][]> = {
+  const permissionSpecsByRole: Record<
+    string,
+    [string, PermissionAction, PermissionScope, string][]
+  > = {
     // Le rôle Parent n'a pas encore de permission player_profile/team_staff :
     // aucune liaison Parent↔Joueur n'est modélisée (voir décision ouverte #5,
     // docs/decisions-ouvertes-et-rgpd.md). À compléter quand elle existera.
@@ -143,25 +171,76 @@ async function seedRoles() {
       ['player_profile', READ, OWN, 'Consulter son propre profil joueur'],
       ['team', READ, TEAM, 'Consulter son équipe'],
       ['player_team', READ, TEAM, 'Consulter l’effectif de son équipe'],
+      [
+        'player_measurement',
+        READ,
+        OWN,
+        'Consulter ses propres mesures physiques',
+      ],
     ],
-    Parent: [['member', READ, OWN, "Consulter le profil membre lié à son enfant"]],
+    Parent: [
+      ['member', READ, OWN, 'Consulter le profil membre lié à son enfant'],
+    ],
     Coach: [
       ['member', READ, TEAM, 'Consulter les membres de ses équipes'],
       ['member', UPDATE, TEAM, 'Modifier les membres de ses équipes'],
       ['team', READ, TEAM, 'Consulter ses équipes'],
-      ['player_profile', READ, TEAM, 'Consulter les profils joueurs de ses équipes'],
-      ['player_profile', UPDATE, TEAM, 'Modifier les profils joueurs de ses équipes'],
+      [
+        'player_profile',
+        READ,
+        TEAM,
+        'Consulter les profils joueurs de ses équipes',
+      ],
+      [
+        'player_profile',
+        UPDATE,
+        TEAM,
+        'Modifier les profils joueurs de ses équipes',
+      ],
       // Parité complète PRINCIPAL/CO_ENTRAINEUR/ADJOINT sur la gestion du
       // staff (docs/schema/joueurs.md), sauf modifier/retirer la fiche du
       // Principal — exception gérée au niveau service (TeamStaffService),
       // pas par le système de permission générique.
       ['team_staff', READ, TEAM, 'Consulter le staff de ses équipes'],
       ['team_staff', CREATE, TEAM, 'Affecter un membre du staff à ses équipes'],
-      ['team_staff', UPDATE, TEAM, 'Modifier une affectation de staff de ses équipes'],
-      ['team_staff', DELETE, TEAM, 'Retirer une affectation de staff de ses équipes'],
+      [
+        'team_staff',
+        UPDATE,
+        TEAM,
+        'Modifier une affectation de staff de ses équipes',
+      ],
+      [
+        'team_staff',
+        DELETE,
+        TEAM,
+        'Retirer une affectation de staff de ses équipes',
+      ],
       ['player_team', READ, TEAM, "Consulter l'effectif de ses équipes"],
       ['player_team', CREATE, TEAM, 'Affecter un joueur à ses équipes'],
-      ['player_team', UPDATE, TEAM, "Modifier une affectation d'effectif de ses équipes"],
+      [
+        'player_team',
+        UPDATE,
+        TEAM,
+        "Modifier une affectation d'effectif de ses équipes",
+      ],
+      [
+        'player_measurement',
+        READ,
+        TEAM,
+        'Consulter les mesures des joueurs de ses équipes',
+      ],
+      [
+        'player_measurement',
+        CREATE,
+        TEAM,
+        'Ajouter une mesure pour un joueur de ses équipes',
+      ],
+      [
+        'player_measurement',
+        DELETE,
+        TEAM,
+        'Supprimer une mesure erronée pour un joueur de ses équipes',
+      ],
     ],
     AdminClub: [
       ['club', READ, CLUB, 'Consulter son club'],
@@ -175,22 +254,65 @@ async function seedRoles() {
       ['member', UPDATE, CLUB, 'Modifier un membre du club'],
       ['member', DELETE, CLUB, 'Retirer un membre du club'],
       ['role', READ, CLUB, 'Consulter les rôles disponibles dans le club'],
-      ['player_profile', READ, CLUB, 'Consulter tous les profils joueurs du club'],
+      [
+        'player_profile',
+        READ,
+        CLUB,
+        'Consulter tous les profils joueurs du club',
+      ],
       ['player_profile', CREATE, CLUB, 'Créer un profil joueur dans le club'],
       ['player_profile', UPDATE, CLUB, 'Modifier un profil joueur du club'],
       ['player_profile', DELETE, CLUB, 'Supprimer un profil joueur du club'],
-      ['team_staff', READ, CLUB, 'Consulter le staff de toutes les équipes du club'],
+      [
+        'team_staff',
+        READ,
+        CLUB,
+        'Consulter le staff de toutes les équipes du club',
+      ],
       ['team_staff', CREATE, CLUB, 'Affecter un membre du staff à une équipe'],
       ['team_staff', UPDATE, CLUB, 'Modifier une affectation de staff'],
       ['team_staff', DELETE, CLUB, 'Retirer une affectation de staff'],
-      ['player_team', READ, CLUB, "Consulter l'effectif de toutes les équipes du club"],
+      [
+        'player_team',
+        READ,
+        CLUB,
+        "Consulter l'effectif de toutes les équipes du club",
+      ],
       ['player_team', CREATE, CLUB, 'Affecter un joueur à une équipe du club'],
-      ['player_team', UPDATE, CLUB, "Modifier une affectation d'effectif du club"],
-      ['player_team', DELETE, CLUB, "Supprimer une affectation d'effectif du club"],
+      [
+        'player_team',
+        UPDATE,
+        CLUB,
+        "Modifier une affectation d'effectif du club",
+      ],
+      [
+        'player_team',
+        DELETE,
+        CLUB,
+        "Supprimer une affectation d'effectif du club",
+      ],
+      [
+        'player_measurement',
+        READ,
+        CLUB,
+        'Consulter les mesures de tous les joueurs du club',
+      ],
+      [
+        'player_measurement',
+        CREATE,
+        CLUB,
+        'Ajouter une mesure pour un joueur du club',
+      ],
+      [
+        'player_measurement',
+        DELETE,
+        CLUB,
+        "Supprimer une mesure d'un joueur du club",
+      ],
     ],
     SuperAdmin: [
       ['club', READ, ALL, 'Consulter tous les clubs'],
-      ['club', CREATE, ALL, "Créer un club (administration plateforme)"],
+      ['club', CREATE, ALL, 'Créer un club (administration plateforme)'],
       ['club', UPDATE, ALL, "Modifier n'importe quel club"],
       ['club', DELETE, ALL, "Supprimer n'importe quel club"],
       ['team', READ, ALL, "Consulter n'importe quelle équipe"],
@@ -201,22 +323,85 @@ async function seedRoles() {
       ['member', CREATE, ALL, "Ajouter un membre dans n'importe quel club"],
       ['member', UPDATE, ALL, "Modifier n'importe quel membre"],
       ['member', DELETE, ALL, "Retirer n'importe quel membre"],
-      ['role', READ, ALL, "Consulter tous les rôles"],
+      ['role', READ, ALL, 'Consulter tous les rôles'],
       ['role', CREATE, ALL, "Créer un rôle dans n'importe quel club"],
       ['role', UPDATE, ALL, "Modifier n'importe quel rôle"],
       ['role', DELETE, ALL, "Supprimer n'importe quel rôle personnalisé"],
       ['player_profile', READ, ALL, "Consulter n'importe quel profil joueur"],
-      ['player_profile', CREATE, ALL, "Créer un profil joueur dans n'importe quel club"],
+      [
+        'player_profile',
+        CREATE,
+        ALL,
+        "Créer un profil joueur dans n'importe quel club",
+      ],
       ['player_profile', UPDATE, ALL, "Modifier n'importe quel profil joueur"],
       ['player_profile', DELETE, ALL, "Supprimer n'importe quel profil joueur"],
-      ['team_staff', READ, ALL, "Consulter le staff de n'importe quelle équipe"],
-      ['team_staff', CREATE, ALL, "Affecter un membre du staff dans n'importe quelle équipe"],
-      ['team_staff', UPDATE, ALL, "Modifier n'importe quelle affectation de staff"],
-      ['team_staff', DELETE, ALL, "Retirer n'importe quelle affectation de staff"],
-      ['player_team', READ, ALL, "Consulter l'effectif de n'importe quelle équipe"],
-      ['player_team', CREATE, ALL, "Affecter un joueur dans n'importe quelle équipe"],
-      ['player_team', UPDATE, ALL, "Modifier n'importe quelle affectation d'effectif"],
-      ['player_team', DELETE, ALL, "Supprimer n'importe quelle affectation d'effectif"],
+      [
+        'team_staff',
+        READ,
+        ALL,
+        "Consulter le staff de n'importe quelle équipe",
+      ],
+      [
+        'team_staff',
+        CREATE,
+        ALL,
+        "Affecter un membre du staff dans n'importe quelle équipe",
+      ],
+      [
+        'team_staff',
+        UPDATE,
+        ALL,
+        "Modifier n'importe quelle affectation de staff",
+      ],
+      [
+        'team_staff',
+        DELETE,
+        ALL,
+        "Retirer n'importe quelle affectation de staff",
+      ],
+      [
+        'player_team',
+        READ,
+        ALL,
+        "Consulter l'effectif de n'importe quelle équipe",
+      ],
+      [
+        'player_team',
+        CREATE,
+        ALL,
+        "Affecter un joueur dans n'importe quelle équipe",
+      ],
+      [
+        'player_team',
+        UPDATE,
+        ALL,
+        "Modifier n'importe quelle affectation d'effectif",
+      ],
+      [
+        'player_team',
+        DELETE,
+        ALL,
+        "Supprimer n'importe quelle affectation d'effectif",
+      ],
+      [
+        'player_measurement',
+        READ,
+        ALL,
+        "Consulter les mesures de n'importe quel joueur",
+      ],
+      [
+        'player_measurement',
+        CREATE,
+        ALL,
+        "Ajouter une mesure pour n'importe quel joueur",
+      ],
+      [
+        'player_measurement',
+        DELETE,
+        ALL,
+        "Supprimer une mesure de n'importe quel joueur",
+      ],
     ],
     // Le mécanisme de transfert sécurisé du rôle Proprietaire est une
     // décision ouverte (docs/decisions-ouvertes-et-rgpd.md) — en attendant,
@@ -228,7 +413,12 @@ async function seedRoles() {
   for (const [roleName, specs] of Object.entries(permissionSpecsByRole)) {
     const role = byName[roleName];
     for (const [resource, action, scope, description] of specs) {
-      const permission = await upsertPermission(resource, action, scope, description);
+      const permission = await upsertPermission(
+        resource,
+        action,
+        scope,
+        description,
+      );
       await grantPermission(role.id, permission.id);
     }
   }
@@ -244,12 +434,25 @@ async function seedEvaluationCategoriesAndCriteria() {
     [
       'Technique',
       'Maîtrise technique individuelle du ballon',
-      ['Contrôle de balle', 'Passe courte', 'Passe longue', 'Frappe', 'Dribble / 1c1', 'Jeu de tête'],
+      [
+        'Contrôle de balle',
+        'Passe courte',
+        'Passe longue',
+        'Frappe',
+        'Dribble / 1c1',
+        'Jeu de tête',
+      ],
     ],
     [
       'Tactique',
       'Compréhension et application des principes de jeu',
-      ['Placement sans ballon', 'Lecture du jeu', 'Prise de décision', 'Pressing', "Utilisation de l'espace"],
+      [
+        'Placement sans ballon',
+        'Lecture du jeu',
+        'Prise de décision',
+        'Pressing',
+        "Utilisation de l'espace",
+      ],
     ],
     [
       'Physique',
@@ -259,12 +462,23 @@ async function seedEvaluationCategoriesAndCriteria() {
     [
       'Mental',
       'Concentration, leadership, combativité',
-      ['Concentration', 'Leadership', 'Combativité', 'Résilience', "Gestion de l'erreur"],
+      [
+        'Concentration',
+        'Leadership',
+        'Combativité',
+        'Résilience',
+        "Gestion de l'erreur",
+      ],
     ],
     [
       'Émotionnel',
       'Gestion du stress, self-control, confiance en soi',
-      ['Gestion du stress', 'Self-control', 'Confiance en soi', 'Réaction aux critiques'],
+      [
+        'Gestion du stress',
+        'Self-control',
+        'Confiance en soi',
+        'Réaction aux critiques',
+      ],
     ],
     [
       'Vie de groupe',
@@ -320,7 +534,12 @@ async function seedScoutingCriteria() {
   const criteriaByDimension: [ScoutingDimension, string[]][] = [
     [
       'PHYSIQUE',
-      ['Gabarit / morphologie', 'Vitesse de déplacement', 'Endurance / condition physique', 'Puissance / force'],
+      [
+        'Gabarit / morphologie',
+        'Vitesse de déplacement',
+        'Endurance / condition physique',
+        'Puissance / force',
+      ],
     ],
     [
       'TECHNIQUE',
@@ -346,7 +565,13 @@ async function seedScoutingCriteria() {
     ],
     [
       'MENTAL',
-      ['Concentration et régularité', 'Leadership', 'Attitude et comportement', 'Combativité', 'Résilience'],
+      [
+        'Concentration et régularité',
+        'Leadership',
+        'Attitude et comportement',
+        'Combativité',
+        'Résilience',
+      ],
     ],
   ];
 

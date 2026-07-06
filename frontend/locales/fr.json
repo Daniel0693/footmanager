@@ -113,6 +113,29 @@
     "RIGHT": "Droit",
     "BOTH": "Ambidextre"
   },
+  "measurementType": {
+    "HEIGHT": "Taille",
+    "WEIGHT": "Poids"
+  },
+  "measurements": {
+    "chartFiltersTitle": "Filtres",
+    "allTypes": "Tous les types",
+    "dateFrom": "Du",
+    "dateTo": "Au",
+    "type": "Type",
+    "value": "Valeur",
+    "date": "Date",
+    "add": "Ajouter une mesure",
+    "submit": "Ajouter",
+    "delete": "Supprimer",
+    "created": "Mesure ajoutée avec succès",
+    "createFailed": "Échec de l'ajout de la mesure",
+    "deleteFailed": "Échec de la suppression de la mesure",
+    "loadFailed": "Impossible de charger les mesures",
+    "empty": "Aucune mesure enregistrée pour l'instant",
+    "valueRequired": "La valeur est requise",
+    "dateRequired": "La date est requise"
+  },
   "playerDetail": {
     "backToRoster": "Retour à l'effectif",
     "edit": "Modifier",
@@ -194,6 +217,10 @@
       "ALREADY_ACTIVE": "Ce joueur a déjà une affectation active dans cette équipe",
       "JERSEY_NUMBER_TAKEN": "Ce numéro de maillot est déjà attribué dans cette équipe",
       "NOT_FOUND": "Affectation introuvable"
+    },
+    "PLAYER_MEASUREMENTS": {
+      "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
+      "NOT_FOUND": "Mesure introuvable"
     },
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",

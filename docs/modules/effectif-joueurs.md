@@ -66,6 +66,43 @@ la fiche joueur :
 | **Absence** | absences planifiées | `PlayerAbsence` | Retiré de la Partie A ; à construire avec le Calendrier/présences (Partie B et/ou Phases 4-5) — emplacement précis à trancher |
 | **Blessure** | suivi médical | `Injury` — voir `docs/modules/blessures.md` | Phase 8 (données de santé, RGPD dédié) |
 
+### Mesures — filtres/tri toujours résolus côté backend
+
+**Décision du 2026-07-06** : dans tout le projet, un filtre ou un tri affiché à l'écran doit,
+dans la mesure du possible, être résolu côté backend (query params sur le `GET`), jamais par un
+`.filter()`/`.sort()` en mémoire sur des données déjà chargées. L'onglet Mesures est le premier
+à appliquer cette règle et sert de référence pour les prochains onglets/modules :
+
+- **Filtres partagés** (carte du haut, décision du 2026-07-06) : **type** (Taille/Poids/Tous
+  les types) + plage de dates (`Du`/`Au` — une date unique s'obtient en renseignant la même
+  date aux deux champs). Un seul jeu d'état pour le graphique ET le tableau : changer un filtre
+  redéclenche les deux appels `GET .../measurements?type=...&dateFrom=...&dateTo=...` en
+  parallèle (deux appels réseau car le tri du tableau — voir plus bas — ne s'applique pas au
+  graphique, toujours chronologique ; mais le filtre est identique pour les deux). Le filtre par
+  saison/championnat viendra se greffer sur les mêmes query params une fois la Phase 3 en place
+  (voir note plus haut) — non implémenté pour l'instant, pas de contrôle d'UI présent en
+  attendant.
+- **Graphique unique** : les deux courbes (Taille, Poids) sont superposées sur un même
+  graphique (`recharts`/`LineChart`), fusionnées par date. Couleurs validées via la skill
+  dataviz (contraste + séparation CVD, ΔE ≈ 100) plutôt que les variables `--chart-1`/`--chart-2`
+  du thème (trop proches, peu visibles) — bleu `#2a78d6`/`#3987e5` et orange `#eb6834`/`#d95926`
+  (clair/sombre), cohérent avec le code couleur déjà utilisé pour le sélecteur de poste. Une
+  légende cliquable personnalisée (pas le composant `ChartLegendContent` de shadcn, qui n'est pas
+  interactif) pilote directement le filtre `type` partagé (décision du 2026-07-06) — cliquer une
+  série l'isole (l'autre est estompée, opacité 0.4) et redéclenche les deux fetchs backend
+  (graphique + tableau) avec `type=HEIGHT`/`WEIGHT` ; cliquer la série déjà isolée revient à
+  "Tous les types". Ce n'est donc plus un masquage purement visuel côté client : la légende est
+  une troisième façon d'agir sur le même filtre backend que le sélecteur "Type" et le tableau.
+  `Line` reste monté (prop `hide` dérivée du filtre) pour que son entrée de légende reste
+  cliquable même quand ses données sont actuellement absentes.
+- **Ligne d'ajout** : formulaire compact sur une seule ligne (type, valeur, date, bouton), sans
+  carte/titre dédié.
+- **Tableau d'historique** : mêmes filtres que le graphique (carte du haut, pas de filtres
+  propres) + tri par colonne (`Date`/`Valeur`, cliquer l'en-tête bascule asc/desc), résolu par
+  les query params `sortBy`/`sortOrder` côté backend — propres au tableau, le graphique reste
+  toujours chronologique. Bouton Supprimer en `variant="destructive"` (rouge) pour signaler une
+  action irréversible.
+
 ### Évaluation — radar dynamique par catégories configurables
 
 Le radar de l'onglet Évaluation est **dynamique** : ses axes correspondent aux

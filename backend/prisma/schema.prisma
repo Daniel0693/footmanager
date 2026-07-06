@@ -189,9 +189,11 @@ model RolePermission {
 // ─────────────────────────────────────────────────────────────────────────
 // Joueurs (partiel) — docs/schema/joueurs.md
 // PlayerProfile/PlayerTeam/TeamStaff (Phase 2, module Effectif) + tables
-// d'évaluation (seed système Phase 1). Le reste du module (PlayerMeasurement,
-// PlayerEvaluation, PlayerNote, PlayerObjective, PlayerInterview,
-// PlayerAbsence) arrive en Phase 6.
+// d'évaluation (seed système Phase 1). Décision du 2026-07-06 : Mesures,
+// Entretien, Notes, Objectifs et Évaluation sont avancés dans cette phase
+// (étape A7, une entité à la fois — voir docs/roadmap.md) plutôt que
+// reportés en Phase 6. Seuls Dashboard (Phase 6) et Absence (Partie B /
+// Phases 4-5) restent hors de cette phase ; Blessure reste Phase 8 (RGPD).
 // ─────────────────────────────────────────────────────────────────────────
 
 // Postes réels sur le terrain (football). La ligne (gardien/défense/milieu/
@@ -242,7 +244,29 @@ model PlayerProfile {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  playerTeams PlayerTeam[]
+  playerTeams        PlayerTeam[]
+  playerMeasurements PlayerMeasurement[]
+}
+
+enum MeasurementType {
+  HEIGHT
+  WEIGHT
+}
+
+// Une ligne par mesure, jamais de mise à jour en place (docs/schema/joueurs.md)
+// — historique complet pour la courbe d'évolution. Pas de route UPDATE :
+// corriger une saisie erronée passe par DELETE + nouvelle entrée.
+model PlayerMeasurement {
+  id        Int             @id @default(autoincrement())
+  playerId  Int
+  player    PlayerProfile   @relation(fields: [playerId], references: [id])
+  type      MeasurementType
+  value     Decimal         @db.Decimal(5, 1)
+  date      DateTime        @db.Date
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([playerId])
 }
 
 model PlayerTeam {

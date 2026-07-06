@@ -23,6 +23,16 @@ function jsonResponse(body: unknown, ok = true) {
   return { ok, json: () => Promise.resolve(body) };
 }
 
+// L'onglet Mesures (rendu par défaut sur la fiche joueur) fait son propre
+// appel `GET .../measurements` en plus du `GET` du profil joueur — router
+// par URL plutôt que d'enchaîner des mockResolvedValueOnce positionnels.
+function mockApiFetchDefault(playerBody: unknown, playerOk = true) {
+  mockApiFetch.mockImplementation((url: string) => {
+    if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
+    return Promise.resolve(jsonResponse(playerBody, playerOk));
+  });
+}
+
 function playerDetail(overrides: Record<string, unknown> = {}) {
   return {
     id: 1,
@@ -66,7 +76,7 @@ describe("PlayerDetailPageContent", () => {
   });
 
   it("appelle le bon endpoint avec teamId en query — régression du bug Coach/403 sur la fiche joueur", async () => {
-    mockApiFetch.mockResolvedValue(jsonResponse(playerDetail()));
+    mockApiFetchDefault(playerDetail());
 
     renderPage("1", "5", "1");
 
@@ -82,7 +92,7 @@ describe("PlayerDetailPageContent", () => {
   });
 
   it("affiche l'identité, les informations sportives et les positions", async () => {
-    mockApiFetch.mockResolvedValue(jsonResponse(playerDetail()));
+    mockApiFetchDefault(playerDetail());
 
     renderPage();
 
@@ -99,8 +109,8 @@ describe("PlayerDetailPageContent", () => {
   });
 
   it("affiche un tiret pour l'email d'un membre sans compte plutôt que de planter", async () => {
-    mockApiFetch.mockResolvedValue(
-      jsonResponse(playerDetail({ member: { ...playerDetail().member, user: null } })),
+    mockApiFetchDefault(
+      playerDetail({ member: { ...playerDetail().member, user: null } }),
     );
 
     renderPage();
@@ -109,8 +119,9 @@ describe("PlayerDetailPageContent", () => {
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
-  it("affiche les 7 onglets de la fiche joueur, tous en \"bientôt disponible\"", async () => {
-    mockApiFetch.mockResolvedValue(jsonResponse(playerDetail()));
+  it("affiche les 7 onglets de la fiche joueur ; Mesures est actif par défaut, les autres restent \"bientôt disponible\"", async () => {
+    mockApiFetchDefault(playerDetail());
+    const user = userEvent.setup();
 
     renderPage();
     await screen.findByText("Tom Joueur");
@@ -126,6 +137,10 @@ describe("PlayerDetailPageContent", () => {
     ]) {
       expect(screen.getByRole("tab", { name: label })).toBeInTheDocument();
     }
+    // Mesures (A7.1) est le seul onglet fonctionnel à ce stade — actif par défaut.
+    expect(screen.getByText("Filtres")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Dashboard" }));
     expect(
       screen.getByText("Cette section arrivera dans une prochaine phase."),
     ).toBeInTheDocument();
@@ -142,7 +157,7 @@ describe("PlayerDetailPageContent", () => {
   });
 
   it("affiche le bouton Modifier une fois le joueur chargé", async () => {
-    mockApiFetch.mockResolvedValue(jsonResponse(playerDetail()));
+    mockApiFetchDefault(playerDetail());
 
     renderPage();
 
@@ -150,9 +165,11 @@ describe("PlayerDetailPageContent", () => {
   });
 
   it("cliquer un poste sur le terrain sauvegarde immédiatement (PATCH), sans bouton Enregistrer", async () => {
-    mockApiFetch
-      .mockResolvedValueOnce(jsonResponse(playerDetail())) // GET initial
-      .mockResolvedValueOnce(jsonResponse({})); // PATCH
+    mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
+      if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
+      if (options?.method === "PATCH") return Promise.resolve(jsonResponse({}));
+      return Promise.resolve(jsonResponse(playerDetail()));
+    });
     const user = userEvent.setup();
 
     renderPage("1", "5", "1");
@@ -174,9 +191,11 @@ describe("PlayerDetailPageContent", () => {
   });
 
   it("échec du PATCH de poste : la sélection est restaurée et une erreur est affichée", async () => {
-    mockApiFetch
-      .mockResolvedValueOnce(jsonResponse(playerDetail()))
-      .mockResolvedValueOnce(jsonResponse(null, false));
+    mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
+      if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
+      if (options?.method === "PATCH") return Promise.resolve(jsonResponse(null, false));
+      return Promise.resolve(jsonResponse(playerDetail()));
+    });
     const user = userEvent.setup();
 
     renderPage("1", "5", "1");

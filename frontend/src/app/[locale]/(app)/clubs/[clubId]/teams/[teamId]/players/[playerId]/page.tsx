@@ -22,6 +22,7 @@ import {
   ExistingPlayer,
   PlayerFormDialog,
 } from "@/components/players/player-form-dialog";
+import { MeasurementsTab } from "@/components/players/measurements-tab";
 import { PositionPitch } from "@/components/players/position-pitch";
 
 interface PlayerDetail {
@@ -318,7 +319,7 @@ export function PlayerDetailPageContent({
           )}
         </div>
 
-        <Tabs defaultValue="dashboard">
+        <Tabs defaultValue="measurements">
           <TabsList className="flex-wrap">
             {DETAIL_TABS.map((tab) => (
               <TabsTrigger key={tab} value={tab}>
@@ -326,7 +327,10 @@ export function PlayerDetailPageContent({
               </TabsTrigger>
             ))}
           </TabsList>
-          {DETAIL_TABS.map((tab) => (
+          <TabsContent value="measurements">
+            <MeasurementsTab clubId={clubId} teamId={teamId} playerId={playerId} />
+          </TabsContent>
+          {DETAIL_TABS.filter((tab) => tab !== "measurements").map((tab) => (
             <TabsContent key={tab} value={tab}>
               <Card>
                 <CardContent className="py-6 text-sm text-muted-foreground">
