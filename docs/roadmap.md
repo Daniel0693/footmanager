@@ -28,7 +28,8 @@ Légende : ⬜ pas commencé · 🚧 en cours · ✅ terminé
 
 ## Phase 2 — Effectif & Calendrier 🚧
 
-_~2–3 semaines_
+_~4–5 semaines — révisé à la hausse suite à la décision du 2026-07-06 (A7 avance 4 entités
+depuis la Phase 6 dans la Partie A)_
 
 - `PlayerProfile`, `PlayerTeam`, `TeamStaff`.
 - Module Effectif : ajout/édition/suppression joueurs, liste de l'effectif, profil de base.
@@ -54,17 +55,46 @@ _~2–3 semaines_
 | Backend `clubs` — "mes clubs" | ✅ | `GET /clubs` scopé à l'utilisateur connecté, remplace un bricolage `localStorage` initial |
 | Backend `members` (création/édition sans compte) | ✅ | `POST`/`PATCH /clubs/:clubId/members`, `Member.userId` nullable, champs `gender`/`preferredFoot` |
 | Frontend liste effectif | ✅ | Table + filtres par ligne/poste, navigation club → équipe → effectif |
-| Frontend fiche joueur (2 colonnes) | ⬜ | Reste à faire : panneau infos statiques (identité + affectation, fonctionnel) + zone à 7 onglets (Dashboard, Mesures, Évaluation, Objectifs, Entretien, Absence, Blessure — tous en "à venir"), formulaire ajout/édition |
-| Tests multi-rôles bout-en-bout | ⬜ | Scénario complet + revue de cohérence doc ↔ code |
+| Frontend fiche joueur (2 colonnes) | ✅ | Panneau infos statiques (identité + affectation, fonctionnel) + sélecteur de poste visuel (terrain interactif, postes secondaires multiples) + formulaire ajout/édition |
+| **A7 — Profil joueur enrichi** | 🚧 | **Décision du 2026-07-06** : contenu réel des onglets, un par un (voir sous-étapes ci-dessous), plutôt que de tout renvoyer en Phase 6 |
+| A8 — Tests multi-rôles bout-en-bout | ⬜ | Scénario complet + revue de cohérence doc ↔ code (anciennement dernière étape de la Partie A, renumérotée après l'ajout de A7) |
 
-Tests automatisés : 73 tests backend (Jest/NestJS) + 26 tests frontend (Jest/React Testing
-Library, mis en place pendant cette phase — voir `docs/architecture.md` §6). Plusieurs bugs
-réels ont été trouvés et corrigés en testant manuellement avec les 6 rôles (voir
-`docs/modules/auth-roles.md` §Patterns découverts).
+#### Sous-étapes A7 — une entité à la fois
+
+| Sous-étape | Statut | Entité | Contenu |
+|---|---|---|---|
+| A7.1 — Mesures | ⬜ | `PlayerMeasurement` | Schéma/migration, CRUD backend + permissions, onglet frontend (graphique d'évolution taille/poids, pas de filtre de saison — voir note ci-dessous), tests |
+| A7.2 — Entretien | ⬜ | `PlayerInterview` | Idem. `playerFeedback` (saisie par le joueur lui-même) reste hors scope — champ réservé pour plus tard, non exposé en écriture au rôle Player |
+| A7.3 — Notes | ⬜ | `PlayerNote` | Idem + introduit le modèle de visibilité Privé/Semi-privé/Public. **Relire `docs/decisions-ouvertes-et-rgpd.md` (Article 15) avant d'implémenter** — notes `PRIVE` non visibles par le joueur |
+| A7.4 — Objectifs | ⬜ | `PlayerObjective` | Idem + réutilise le modèle de visibilité construit en A7.3 ; 4 statuts (`PLANNED`/`IN_PROGRESS`/`ACHIEVED`/`FAILED`), défaut `SEMI_PRIVE` |
+| A7.5 — Évaluation | ⬜ | `PlayerEvaluation` | Idem + radar dynamique (N axes selon `ClubEvaluationConfig` du club, voir `docs/schema/joueurs.md`) ; `EvaluationCategory`/`EvaluationCriterion` déjà seedés depuis la Phase 1 |
+
+Ordre choisi : les deux entités les plus simples (CRUD seul, pas de modèle partagé) d'abord,
+puis le duo Notes → Objectifs qui partage le modèle de visibilité, puis Évaluation en dernier
+(le plus gros morceau d'UI — radar dynamique).
+
+**Points à reconsidérer plus tard (pris en note pour ne pas les oublier)** :
+- **Filtrage par saison/championnat** : `docs/schema/joueurs.md` §"Filtrage des statistiques par
+  période" prévoit un filtrage par `Season`/`Championship` pour ces entités — impossible tant que
+  la Phase 3 (Saisons & Championnats) n'existe pas. A7 ne livre que le filtrage par plage de
+  dates libre ; le filtrage par saison/championnat est à ajouter rétroactivement en Phase 3.
+- **`PlayerAbsence` (onglet Absence)** : retiré de la Partie A. Le construire nécessite le
+  Calendrier (Partie B) et/ou les présences de Phases 4-5 (`MatchAttendance`,
+  `TrainingAttendance`) — emplacement précis à trancher au moment d'attaquer la Partie B.
+- **Onglet Dashboard** : reste en Phase 6, dépend des statistiques de match et d'entraînement
+  (participations, titularisations, buts, passes décisives, clean sheets, cartons) qui
+  n'existeront qu'après les Phases 4 et 5.
+- **Onglet Blessure** : reste en Phase 8 (données de santé, traitement RGPD dédié).
+
+Tests automatisés (avant A7) : 92 tests backend (Jest/NestJS) + 47 tests frontend (Jest/React
+Testing Library — voir `docs/architecture.md` §6). Plusieurs bugs réels ont été trouvés et
+corrigés en testant manuellement avec les 6 rôles (voir `docs/modules/auth-roles.md` §Patterns
+découverts).
 
 ### Partie B — Module Calendrier
 
-Non commencée.
+Non commencée. À la conception, statuer sur l'emplacement de `PlayerAbsence` (voir note A7
+ci-dessus).
 
 ---
 
@@ -95,6 +125,8 @@ _~3 semaines_
   du championnat à la clôture.
 - Évaluation collective et individuelle post-match.
 - Statistiques match : buts, assists, temps de jeu, cartons (calculés depuis `MatchEvent`).
+- Alimente le futur Dashboard joueur (Phase 6) et potentiellement `PlayerAbsence` (voir décision
+  du 2026-07-06, note Partie A/étape A7 ci-dessus et `docs/modules/effectif-joueurs.md`).
 
 ---
 
@@ -107,18 +139,24 @@ _~4 semaines_
 - Bibliothèque d'exercices + éditeur graphique (placement de joueurs, tracé de flèches).
 - Évaluation globale de séance + évaluation joueurs liée à la séance.
 - Feedback joueur avec fenêtre d'édition définie par l'entraîneur.
+- Alimente le futur Dashboard joueur (Phase 6) et potentiellement `PlayerAbsence` (voir décision
+  du 2026-07-06, note Partie A/étape A7 ci-dessus et `docs/modules/effectif-joueurs.md`).
 
 ---
 
-## Phase 6 — Profil joueur complet ⬜
+## Phase 6 — Dashboard joueur ⬜
 
-_~2–3 semaines_
+_Quelques jours — phase largement réduite par la décision du 2026-07-06 (voir Partie A/étape A7
+dans Phase 2) : `PlayerMeasurement`, `PlayerEvaluation`, `PlayerObjective`, `PlayerInterview` et
+le modèle de visibilité Privé/Semi-privé/Public sont avancés à la Partie A._
 
-- `PlayerMeasurement`, `PlayerEvaluation` (radar 6 catégories), `PlayerObjective`,
-  `PlayerInterview`, `PlayerAbsence`.
-- Dashboard joueur : agrégation des stats Matchs + Entraînement.
-- Modèle de visibilité Privé/Semi-privé/Public opérationnel.
-- Statistiques filtrables par Season ou Championship.
+- Dashboard joueur : agrégation des stats Matchs (Phase 4) + Entraînement (Phase 5) — stats
+  clés (participations, titularisations, buts, passes décisives, clean sheets, cartons),
+  dernières évaluations, objectifs en cours.
+- Ne peut pas commencer avant que les Phases 4 et 5 existent (dépendance directe).
+- `PlayerAbsence` retiré de cette phase — voir note Partie A/étape A7 : construit avec le
+  Calendrier/présences (Partie B et/ou Phases 4-5).
+- Statistiques filtrables par Season ou Championship (nécessite la Phase 3).
 
 ---
 

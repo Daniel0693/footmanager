@@ -302,6 +302,11 @@ enum ObjectiveStatus {
 Toutes les stats d'un joueur (buts, présences, évaluations...) sont filtrables car chaque
 entité source est horodatée. Modes de filtrage disponibles dans l'UI :
 
+**Phasage (décision du 2026-07-06)** : `Season`/`Championship` n'existent pas avant la Phase 3.
+Les onglets Mesures/Évaluation/Objectifs/Entretien/Notes construits en Phase 2 (étape A7)
+n'implémentent donc que le filtrage par plage de dates libre ; le filtrage par saison/championnat
+ci-dessous est à ajouter rétroactivement en Phase 3 — voir `docs/roadmap.md` §Partie A/étape A7.
+
 | Mode | Requête |
 |---|---|
 | Saison courante | `WHERE event.startAt BETWEEN season.startDate AND season.endDate` |

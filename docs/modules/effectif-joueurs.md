@@ -1,13 +1,14 @@
 # Module — Gestion de l'effectif
 
-> **État d'implémentation (Phase 2)** : liste de l'effectif par équipe (table + filtres par
-> ligne/poste) et navigation club → équipe → effectif sont construites. La fiche joueur
-> individuelle reste à faire — seule sa structure est planifiée. La plupart des onglets dépendent
-> d'entités qui n'existent pas encore (`PlayerMeasurement`, `PlayerEvaluation`, `PlayerObjective`,
-> `PlayerInterview`, `PlayerAbsence` arrivent en Phase 6 ; `Injury` en Phase 8) : seul le panneau
-> d'informations (identité + affectation équipe, entités déjà en place) sera fonctionnel à
-> l'ouverture de la fiche, les 7 onglets seront visibles mais désactivés/"à venir" jusqu'à leur
-> phase respective.
+> **État d'implémentation (Phase 2)** : liste de l'effectif par équipe, navigation
+> club → équipe → effectif, et fiche joueur (panneau d'informations + sélecteur de poste)
+> sont construits. **Décision du 2026-07-06** : contrairement au découpage initial (tous les
+> onglets renvoyés en Phase 6/8), Mesures/Évaluation/Objectifs/Entretien/Notes sont avancés
+> dans la Partie A actuelle (étape A7, une entité à la fois — voir `docs/roadmap.md`).
+> Seuls **Dashboard** (Phase 6 — dépend des stats Matchs/Entraînement) et **Blessure**
+> (Phase 8 — RGPD données de santé) restent différés. **Absence** est retiré de la Partie A :
+> il sera traité avec le module Calendrier/présences (Partie B et/ou Phases 4-5), pas en
+> Phase 6, l'emplacement précis restant à trancher au moment venu.
 
 ## Liste de l'effectif — filtres par poste
 
@@ -28,8 +29,9 @@ La fiche joueur est structurée en deux colonnes :
   pied fort, numéro de maillot) + un **sélecteur de poste visuel** (terrain interactif, voir
   ci-dessous). Alimenté par `Member` + `PlayerProfile` + l'affectation `PlayerTeam` active —
   toutes ces entités existent déjà, donc ce panneau est fonctionnel dès sa construction.
-- **Colonne de droite (zone principale)** : barre à 7 onglets, aucun fonctionnel avant sa phase
-  respective (voir tableau ci-dessous).
+- **Colonne de droite (zone principale)** : barre à 8 onglets (`Notes` ajouté au découpage
+  initial de 7 — décision du 2026-07-06), chacun fonctionnel dès la phase indiquée dans le
+  tableau ci-dessous.
 
 ### Sélecteur de poste — terrain interactif
 
@@ -53,15 +55,16 @@ la fiche joueur :
 
 ## Profil joueur — onglets
 
-| Onglet | Contenu | Entité(s) associée(s) |
-|---|---|---|
-| **Dashboard** | vue d'ensemble (stats clés, dernières évaluations, objectifs en cours) | agrégation |
-| **Mesures** | courbes d'évolution (taille, poids...) | `PlayerMeasurement` |
-| **Évaluation** | graphique radar sur 6 catégories | `EvaluationCriterion` + `PlayerEvaluation` |
-| **Objectifs** | objectifs de développement, 4 statuts | `PlayerObjective` |
-| **Entretien** | comptes-rendus d'entretiens individuels | `PlayerInterview` |
-| **Absence** | absences planifiées | `PlayerAbsence` |
-| **Blessure** | suivi médical | `Injury` — voir `docs/modules/blessures.md` |
+| Onglet | Contenu | Entité(s) associée(s) | Phase |
+|---|---|---|---|
+| **Mesures** | courbes d'évolution (taille, poids...) | `PlayerMeasurement` | Phase 2, étape A7.1 |
+| **Entretien** | comptes-rendus d'entretiens individuels | `PlayerInterview` | Phase 2, étape A7.2 |
+| **Notes** | notes du staff sur le joueur, visibilité Privé/Semi-privé/Public | `PlayerNote` | Phase 2, étape A7.3 |
+| **Objectifs** | objectifs de développement, 4 statuts | `PlayerObjective` | Phase 2, étape A7.4 |
+| **Évaluation** | graphique radar sur 6 catégories | `EvaluationCriterion` + `PlayerEvaluation` | Phase 2, étape A7.5 |
+| **Dashboard** | vue d'ensemble (stats clés, dernières évaluations, objectifs en cours) | agrégation | Phase 6 — dépend des stats Matchs (Phase 4) et Entraînement (Phase 5) |
+| **Absence** | absences planifiées | `PlayerAbsence` | Retiré de la Partie A ; à construire avec le Calendrier/présences (Partie B et/ou Phases 4-5) — emplacement précis à trancher |
+| **Blessure** | suivi médical | `Injury` — voir `docs/modules/blessures.md` | Phase 8 (données de santé, RGPD dédié) |
 
 ### Évaluation — radar dynamique par catégories configurables
 
