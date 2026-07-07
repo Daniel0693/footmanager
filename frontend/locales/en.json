@@ -269,6 +269,35 @@
     "loadFailed": "Failed to load objectives",
     "empty": "No objectives recorded yet"
   },
+  "evaluations": {
+    "dateRangeLabel": "Start",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "scoresRequired": "All criteria must be scored",
+    "sortOrder": "Sort",
+    "sortDesc": "Most recent first",
+    "sortAsc": "Oldest first",
+    "add": "Add an evaluation",
+    "edit": "Edit",
+    "delete": "Delete",
+    "createTitle": "New evaluation",
+    "editTitle": "Edit evaluation",
+    "score": "Score",
+    "date": "Date",
+    "dateRequired": "Date is required",
+    "comments": "Comments",
+    "commentsPlaceholder": "Observations about this evaluation...",
+    "submitCreate": "Add",
+    "submitEdit": "Save",
+    "created": "Evaluation added successfully",
+    "updated": "Evaluation updated successfully",
+    "deleteFailed": "Failed to delete the evaluation",
+    "loadFailed": "Failed to load evaluations",
+    "configLoadFailed": "Failed to load radar configuration",
+    "radarEmpty": "Not enough data yet to display the radar",
+    "empty": "No evaluations recorded yet",
+    "authorLabel": "Evaluated by"
+  },
   "playerDetail": {
     "backToRoster": "Back to roster",
     "edit": "Edit",
@@ -367,6 +396,11 @@
     "PLAYER_OBJECTIVES": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
       "NOT_FOUND": "Objective not found"
+    },
+    "PLAYER_EVALUATIONS": {
+      "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
+      "NOT_FOUND": "Evaluation not found",
+      "CRITERION_NOT_IN_CLUB": "This criterion does not belong to this club"
     },
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",

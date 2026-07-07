@@ -142,7 +142,7 @@ enum TeamSide {
 | PlayerTeam | `joueurs.md` |
 | TeamStaff | `joueurs.md` |
 | EvaluationCategory, ClubEvaluationConfig | `joueurs.md` |
-| EvaluationCriterion, PlayerEvaluation | `joueurs.md` |
+| EvaluationCriterion, PlayerEvaluation, PlayerEvaluationScore | `joueurs.md` |
 | PlayerNote | `joueurs.md` |
 | PlayerInterview | `joueurs.md` |
 | PlayerObjective | `joueurs.md` |

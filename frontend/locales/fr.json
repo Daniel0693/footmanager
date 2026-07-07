@@ -269,6 +269,35 @@
     "loadFailed": "Impossible de charger les objectifs",
     "empty": "Aucun objectif enregistré pour l'instant"
   },
+  "evaluations": {
+    "dateRangeLabel": "Début",
+    "dateFrom": "Du",
+    "dateTo": "Au",
+    "scoresRequired": "Tous les critères doivent être notés",
+    "sortOrder": "Tri",
+    "sortDesc": "Plus récent d'abord",
+    "sortAsc": "Plus ancien d'abord",
+    "add": "Ajouter une évaluation",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "createTitle": "Nouvelle évaluation",
+    "editTitle": "Modifier l'évaluation",
+    "score": "Score",
+    "date": "Date",
+    "dateRequired": "La date est requise",
+    "comments": "Commentaire",
+    "commentsPlaceholder": "Observations sur cette évaluation...",
+    "submitCreate": "Ajouter",
+    "submitEdit": "Enregistrer",
+    "created": "Évaluation ajoutée avec succès",
+    "updated": "Évaluation modifiée avec succès",
+    "deleteFailed": "Échec de la suppression de l'évaluation",
+    "loadFailed": "Impossible de charger les évaluations",
+    "configLoadFailed": "Impossible de charger la configuration du radar",
+    "radarEmpty": "Pas encore assez de données pour afficher le radar",
+    "empty": "Aucune évaluation enregistrée pour l'instant",
+    "authorLabel": "Évalué par"
+  },
   "playerDetail": {
     "backToRoster": "Retour à l'effectif",
     "edit": "Modifier",
@@ -367,6 +396,11 @@
     "PLAYER_OBJECTIVES": {
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
       "NOT_FOUND": "Objectif introuvable"
+    },
+    "PLAYER_EVALUATIONS": {
+      "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
+      "NOT_FOUND": "Évaluation introuvable",
+      "CRITERION_NOT_IN_CLUB": "Ce critère n'appartient pas à ce club"
     },
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",

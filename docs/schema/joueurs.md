@@ -173,20 +173,50 @@ ou ajouter ses propres critères dans n'importe quelle catégorie (system ou cus
 
 ---
 
-## PlayerEvaluation — Évaluation sur un critère
+## PlayerEvaluation — Session d'évaluation (tous les critères notés en une fois)
+
+Une évaluation est **une session** : le coach note tous les critères actifs du club en un seul
+formulaire (pas une entrée par critère). Le radar du profil joueur affiche la session la plus
+récente (moyenne par catégorie) ; les sessions précédentes restent en base pour l'historique,
+affiché en tableau (une ligne par date, une colonne par catégorie — voir
+`docs/modules/effectif-joueurs.md` §Évaluation). Décision confirmée le 2026-07-06 : **tous les
+critères actifs sont obligatoires** à la validation d'une session (pas de saisie partielle), pour
+garantir une moyenne de catégorie toujours complète et comparable d'une session à l'autre.
 
 | Champ | Type | Notes |
 |---|---|---|
 | `id` | PK | |
 | `playerId` | FK → PlayerProfile | |
-| `criterionId` | FK → EvaluationCriterion | |
-| `score` | Decimal(4,1) | **sur 10**, paliers de 0.5 |
-| `date` | Date | |
-| `evaluatorId` | FK → Member, nullable | staff ayant noté |
-| `teamId` | FK → Team, nullable | contexte si le joueur joue dans plusieurs équipes |
-| `comments` | Text, nullable | |
-| `trainingSessionId` | FK → TrainingSession, nullable | évaluation liée à une séance |
-| `matchId` | FK → Match, nullable | évaluation liée à un match |
+| `date` | Date | date de la session |
+| `evaluatorId` | FK → Member, nullable | assigné automatiquement au membre à l'origine de la création, jamais choisi dans un sélecteur (même pattern que `PlayerInterview.staffId`) ; nullable pour permettre un futur import de données historiques sans auteur identifié |
+| `teamId` | FK → Team, nullable | contexte si le joueur joue dans plusieurs équipes — jamais utilisé pour la vérification de permission (`assertPlayerInTeam` se base sur l'appartenance réelle du joueur à l'équipe transmise en query, pas sur ce champ) ; non exposé par l'API pour l'instant |
+| `comments` | Text, nullable | **global à la session**, pas par critère |
+
+**`trainingSessionId`/`matchId` (liens optionnels vers une séance/un match) différés aux Phases
+5/4** : `TrainingSession`/`Match` n'existent pas encore — champs ajoutés par migration une fois
+ces modèles disponibles, pas anticipés ici (même logique que `PlayerNote.trainingSessionId`).
+
+Pas de champ `visibility` sur ce modèle (contrairement à `PlayerNote`/`PlayerObjective`) : une
+évaluation est toujours visible par le joueur concerné (scope OWN, lecture seule) en plus du
+staff scopé TEAM/CLUB.
+
+Contrairement à `PlayerMeasurement`, pas de contrainte append-only : UPDATE est autorisé pour
+corriger une session (remplace intégralement ses `PlayerEvaluationScore`, voir ci-dessous) ;
+DELETE supprime la session et tous ses scores en cascade.
+
+## PlayerEvaluationScore — Score d'un critère au sein d'une session
+
+| Champ | Type | Notes |
+|---|---|---|
+| `id` | PK | |
+| `evaluationId` | FK → PlayerEvaluation, `onDelete: Cascade` | |
+| `criterionId` | FK → EvaluationCriterion | doit être système ou appartenir au club du joueur (vérifié à la création/modification, tous les critères soumis en une fois) |
+| `score` | Decimal(4,1) | **sur 10**, paliers de 0.5 (en pratique des valeurs entières via le widget étoiles à 5 étoiles/demi-étoile, voir `docs/modules/effectif-joueurs.md`) |
+
+`@@unique([evaluationId, criterionId])` : un critère ne peut être noté qu'une fois par session.
+Une modification (UPDATE de `PlayerEvaluation`) qui fournit des scores remplace l'ensemble des
+`PlayerEvaluationScore` existants de la session (suppression puis recréation), pas de fusion
+partielle.
 
 ---
 

@@ -86,9 +86,10 @@ model Team {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberRoles MemberRole[]
-  playerTeams PlayerTeam[]
-  teamStaffs  TeamStaff[]
+  memberRoles       MemberRole[]
+  playerTeams       PlayerTeam[]
+  teamStaffs        TeamStaff[]
+  playerEvaluations PlayerEvaluation[]
 
   @@index([clubId])
 }
@@ -111,9 +112,10 @@ model Member {
   memberRoles         MemberRole[]
   playerProfile       PlayerProfile?
   teamStaffs          TeamStaff[]
-  conductedInterviews PlayerInterview[] @relation("PlayerInterviewStaff")
+  conductedInterviews PlayerInterview[]  @relation("PlayerInterviewStaff")
   authoredNotes       PlayerNote[]
   assignedObjectives  PlayerObjective[]
+  evaluationsGiven    PlayerEvaluation[]
 
   @@unique([userId, clubId])
 }
@@ -252,6 +254,7 @@ model PlayerProfile {
   playerInterviews   PlayerInterview[]
   playerNotes        PlayerNote[]
   playerObjectives   PlayerObjective[]
+  playerEvaluations  PlayerEvaluation[]
 }
 
 enum MeasurementType {
@@ -483,7 +486,58 @@ model EvaluationCriterion {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
+  evaluationScores PlayerEvaluationScore[]
+
   @@index([categoryId])
+}
+
+// Une évaluation = une session où le coach note TOUS les critères actifs du
+// club en une fois (docs/schema/joueurs.md) — pas une ligne par critère : le
+// radar affiche la session la plus récente (moyenne par catégorie), les
+// sessions précédentes restent en base pour l'historique (un tableau, une
+// ligne par date, une colonne par catégorie). `evaluatorId` est assigné
+// automatiquement au membre à l'origine de la création (même pattern que
+// PlayerInterview.staffId), donc nullable seulement pour permettre un futur
+// import de données historiques sans auteur identifié. `trainingSessionId`/
+// `matchId` (liens optionnels vers une séance/un match) sont différés aux
+// Phases 5/4 — ces modèles n'existent pas encore. `comments` est global à la
+// session, pas par critère.
+model PlayerEvaluation {
+  id          Int           @id @default(autoincrement())
+  playerId    Int
+  player      PlayerProfile @relation(fields: [playerId], references: [id])
+  date        DateTime      @db.Date
+  evaluatorId Int?
+  evaluator   Member?       @relation(fields: [evaluatorId], references: [id])
+  // Contexte d'équipe si le joueur évolue dans plusieurs équipes — jamais
+  // utilisé pour la vérification de permission (assertPlayerInTeam se base
+  // sur l'appartenance réelle du joueur à l'équipe transmise en query, pas
+  // sur ce champ).
+  teamId      Int?
+  team        Team?         @relation(fields: [teamId], references: [id])
+  comments    String?       @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  scores PlayerEvaluationScore[]
+
+  @@index([playerId, date])
+}
+
+// Note d'un critère donné au sein d'une session PlayerEvaluation. UPDATE
+// autorisé (pas de contrainte append-only comme PlayerMeasurement) : un
+// score mal saisi se corrige, il n'a pas besoin d'être historisé — l'édition
+// remplace l'ensemble des scores de la session (voir PlayerEvaluationsService.update).
+model PlayerEvaluationScore {
+  id           Int                 @id @default(autoincrement())
+  evaluationId Int
+  evaluation   PlayerEvaluation    @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  criterionId  Int
+  criterion    EvaluationCriterion @relation(fields: [criterionId], references: [id])
+  score        Decimal             @db.Decimal(4, 1)
+
+  @@unique([evaluationId, criterionId])
+  @@index([evaluationId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────

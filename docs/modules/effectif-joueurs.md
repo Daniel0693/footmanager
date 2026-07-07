@@ -238,6 +238,75 @@ Toutes les notes sont **sur 10**, stockées en `Decimal(4,1)` par paliers de 0.5
 - Comme Notes, applique `assertPlayerInTeam` dès sa conception pour le scope `TEAM` (Coach) —
   voir `docs/modules/auth-roles.md` §Patterns découverts.
 
+### Évaluation — une évaluation = une session multi-critères
+
+**Décision du 2026-07-06 (revue après une première implémentation une-ligne-par-critère, jamais
+commitée)** : une évaluation est **une session unique** où le coach note en un seul formulaire
+tous les critères actifs du club, pas un formulaire par critère. Le radar affiche la session la
+plus récente ; les sessions précédentes restent en base pour l'historique.
+
+- **Deux modules distincts** (un par responsabilité, cohérent avec la convention "un module par
+  concern") :
+  - `evaluation-config` : lecture seule, `GET /clubs/:clubId/evaluation-config` — renvoie les
+    axes du radar (`ClubEvaluationConfig` où `isEnabled = true`, triés par `displayOrder` ou à
+    défaut `defaultDisplayOrder` de la catégorie), chacun avec ses critères (système + custom du
+    club). Permission `evaluation_config READ`, pas de vérification joueur/équipe : la
+    configuration est identique pour tout membre autorisé du club.
+  - `player-evaluations` : CRUD des sessions, `.../players/:playerId/evaluations`, permission
+    `player_evaluation`. Applique `assertPlayerInTeam` dès sa conception pour le scope `TEAM`
+    (même pattern que Mesures/Entretien/Notes/Objectifs).
+- **Une session note tous les critères actifs du club, obligatoirement** (pas de saisie
+  partielle) : garantit que chaque catégorie a toujours une moyenne complète et comparable d'une
+  session à l'autre. `PlayerEvaluation` porte `date`/`evaluatorId`/`comments` (commentaire global
+  à la session, pas par critère) ; `PlayerEvaluationScore` (un par critère noté) porte le score,
+  en relation `onDelete: Cascade` — supprimer une évaluation supprime tous ses scores.
+- **Modifier une évaluation remplace intégralement ses scores** : le PATCH, s'il fournit
+  `scores`, supprime tous les `PlayerEvaluationScore` existants de la session puis recrée
+  l'ensemble transmis (pas de fusion partielle) — le formulaire d'édition réutilise exactement le
+  même composant que la création, préremplit chaque critère avec son score existant.
+- **Radar dynamique** : le nombre et l'ordre des axes viennent entièrement de la configuration du
+  club, pas d'une liste fixe en code. Le point de chaque axe = moyenne, au sein de la session la
+  plus récente, des scores dont le critère appartient à cette catégorie ; un axe sans aucun score
+  dans cette session n'apparaît pas (cas résiduel seulement, si des critères ont été
+  désactivés/ajoutés après coup). `RadarChart` (recharts) est rendu avec `outerRadius="62%"` et
+  des marges généreuses (`margin={{ top: 24, right: 48, bottom: 24, left: 48 }}`) pour éviter que
+  les libellés de catégories aux noms longs (ex. "Vie de groupe", "Émotionnel") ne soient
+  tronqués sur les bords du graphique (retour du 2026-07-06).
+- **Pas de contrainte append-only** (contrairement à `PlayerMeasurement`) : UPDATE est autorisé
+  pour corriger une session — une évaluation n'a pas la même exigence d'audit qu'une mesure
+  physique.
+- **Validation dédiée `assertCriteriaInClub`** (vérifie l'ensemble des critères soumis en une
+  fois via `count()`, pas un `findFirst` par critère) : chaque critère utilisé doit être système
+  (`clubId: null`) ou appartenir au club du joueur évalué — empêche de noter un joueur sur un
+  critère custom d'un autre club. Vérifiée à la création toujours, et à la modification
+  seulement si `scores` est fourni.
+- **Pas de champ `visibility`** (contrairement à Notes/Objectifs) : une évaluation est toujours
+  visible par le joueur concerné (scope `OWN`, lecture seule) en plus du staff scopé TEAM/CLUB —
+  pas de niveau Privé pour ce modèle.
+- **`evaluatorId` auto-assigné** au membre à l'origine de la création (même pattern que
+  `PlayerInterview.staffId`/`PlayerNote.authorId`/`PlayerObjective.assignedById`), jamais
+  sélectionnable. `teamId` (contexte multi-équipe) et `trainingSessionId`/`matchId` existent en
+  base mais ne sont pas exposés par l'API pour l'instant — voir `docs/schema/joueurs.md`.
+- **Filtres par plage de dates** (`dateFrom`/`dateTo`) plus le tri (`sortOrder`), résolus côté
+  backend — même convention que les autres onglets. Pas de filtre par critère : une évaluation
+  est une session multi-critères, ce filtre n'a plus de sens à cette granularité.
+- **Formulaire de saisie compact** (retour du 2026-07-06 — la première version listait un critère
+  par ligne, jugée trop longue) : les critères sont groupés par catégorie, affichés en grille de
+  2-3 colonnes (nom du critère au-dessus, étoiles en dessous), pas une liste verticale d'une
+  ligne par critère.
+- **Saisie en étoiles sur 5 avec demi-étoile** (`StarRatingInput`,
+  `src/components/ui/star-rating-input.tsx`) : chaque étoile est divisée en deux zones cliquables
+  (moitié gauche = demi-étoile, moitié droite = étoile pleine), donnant 10 valeurs possibles par
+  critère (1 à 10, pas de granularité 0.5 supplémentaire en dessous du point entier — cohérent
+  avec la convention "étoiles sur 5" de CLAUDE.md, la précision au 0.5 du champ `Decimal(4,1)` en
+  base sert d'autres besoins futurs, pas la saisie via ce widget). Version lecture seule
+  distincte : `StarRating` (`src/components/ui/star-rating.tsx`).
+- **Tableau d'historique sans étoiles** (retour du 2026-07-06 — les étoiles rendaient le tableau
+  trop étiré) : une ligne par session (date), une colonne par catégorie affichant la **moyenne en
+  chiffre** (`average.toFixed(1)`, pas de rendu `StarRating`) — exception documentée à la
+  convention "étoiles sur 5" pour ce tableau précis, les étoiles restant utilisées partout
+  ailleurs (formulaire de saisie).
+
 ---
 
 ## Modèle de visibilité (Privé / Semi-privé / Public)
