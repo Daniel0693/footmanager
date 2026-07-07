@@ -117,6 +117,12 @@ const permissions = {
     action: 'READ',
     scope: 'TEAM',
   },
+  playerProfileCreateTeam: {
+    id: 4,
+    resource: 'player_profile',
+    action: 'CREATE',
+    scope: 'TEAM',
+  },
 } as const;
 
 const roles = {
@@ -133,7 +139,10 @@ const roles = {
   coach: {
     id: 3,
     isSystem: true,
-    rolePermissions: [{ permission: permissions.playerProfileReadTeam }],
+    rolePermissions: [
+      { permission: permissions.playerProfileReadTeam },
+      { permission: permissions.playerProfileCreateTeam },
+    ],
   },
 };
 
@@ -203,6 +212,8 @@ function buildContext(
 const findAllHandler = PlayersController.prototype.findAll;
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const findOneHandler = PlayersController.prototype.findOne;
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const createHandler = PlayersController.prototype.create;
 
 describe('Module Effectif — scénario multi-rôles (PlayersController)', () => {
   let guard: PermissionsGuard;
@@ -210,6 +221,8 @@ describe('Module Effectif — scénario multi-rôles (PlayersController)', () =>
   let profileFindFirst: jest.Mock;
   let profileFindMany: jest.Mock;
   let profileFindUnique: jest.Mock;
+  let profileCreate: jest.Mock;
+  let memberFindUnique: jest.Mock;
   let playerTeamFindFirst: jest.Mock;
   let findByUserAndClub: jest.Mock;
   let membersByUserAndClub: Record<string, Member>;
@@ -239,13 +252,17 @@ describe('Module Effectif — scénario multi-rôles (PlayersController)', () =>
     profileFindFirst = jest.fn();
     profileFindMany = jest.fn();
     profileFindUnique = jest.fn();
+    profileCreate = jest.fn().mockResolvedValue({ id: 1 });
+    memberFindUnique = jest.fn().mockResolvedValue(coachMember);
     playerTeamFindFirst = jest.fn().mockResolvedValue({ id: 1 });
     const prismaStub = {
       playerProfile: {
         findFirst: profileFindFirst,
         findMany: profileFindMany,
         findUnique: profileFindUnique,
+        create: profileCreate,
       },
+      member: { findUnique: memberFindUnique },
       playerTeam: { findFirst: playerTeamFindFirst },
     } as unknown as PrismaService;
     playersService = new PlayersService(prismaStub, membersService);
@@ -382,5 +399,41 @@ describe('Module Effectif — scénario multi-rôles (PlayersController)', () =>
         teamId: 8,
       }),
     ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it("Coach sans teamId ne peut pas créer de profil joueur : l'URL ne porte pas de teamId", async () => {
+    const request = {
+      params: { clubId: '1' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, createHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+    expect(profileCreate).not.toHaveBeenCalled();
+  });
+
+  it('Coach peut créer un profil joueur dans son équipe en transmettant teamId en query — bug réel trouvé en test manuel (bouton "Ajouter un joueur")', async () => {
+    const request = {
+      params: { clubId: '1' },
+      query: { teamId: '8' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, createHandler)),
+    ).resolves.toBe(true);
+    expect(request.permissionScope).toBe('TEAM');
+
+    await expect(
+      playersService.create(1, {
+        memberId: 43,
+        licenseNumber: undefined,
+        nationality: undefined,
+        birthDate: undefined,
+        preferredFoot: undefined,
+      }),
+    ).resolves.toEqual({ id: 1 });
+    expect(profileCreate).toHaveBeenCalled();
   });
 });

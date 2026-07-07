@@ -173,19 +173,26 @@ export function PlayerFormDialog({
       };
 
       if (mode === "create") {
-        const memberRes = await apiFetch(`/clubs/${clubId}/members`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(memberPayload),
-        });
+        // teamId en query sur les deux premiers appels : un Coach (rôles
+        // scopés TEAM sur `member CREATE`/`player_profile CREATE`) ne serait
+        // jamais autorisé sans lui, ces routes ne portant pas teamId dans
+        // leur URL naturelle — voir docs/modules/auth-roles.md §"Patterns
+        // découverts" (même bug que le mode édition ci-dessous).
+        const memberRes = await apiFetch(
+          `/clubs/${clubId}/members?teamId=${teamId}`,
+          { method: "POST", headers, body: JSON.stringify(memberPayload) },
+        );
         if (!memberRes.ok) throw new Error(await parseErrorCode(memberRes));
         const member = await memberRes.json();
 
-        const profileRes = await apiFetch(`/clubs/${clubId}/players`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ memberId: member.id, ...profilePayload }),
-        });
+        const profileRes = await apiFetch(
+          `/clubs/${clubId}/players?teamId=${teamId}`,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ memberId: member.id, ...profilePayload }),
+          },
+        );
         if (!profileRes.ok) throw new Error(await parseErrorCode(profileRes));
         const profile = await profileRes.json();
 

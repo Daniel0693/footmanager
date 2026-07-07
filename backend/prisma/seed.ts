@@ -213,6 +213,7 @@ async function seedRoles() {
     ],
     Coach: [
       ['member', READ, TEAM, 'Consulter les membres de ses équipes'],
+      ['member', CREATE, TEAM, 'Ajouter un membre à ses équipes'],
       ['member', UPDATE, TEAM, 'Modifier les membres de ses équipes'],
       ['team', READ, TEAM, 'Consulter ses équipes'],
       [
@@ -220,6 +221,12 @@ async function seedRoles() {
         READ,
         TEAM,
         'Consulter les profils joueurs de ses équipes',
+      ],
+      [
+        'player_profile',
+        CREATE,
+        TEAM,
+        'Créer un profil joueur dans ses équipes',
       ],
       [
         'player_profile',

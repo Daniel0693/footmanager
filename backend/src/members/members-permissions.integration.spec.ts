@@ -14,11 +14,12 @@ import { MembersController } from './members.controller';
 /**
  * Scénario multi-rôles de référence appliqué à la création et à l'édition de
  * membre (docs/modules/auth-roles.md) : un AdminClub peut ajouter/modifier un
- * membre de son club (scope CLUB) ; un Coach (scope TEAM) ne peut pas créer
- * (pas de permission CREATE) mais peut modifier un membre de son équipe à
- * condition de transmettre `teamId` en query (l'URL ne le porte pas
- * nativement, voir §"Patterns découverts") ; un Player (scope OWN, lecture
- * seule) ne peut ni l'un ni l'autre.
+ * membre de son club (scope CLUB) ; un Coach (scope TEAM) peut créer ou
+ * modifier un membre de son équipe à condition de transmettre `teamId` en
+ * query (l'URL ne le porte pas nativement, voir §"Patterns découverts") —
+ * bug réel trouvé en test manuel (bouton "Ajouter un joueur" visible pour un
+ * Coach mais 403 systématique) : `member CREATE TEAM` manquait au seed ; un
+ * Player (scope OWN, lecture seule) ne peut ni l'un ni l'autre.
  */
 
 const adminClubMember: Member = {
@@ -76,6 +77,12 @@ const permissions = {
     action: 'UPDATE',
     scope: 'CLUB',
   },
+  memberCreateTeam: {
+    id: 5,
+    resource: 'member',
+    action: 'CREATE',
+    scope: 'TEAM',
+  },
   memberUpdateTeam: {
     id: 3,
     resource: 'member',
@@ -102,7 +109,10 @@ const roles = {
   coach: {
     id: 2,
     isSystem: true,
-    rolePermissions: [{ permission: permissions.memberUpdateTeam }],
+    rolePermissions: [
+      { permission: permissions.memberCreateTeam },
+      { permission: permissions.memberUpdateTeam },
+    ],
   },
   player: {
     id: 3,
@@ -215,7 +225,7 @@ describe('Module Effectif — scénario multi-rôles (MembersController.create)'
     expect(request.permissionScope).toBe('CLUB');
   });
 
-  it('Coach (scope TEAM, pas de CREATE) ne peut pas ajouter de membre', async () => {
+  it("Coach (scope TEAM) sans teamId ne peut pas ajouter de membre : l'URL ne porte pas de teamId", async () => {
     const request = {
       params: { clubId: '1' },
       user: { userId: 7 },
@@ -224,6 +234,19 @@ describe('Module Effectif — scénario multi-rôles (MembersController.create)'
     await expect(
       guard.canActivate(buildContext(request, createHandler)),
     ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it('Coach peut ajouter un membre à son équipe en transmettant teamId en query — bug réel trouvé en test manuel (bouton "Ajouter un joueur")', async () => {
+    const request = {
+      params: { clubId: '1' },
+      query: { teamId: '8' },
+      user: { userId: 7 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, createHandler)),
+    ).resolves.toBe(true);
+    expect(request.permissionScope).toBe('TEAM');
   });
 
   it('Player (lecture seule) ne peut pas ajouter de membre', async () => {

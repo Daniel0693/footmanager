@@ -228,6 +228,17 @@ ci-dessus), mais à garder en tête pour tout futur module/client qui interroger
 scopée `OWN` sans passer par un écran ancré à une équipe précise. Décision ouverte, piste de
 correction et justification du report : voir `docs/decisions-ouvertes-et-rgpd.md` #6.
 
+**Un Coach ne pouvait pas ajouter un joueur à sa propre équipe (403 systématique).** Trouvé le
+2026-07-07 en test manuel réel (bouton "Ajouter un joueur" visible et actionnable pour un Coach
+depuis l'effectif, mais premier appel — `POST /clubs/:clubId/members` — refusé). Cause : le seed
+n'accordait `member CREATE`/`player_profile CREATE` qu'aux scopes `CLUB`/`ALL` (AdminClub,
+SuperAdmin), jamais `TEAM` (Coach) — contrairement à `player_team CREATE`, déjà accordé. Corrigé
+en ajoutant `member CREATE TEAM` et `player_profile CREATE TEAM` au rôle Coach dans le seed, **et**
+en transmettant `?teamId=` sur les deux appels de création côté frontend
+(`PlayerFormDialog`, mode création) — ces routes ne portent pas `teamId` dans leur URL naturelle,
+même limitation que pour l'UPDATE (voir plus haut). Tests de régression dans
+`members-permissions.integration.spec.ts` et `players-permissions.integration.spec.ts`.
+
 ### Multi-rôles — règle de test obligatoire
 
 **Toute modification touchant aux droits doit être testée avec au moins un scénario multi-rôles

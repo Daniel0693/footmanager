@@ -72,7 +72,7 @@ describe("PlayerFormDialog", () => {
 
     expect(mockApiFetch).toHaveBeenNthCalledWith(
       1,
-      "/clubs/1/members",
+      "/clubs/1/members?teamId=5",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
@@ -85,7 +85,7 @@ describe("PlayerFormDialog", () => {
     );
     expect(mockApiFetch).toHaveBeenNthCalledWith(
       2,
-      "/clubs/1/players",
+      "/clubs/1/players?teamId=5",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
