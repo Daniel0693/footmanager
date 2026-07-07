@@ -220,8 +220,12 @@ export function PlayerDetailPageContent({
   };
 
   return (
-    <div className="flex w-full flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
+    // La hauteur n'est bornée qu'à partir de lg (colonnes côte à côte) :
+    // en dessous, la sidebar joueur et les onglets sont empilés et doivent
+    // rester en flux naturel (page qui défile normalement), sinon le
+    // contenu se retrouve écrasé dans une hauteur résiduelle minuscule.
+    <div className="flex w-full flex-col gap-4 p-4 lg:h-full lg:min-h-0">
+      <div className="flex shrink-0 items-center justify-between">
         <Link
           href={`/clubs/${clubId}/teams/${teamId}/players`}
           className="text-sm text-muted-foreground underline"
@@ -239,8 +243,8 @@ export function PlayerDetailPageContent({
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]">
-        <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[300px_1fr]">
+        <div className="flex flex-col gap-4 lg:min-h-0 lg:overflow-y-auto">
           <Card>
             <CardHeader className="flex flex-row items-center gap-3">
               <div className="flex size-12 items-center justify-center rounded-full bg-muted text-sm font-medium">
@@ -324,8 +328,8 @@ export function PlayerDetailPageContent({
           )}
         </div>
 
-        <Tabs defaultValue="measurements">
-          <TabsList className="flex-wrap">
+        <Tabs defaultValue="measurements" className="lg:h-full lg:min-h-0">
+          <TabsList className="shrink-0 flex-wrap">
             {DETAIL_TABS.map((tab) => (
               <TabsTrigger key={tab} value={tab}>
                 {t(`tabs.${tab}`)}
@@ -335,13 +339,18 @@ export function PlayerDetailPageContent({
           <TabsContent value="measurements">
             <MeasurementsTab clubId={clubId} teamId={teamId} playerId={playerId} />
           </TabsContent>
-          <TabsContent value="interview">
+          {/* lg:min-h-0 : borne la hauteur à l'espace restant du Tabs (à
+              partir de lg, colonnes côte à côte) plutôt que de suivre la
+              hauteur du contenu, pour que seule la timeline (flex-1
+              overflow-y-auto à l'intérieur de chaque onglet) défile — pas la
+              page entière. En dessous de lg, tout reste en flux normal. */}
+          <TabsContent value="interview" className="lg:flex lg:min-h-0 lg:flex-col">
             <InterviewsTab clubId={clubId} teamId={teamId} playerId={playerId} />
           </TabsContent>
-          <TabsContent value="notes">
+          <TabsContent value="notes" className="lg:flex lg:min-h-0 lg:flex-col">
             <NotesTab clubId={clubId} teamId={teamId} playerId={playerId} />
           </TabsContent>
-          <TabsContent value="objectives">
+          <TabsContent value="objectives" className="lg:flex lg:min-h-0 lg:flex-col">
             <ObjectivesTab clubId={clubId} teamId={teamId} playerId={playerId} />
           </TabsContent>
           <TabsContent value="evaluation">

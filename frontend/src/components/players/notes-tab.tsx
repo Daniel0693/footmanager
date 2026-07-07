@@ -136,9 +136,9 @@ export function NotesTab({
     });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
       {/* Filtres (backend) + ajout */}
-      <Card>
+      <Card className="shrink-0">
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
             {/* Plage de dates groupée en un seul bloc : les deux champs
@@ -199,75 +199,78 @@ export function NotesTab({
         </CardContent>
       </Card>
 
-      {/* Timeline */}
-      {hasError ? (
-        <p className="text-sm text-destructive">{t("loadFailed")}</p>
-      ) : notes === null ? null : notes.length === 0 ? (
-        <Card>
-          <CardContent className="py-6 text-sm text-muted-foreground">
-            {t("empty")}
-          </CardContent>
-        </Card>
-      ) : (
-        <ol className="flex flex-col gap-5 border-l-2 border-border pl-6">
-          {notes.map((note) => (
-            <li key={note.id} className="relative">
-              <span className="absolute top-1.5 -left-[29px] size-3 rounded-full border-2 border-background bg-primary" />
-              <Card>
-                <CardContent className="flex flex-col gap-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={VISIBILITY_BADGE_VARIANT[note.visibility]}>
-                          {note.visibility === "PRIVE" && <Lock />}
-                          {t(`visibility${note.visibility}`)}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(note.createdAt)}
-                        </span>
+      {/* Timeline : seule cette zone défile (flex-1 min-h-0 overflow-y-auto),
+          la carte de filtres au-dessus reste fixe à l'écran. */}
+      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+        {hasError ? (
+          <p className="text-sm text-destructive">{t("loadFailed")}</p>
+        ) : notes === null ? null : notes.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-sm text-muted-foreground">
+              {t("empty")}
+            </CardContent>
+          </Card>
+        ) : (
+          <ol className="flex flex-col gap-5 border-l-2 border-border pl-6">
+            {notes.map((note) => (
+              <li key={note.id} className="relative">
+                <span className="absolute top-1.5 -left-[29px] size-3 rounded-full border-2 border-background bg-primary" />
+                <Card>
+                  <CardContent className="flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={VISIBILITY_BADGE_VARIANT[note.visibility]}>
+                            {note.visibility === "PRIVE" && <Lock />}
+                            {t(`visibility${note.visibility}`)}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(note.createdAt)}
+                          </span>
+                        </div>
+                        {note.title && (
+                          <h3 className="text-sm font-semibold">{note.title}</h3>
+                        )}
                       </div>
-                      {note.title && (
-                        <h3 className="text-sm font-semibold">{note.title}</h3>
-                      )}
+                      <div className="flex gap-1">
+                        <NoteFormDialog
+                          clubId={clubId}
+                          teamId={teamId}
+                          playerId={playerId}
+                          note={note}
+                          onSuccess={load}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label={t("edit")}>
+                              <Pencil />
+                            </Button>
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={t("delete")}
+                          onClick={() => handleDelete(note.id)}
+                        >
+                          <Trash2 className="text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <NoteFormDialog
-                        clubId={clubId}
-                        teamId={teamId}
-                        playerId={playerId}
-                        note={note}
-                        onSuccess={load}
-                        trigger={
-                          <Button variant="ghost" size="icon" aria-label={t("edit")}>
-                            <Pencil />
-                          </Button>
-                        }
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={t("delete")}
-                        onClick={() => handleDelete(note.id)}
-                      >
-                        <Trash2 className="text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
 
-                  <p className="text-sm whitespace-pre-wrap">{note.content}</p>
+                    <p className="text-sm whitespace-pre-wrap">{note.content}</p>
 
-                  {note.author && (
-                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <UserRound className="size-3.5" />
-                      {t("authorLabel")} {note.author.firstName} {note.author.lastName}
-                    </span>
-                  )}
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ol>
-      )}
+                    {note.author && (
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <UserRound className="size-3.5" />
+                        {t("authorLabel")} {note.author.firstName} {note.author.lastName}
+                      </span>
+                    )}
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </div>
   );
 }

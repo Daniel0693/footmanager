@@ -147,9 +147,9 @@ export function InterviewsTab({
   const isFuture = (interview: Interview) => interview.date.slice(0, 10) > todayStr;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
       {/* Filtres (backend) + ajout */}
-      <Card>
+      <Card className="shrink-0">
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
             {/* Plage de dates groupée en un seul bloc : les deux champs
@@ -210,109 +210,112 @@ export function InterviewsTab({
         </CardContent>
       </Card>
 
-      {/* Timeline */}
-      {hasError ? (
-        <p className="text-sm text-destructive">{t("loadFailed")}</p>
-      ) : interviews === null ? null : interviews.length === 0 ? (
-        <Card>
-          <CardContent className="py-6 text-sm text-muted-foreground">
-            {t("empty")}
-          </CardContent>
-        </Card>
-      ) : (
-        <ol className="flex flex-col gap-5 border-l-2 border-border pl-6">
-          {interviews.map((interview) => (
-            <li key={interview.id} className="relative">
-              <span className="absolute top-1.5 -left-[29px] size-3 rounded-full border-2 border-background bg-primary" />
-              <Card>
-                <CardContent className="flex flex-col gap-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-col gap-1">
+      {/* Timeline : seule cette zone défile (flex-1 min-h-0 overflow-y-auto),
+          la carte de filtres au-dessus reste fixe à l'écran. */}
+      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+        {hasError ? (
+          <p className="text-sm text-destructive">{t("loadFailed")}</p>
+        ) : interviews === null ? null : interviews.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-sm text-muted-foreground">
+              {t("empty")}
+            </CardContent>
+          </Card>
+        ) : (
+          <ol className="flex flex-col gap-5 border-l-2 border-border pl-6">
+            {interviews.map((interview) => (
+              <li key={interview.id} className="relative">
+                <span className="absolute top-1.5 -left-[29px] size-3 rounded-full border-2 border-background bg-primary" />
+                <Card>
+                  <CardContent className="flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-col gap-1">
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <CalendarDays className="size-3.5" />
+                          {formatDate(interview.date)}
+                        </span>
+                        <h3 className="flex items-center gap-2 text-sm font-semibold">
+                          {interview.subject}
+                          {isFuture(interview) && (
+                            <Badge variant="secondary">{t("scheduled")}</Badge>
+                          )}
+                        </h3>
+                      </div>
+                      <div className="flex gap-1">
+                        <InterviewFormDialog
+                          clubId={clubId}
+                          teamId={teamId}
+                          playerId={playerId}
+                          interview={interview}
+                          onSuccess={load}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label={t("edit")}>
+                              <Pencil />
+                            </Button>
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={t("delete")}
+                          onClick={() => handleDelete(interview.id)}
+                        >
+                          <Trash2 className="text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <p className="text-sm whitespace-pre-wrap">{interview.summary}</p>
+
+                    {interview.staffFeedback && (
+                      <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm">
+                        <MessageSquareQuote className="size-4 shrink-0 text-muted-foreground" />
+                        <div className="flex flex-col gap-0.5">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            {t("staffFeedback")}
+                          </p>
+                          <p className="whitespace-pre-wrap">{interview.staffFeedback}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {interview.playerFeedback && (
+                      <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm">
+                        <UserRound className="size-4 shrink-0 text-muted-foreground" />
+                        <div className="flex flex-col gap-0.5">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            {t("playerFeedback")}
+                          </p>
+                          <p className="whitespace-pre-wrap">{interview.playerFeedback}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {interview.staffAssessment && (
+                      <div className="flex items-start gap-2 rounded-lg border border-dashed border-border p-3 text-sm">
+                        <Lock className="size-4 shrink-0 text-muted-foreground" />
+                        <div className="flex flex-col gap-0.5">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            {t("staffAssessment")} · {t("staffAssessmentHint")}
+                          </p>
+                          <p className="whitespace-pre-wrap">{interview.staffAssessment}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {interview.staff && (
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <CalendarDays className="size-3.5" />
-                        {formatDate(interview.date)}
+                        <UserRound className="size-3.5" />
+                        {t("conductedBy")} {interview.staff.firstName} {interview.staff.lastName}
                       </span>
-                      <h3 className="flex items-center gap-2 text-sm font-semibold">
-                        {interview.subject}
-                        {isFuture(interview) && (
-                          <Badge variant="secondary">{t("scheduled")}</Badge>
-                        )}
-                      </h3>
-                    </div>
-                    <div className="flex gap-1">
-                      <InterviewFormDialog
-                        clubId={clubId}
-                        teamId={teamId}
-                        playerId={playerId}
-                        interview={interview}
-                        onSuccess={load}
-                        trigger={
-                          <Button variant="ghost" size="icon" aria-label={t("edit")}>
-                            <Pencil />
-                          </Button>
-                        }
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={t("delete")}
-                        onClick={() => handleDelete(interview.id)}
-                      >
-                        <Trash2 className="text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <p className="text-sm whitespace-pre-wrap">{interview.summary}</p>
-
-                  {interview.staffFeedback && (
-                    <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm">
-                      <MessageSquareQuote className="size-4 shrink-0 text-muted-foreground" />
-                      <div className="flex flex-col gap-0.5">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {t("staffFeedback")}
-                        </p>
-                        <p className="whitespace-pre-wrap">{interview.staffFeedback}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {interview.playerFeedback && (
-                    <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm">
-                      <UserRound className="size-4 shrink-0 text-muted-foreground" />
-                      <div className="flex flex-col gap-0.5">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {t("playerFeedback")}
-                        </p>
-                        <p className="whitespace-pre-wrap">{interview.playerFeedback}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {interview.staffAssessment && (
-                    <div className="flex items-start gap-2 rounded-lg border border-dashed border-border p-3 text-sm">
-                      <Lock className="size-4 shrink-0 text-muted-foreground" />
-                      <div className="flex flex-col gap-0.5">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {t("staffAssessment")} · {t("staffAssessmentHint")}
-                        </p>
-                        <p className="whitespace-pre-wrap">{interview.staffAssessment}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {interview.staff && (
-                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <UserRound className="size-3.5" />
-                      {t("conductedBy")} {interview.staff.firstName} {interview.staff.lastName}
-                    </span>
-                  )}
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ol>
-      )}
+                    )}
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </div>
   );
 }

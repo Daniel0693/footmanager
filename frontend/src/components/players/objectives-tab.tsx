@@ -164,9 +164,9 @@ export function ObjectivesTab({
     });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
       {/* Filtres (backend) + ajout */}
-      <Card>
+      <Card className="shrink-0">
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
             <div className="flex flex-col gap-1.5">
@@ -269,100 +269,103 @@ export function ObjectivesTab({
         </CardContent>
       </Card>
 
-      {/* Timeline */}
-      {hasError ? (
-        <p className="text-sm text-destructive">{t("loadFailed")}</p>
-      ) : objectives === null ? null : objectives.length === 0 ? (
-        <Card>
-          <CardContent className="py-6 text-sm text-muted-foreground">
-            {t("empty")}
-          </CardContent>
-        </Card>
-      ) : (
-        <ol className="flex flex-col gap-5 border-l-2 border-border pl-6">
-          {objectives.map((objective) => (
-            <li key={objective.id} className="relative">
-              <span className="absolute top-1.5 -left-[29px] size-3 rounded-full border-2 border-background bg-primary" />
-              <Card>
-                <CardContent className="flex flex-col gap-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={STATUS_BADGE_VARIANT[objective.status]}>
-                        {t(`status${objective.status}`)}
-                      </Badge>
-                      <Badge variant="outline">{t(`theme${objective.theme}`)}</Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {t(`horizon${objective.horizon}`)}
-                      </span>
-                      {objective.visibility === "PRIVE" && (
-                        <Badge variant="outline">
-                          <Lock />
-                          {t("visibilityPRIVE")}
+      {/* Timeline : seule cette zone défile (flex-1 min-h-0 overflow-y-auto),
+          la carte de filtres au-dessus reste fixe à l'écran. */}
+      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+        {hasError ? (
+          <p className="text-sm text-destructive">{t("loadFailed")}</p>
+        ) : objectives === null ? null : objectives.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-sm text-muted-foreground">
+              {t("empty")}
+            </CardContent>
+          </Card>
+        ) : (
+          <ol className="flex flex-col gap-5 border-l-2 border-border pl-6">
+            {objectives.map((objective) => (
+              <li key={objective.id} className="relative">
+                <span className="absolute top-1.5 -left-[29px] size-3 rounded-full border-2 border-background bg-primary" />
+                <Card>
+                  <CardContent className="flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={STATUS_BADGE_VARIANT[objective.status]}>
+                          {t(`status${objective.status}`)}
                         </Badge>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      <ObjectiveFormDialog
-                        clubId={clubId}
-                        teamId={teamId}
-                        playerId={playerId}
-                        objective={objective}
-                        onSuccess={load}
-                        trigger={
-                          <Button variant="ghost" size="icon" aria-label={t("edit")}>
-                            <Pencil />
-                          </Button>
-                        }
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={t("delete")}
-                        onClick={() => handleDelete(objective.id)}
-                      >
-                        <Trash2 className="text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <p className="text-sm whitespace-pre-wrap">{objective.description}</p>
-
-                  {(objective.startDate || objective.dueDate || objective.completedDate) && (
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      {objective.startDate && (
-                        <span className="flex items-center gap-1.5">
-                          <CalendarClock className="size-3.5" />
-                          {t("startDate")} : {formatDate(objective.startDate)}
+                        <Badge variant="outline">{t(`theme${objective.theme}`)}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {t(`horizon${objective.horizon}`)}
                         </span>
-                      )}
-                      {objective.dueDate && (
-                        <span className="flex items-center gap-1.5">
-                          <CalendarClock className="size-3.5" />
-                          {t("dueDate")} : {formatDate(objective.dueDate)}
-                        </span>
-                      )}
-                      {objective.completedDate && (
-                        <span className="flex items-center gap-1.5">
-                          <CalendarCheck className="size-3.5" />
-                          {t("completedDate")} : {formatDate(objective.completedDate)}
-                        </span>
-                      )}
+                        {objective.visibility === "PRIVE" && (
+                          <Badge variant="outline">
+                            <Lock />
+                            {t("visibilityPRIVE")}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        <ObjectiveFormDialog
+                          clubId={clubId}
+                          teamId={teamId}
+                          playerId={playerId}
+                          objective={objective}
+                          onSuccess={load}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label={t("edit")}>
+                              <Pencil />
+                            </Button>
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={t("delete")}
+                          onClick={() => handleDelete(objective.id)}
+                        >
+                          <Trash2 className="text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                  )}
 
-                  {objective.assignedBy && (
-                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <UserRound className="size-3.5" />
-                      {t("authorLabel")} {objective.assignedBy.firstName}{" "}
-                      {objective.assignedBy.lastName}
-                    </span>
-                  )}
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ol>
-      )}
+                    <p className="text-sm whitespace-pre-wrap">{objective.description}</p>
+
+                    {(objective.startDate || objective.dueDate || objective.completedDate) && (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        {objective.startDate && (
+                          <span className="flex items-center gap-1.5">
+                            <CalendarClock className="size-3.5" />
+                            {t("startDate")} : {formatDate(objective.startDate)}
+                          </span>
+                        )}
+                        {objective.dueDate && (
+                          <span className="flex items-center gap-1.5">
+                            <CalendarClock className="size-3.5" />
+                            {t("dueDate")} : {formatDate(objective.dueDate)}
+                          </span>
+                        )}
+                        {objective.completedDate && (
+                          <span className="flex items-center gap-1.5">
+                            <CalendarCheck className="size-3.5" />
+                            {t("completedDate")} : {formatDate(objective.completedDate)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {objective.assignedBy && (
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <UserRound className="size-3.5" />
+                        {t("authorLabel")} {objective.assignedBy.firstName}{" "}
+                        {objective.assignedBy.lastName}
+                      </span>
+                    )}
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </div>
   );
 }
