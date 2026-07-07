@@ -311,62 +311,117 @@ export function MeasurementsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 1. Filtres (colonne 1) + graphique (colonne 2) côte à côte : évite
-          qu'un graphique pleine largeur (aspect-video) ne devienne trop haut
-          et n'impose un scroll dès l'arrivée sur l'onglet. */}
+      {/* 1. Filtres + formulaire d'ajout (colonne 1, empilés) et graphique
+          (colonne 2) côte à côte : évite qu'un graphique pleine largeur
+          (aspect-video) ne devienne trop haut et n'impose un scroll dès
+          l'arrivée sur l'onglet — et remonte le tableau d'historique. */}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[20rem_1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("chartFiltersTitle")}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap items-end gap-x-4 gap-y-3">
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("type")}</Label>
-              <Select
-                value={filterType}
-                onValueChange={(v) => setFilterType((v as MeasurementType | typeof ALL) ?? ALL)}
-              >
-                <SelectTrigger className="w-36">
-                  <SelectValue>
-                    {(v: string | null) => (v && v !== ALL ? tType(v) : t("allTypes"))}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>{t("allTypes")}</SelectItem>
-                  {MEASUREMENT_TYPES.map((measurementType) => (
-                    <SelectItem key={measurementType} value={measurementType}>
-                      {tType(measurementType)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {/* Plage de dates groupée en un seul bloc : les deux champs
-                wrappent ensemble plutôt que de se retrouver séparés sur deux
-                lignes (retour du 2026-07-06, appliqué aux onglets
-                Entretien/Notes/Objectifs puis ici pour garder le même gabarit). */}
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("dateRangeLabel")}</Label>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="date"
-                  aria-label={t("dateFrom")}
-                  value={dateFrom}
-                  onChange={(event) => setDateFrom(event.target.value)}
-                  className="w-36"
-                />
-                <span className="text-xs text-muted-foreground">–</span>
-                <Input
-                  type="date"
-                  aria-label={t("dateTo")}
-                  value={dateTo}
-                  onChange={(event) => setDateTo(event.target.value)}
-                  className="w-36"
-                />
+        <div className="flex flex-col gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("chartFiltersTitle")}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-end gap-x-4 gap-y-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>{t("type")}</Label>
+                <Select
+                  value={filterType}
+                  onValueChange={(v) => setFilterType((v as MeasurementType | typeof ALL) ?? ALL)}
+                >
+                  <SelectTrigger className="w-36">
+                    <SelectValue>
+                      {(v: string | null) => (v && v !== ALL ? tType(v) : t("allTypes"))}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>{t("allTypes")}</SelectItem>
+                    {MEASUREMENT_TYPES.map((measurementType) => (
+                      <SelectItem key={measurementType} value={measurementType}>
+                        {tType(measurementType)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              {/* Plage de dates groupée en un seul bloc : les deux champs
+                  wrappent ensemble plutôt que de se retrouver séparés sur deux
+                  lignes (retour du 2026-07-06, appliqué aux onglets
+                  Entretien/Notes/Objectifs puis ici pour garder le même gabarit). */}
+              <div className="flex flex-col gap-1.5">
+                <Label>{t("dateRangeLabel")}</Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date"
+                    aria-label={t("dateFrom")}
+                    value={dateFrom}
+                    onChange={(event) => setDateFrom(event.target.value)}
+                    className="w-36"
+                  />
+                  <span className="text-xs text-muted-foreground">–</span>
+                  <Input
+                    type="date"
+                    aria-label={t("dateTo")}
+                    value={dateTo}
+                    onChange={(event) => setDateTo(event.target.value)}
+                    className="w-36"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Formulaire d'ajout, sous les filtres (même colonne) */}
+          <Card>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="flex flex-col items-start gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label>{t("type")}</Label>
+                  <Select
+                    value={type}
+                    onValueChange={(v) => setType((v as MeasurementType) ?? "HEIGHT")}
+                  >
+                    <SelectTrigger className="w-36">
+                      <SelectValue>{(v: string | null) => (v ? tType(v) : "")}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MEASUREMENT_TYPES.map((measurementType) => (
+                        <SelectItem key={measurementType} value={measurementType}>
+                          {tType(measurementType)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="measurement-value">{t("value")}</Label>
+                  <Input
+                    id="measurement-value"
+                    type="number"
+                    step="0.1"
+                    value={value}
+                    onChange={(event) => setValue(event.target.value)}
+                    className="w-36"
+                  />
+                  {errors.value && <p className="text-sm text-destructive">{t("valueRequired")}</p>}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="measurement-date">{t("date")}</Label>
+                  <Input
+                    id="measurement-date"
+                    type="date"
+                    value={date}
+                    onChange={(event) => setDate(event.target.value)}
+                    className="w-36"
+                  />
+                  {errors.date && <p className="text-sm text-destructive">{t("dateRequired")}</p>}
+                </div>
+                <Button type="submit" disabled={isSubmitting} className="w-full">
+                  {t("submit")}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
 
         <Card>
           <CardContent>
@@ -409,54 +464,7 @@ export function MeasurementsTab({
         </Card>
       </div>
 
-      {/* 2. Ligne d'ajout de mesure */}
-      <Card>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("type")}</Label>
-              <Select value={type} onValueChange={(v) => setType((v as MeasurementType) ?? "HEIGHT")}>
-                <SelectTrigger className="w-36">
-                  <SelectValue>{(v: string | null) => (v ? tType(v) : "")}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {MEASUREMENT_TYPES.map((measurementType) => (
-                    <SelectItem key={measurementType} value={measurementType}>
-                      {tType(measurementType)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="measurement-value">{t("value")}</Label>
-              <Input
-                id="measurement-value"
-                type="number"
-                step="0.1"
-                value={value}
-                onChange={(event) => setValue(event.target.value)}
-              />
-              {errors.value && <p className="text-sm text-destructive">{t("valueRequired")}</p>}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="measurement-date">{t("date")}</Label>
-              <Input
-                id="measurement-date"
-                type="date"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-              />
-              {errors.date && <p className="text-sm text-destructive">{t("dateRequired")}</p>}
-            </div>
-            <Button type="submit" disabled={isSubmitting}>
-              {t("submit")}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* 3. Historique triable (filtres communs à la carte du haut) */}
+      {/* 2. Historique triable (filtres communs à la carte du haut) */}
       <Card>
         <CardContent>
           {tableHasError ? (
