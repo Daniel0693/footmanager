@@ -253,14 +253,14 @@ export function EvaluationTab({
       <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[20rem_1fr]">
         <Card>
           <CardContent className="flex h-full flex-col justify-between gap-4">
-            <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+            <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label>{t("sortOrder")}</Label>
                 <Select
                   value={sortOrder}
                   onValueChange={(v) => setSortOrder((v as SortOrder) ?? "desc")}
                 >
-                  <SelectTrigger className="w-36">
+                  <SelectTrigger className="w-full">
                     <SelectValue>
                       {(v: string | null) => (v === "asc" ? t("sortAsc") : t("sortDesc"))}
                     </SelectValue>
@@ -279,7 +279,7 @@ export function EvaluationTab({
                     aria-label={t("dateFrom")}
                     value={dateFrom}
                     onChange={(event) => setDateFrom(event.target.value)}
-                    className="w-36"
+                    className="w-0 min-w-0 flex-1"
                   />
                   <span className="text-xs text-muted-foreground">–</span>
                   <Input
@@ -287,7 +287,7 @@ export function EvaluationTab({
                     aria-label={t("dateTo")}
                     value={dateTo}
                     onChange={(event) => setDateTo(event.target.value)}
-                    className="w-36"
+                    className="w-0 min-w-0 flex-1"
                   />
                 </div>
               </div>
