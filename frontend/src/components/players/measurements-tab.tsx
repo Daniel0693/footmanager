@@ -466,64 +466,65 @@ export function MeasurementsTab({
       </div>
 
       {/* 2. Historique triable (filtres communs à la carte du haut) : seule
-          cette zone défile (flex-1 min-h-0 overflow-y-auto), tout ce qui
-          précède reste fixe à l'écran. */}
-      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-        <Card>
-          <CardContent>
-            {tableHasError ? (
-              <p className="text-sm text-destructive">{t("loadFailed")}</p>
-            ) : tableMeasurements === null ? null : tableMeasurements.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("empty")}</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>
-                      <button
-                        type="button"
-                        onClick={() => toggleSort("date")}
-                        className="flex items-center gap-1"
+          cette zone défile (flex-1 min-h-0 overflow-y-auto porté par le
+          conteneur du <Table>, pas par la Card — sinon le thead sticky se
+          fige par rapport à la Card au lieu du véritable ascenseur), tout
+          ce qui précède reste fixe à l'écran. L'entête reste visible
+          pendant le défilement (sticky, voir table.tsx). */}
+      <Card className="lg:min-h-0 lg:flex-1">
+        <CardContent className="flex flex-col lg:min-h-0 lg:flex-1">
+          {tableHasError ? (
+            <p className="text-sm text-destructive">{t("loadFailed")}</p>
+          ) : tableMeasurements === null ? null : tableMeasurements.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("empty")}</p>
+          ) : (
+            <Table containerClassName="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("date")}
+                      className="flex items-center gap-1"
+                    >
+                      {t("date")} {sortIcon("date")}
+                    </button>
+                  </TableHead>
+                  <TableHead>{t("type")}</TableHead>
+                  <TableHead>
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("value")}
+                      className="flex items-center gap-1"
+                    >
+                      {t("value")} {sortIcon("value")}
+                    </button>
+                  </TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(tableMeasurements ?? []).map((measurement) => (
+                  <TableRow key={measurement.id}>
+                    <TableCell>{measurement.date.slice(0, 10)}</TableCell>
+                    <TableCell>{tType(measurement.type)}</TableCell>
+                    <TableCell>{measurement.value}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(measurement.id)}
                       >
-                        {t("date")} {sortIcon("date")}
-                      </button>
-                    </TableHead>
-                    <TableHead>{t("type")}</TableHead>
-                    <TableHead>
-                      <button
-                        type="button"
-                        onClick={() => toggleSort("value")}
-                        className="flex items-center gap-1"
-                      >
-                        {t("value")} {sortIcon("value")}
-                      </button>
-                    </TableHead>
-                    <TableHead />
+                        {t("delete")}
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(tableMeasurements ?? []).map((measurement) => (
-                    <TableRow key={measurement.id}>
-                      <TableCell>{measurement.date.slice(0, 10)}</TableCell>
-                      <TableCell>{tType(measurement.type)}</TableCell>
-                      <TableCell>{measurement.value}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDelete(measurement.id)}
-                        >
-                          {t("delete")}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

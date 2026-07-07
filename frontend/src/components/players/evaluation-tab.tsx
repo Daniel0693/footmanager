@@ -348,86 +348,83 @@ export function EvaluationTab({
 
       {/* 2. Historique en tableau : une ligne par évaluation, une colonne
           par catégorie (moyenne de cette catégorie pour cette évaluation).
-          Seule cette zone défile (flex-1 min-h-0 overflow-y-auto), tout ce
-          qui précède reste fixe à l'écran. */}
-      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-        {hasError ? (
-          <p className="text-sm text-destructive">{t("loadFailed")}</p>
-        ) : evaluations === null || axes === null ? null : evaluations.length === 0 ? (
-          <Card>
-            <CardContent className="py-6 text-sm text-muted-foreground">
-              {t("empty")}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("date")}</TableHead>
-                    {axes.map((axis) => (
-                      <TableHead key={axis.id}>{axis.name}</TableHead>
-                    ))}
-                    <TableHead>{t("authorLabel")}</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {evaluations.map((evaluation) => (
-                    <TableRow key={evaluation.id}>
-                      <TableCell>{formatDate(evaluation.date)}</TableCell>
-                      {axes.map((axis) => {
-                        const average = categoryAverage(evaluation, axis);
-                        return (
-                          <TableCell key={axis.id}>
-                            {average !== undefined ? average.toFixed(1) : "—"}
-                          </TableCell>
-                        );
-                      })}
-                      <TableCell>
-                        {evaluation.evaluator ? (
-                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <UserRound className="size-3.5" />
-                            {evaluation.evaluator.firstName} {evaluation.evaluator.lastName}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          <EvaluationFormDialog
-                            clubId={clubId}
-                            teamId={teamId}
-                            playerId={playerId}
-                            axes={axes}
-                            evaluation={evaluation}
-                            onSuccess={load}
-                            trigger={
-                              <Button variant="ghost" size="icon" aria-label={t("edit")}>
-                                <Pencil />
-                              </Button>
-                            }
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={t("delete")}
-                            onClick={() => handleDelete(evaluation.id)}
-                          >
-                            <Trash2 className="text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+          Seule cette zone défile (flex-1 min-h-0 overflow-y-auto porté par
+          le conteneur du <Table>, pas par la Card — sinon le thead sticky
+          se fige par rapport à la Card au lieu du véritable ascenseur),
+          tout ce qui précède reste fixe à l'écran. L'entête reste visible
+          pendant le défilement (sticky, voir table.tsx). */}
+      <Card className="lg:min-h-0 lg:flex-1">
+        <CardContent className="flex flex-col lg:min-h-0 lg:flex-1">
+          {hasError ? (
+            <p className="text-sm text-destructive">{t("loadFailed")}</p>
+          ) : evaluations === null || axes === null ? null : evaluations.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("empty")}</p>
+          ) : (
+            <Table containerClassName="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("date")}</TableHead>
+                  {axes.map((axis) => (
+                    <TableHead key={axis.id}>{axis.name}</TableHead>
                   ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+                  <TableHead>{t("authorLabel")}</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {evaluations.map((evaluation) => (
+                  <TableRow key={evaluation.id}>
+                    <TableCell>{formatDate(evaluation.date)}</TableCell>
+                    {axes.map((axis) => {
+                      const average = categoryAverage(evaluation, axis);
+                      return (
+                        <TableCell key={axis.id}>
+                          {average !== undefined ? average.toFixed(1) : "—"}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell>
+                      {evaluation.evaluator ? (
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <UserRound className="size-3.5" />
+                          {evaluation.evaluator.firstName} {evaluation.evaluator.lastName}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <EvaluationFormDialog
+                          clubId={clubId}
+                          teamId={teamId}
+                          playerId={playerId}
+                          axes={axes}
+                          evaluation={evaluation}
+                          onSuccess={load}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label={t("edit")}>
+                              <Pencil />
+                            </Button>
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={t("delete")}
+                          onClick={() => handleDelete(evaluation.id)}
+                        >
+                          <Trash2 className="text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
