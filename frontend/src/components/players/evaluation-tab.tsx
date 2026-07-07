@@ -246,10 +246,13 @@ export function EvaluationTab({
     <div className="flex flex-col gap-4">
       {/* 1. Filtres + ajout (colonne 1) et radar dynamique (colonne 2) côte à
           côte : évite qu'un graphique pleine largeur ne devienne trop haut
-          et n'impose un scroll dès l'arrivée sur l'onglet. */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[20rem_1fr]">
+          et n'impose un scroll dès l'arrivée sur l'onglet. La colonne 1
+          s'étire (items-stretch) sur la hauteur du radar plutôt que de
+          laisser un grand vide sous le bouton "Ajouter" (bouton ancré en
+          bas via justify-between). */}
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[20rem_1fr]">
         <Card>
-          <CardContent className="flex flex-col gap-4">
+          <CardContent className="flex h-full flex-col justify-between gap-4">
             <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
               <div className="flex flex-col gap-1.5">
                 <Label>{t("sortOrder")}</Label>
@@ -318,7 +321,7 @@ export function EvaluationTab({
             ) : axes === null || evaluations === null ? null : radarData.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("radarEmpty")}</p>
             ) : (
-              <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-112">
+              <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-96">
                 <RadarChart
                   data={radarData}
                   outerRadius="62%"
