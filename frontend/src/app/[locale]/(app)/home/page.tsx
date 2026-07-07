@@ -15,7 +15,7 @@ interface MyClub {
 
 export default function HomePage() {
   const t = useTranslations("home");
-  const { user, accessToken, logout } = useAuth();
+  const { user, accessToken } = useAuth();
   const router = useRouter();
   const [isCreatingClub, setIsCreatingClub] = useState(false);
   const [myClubs, setMyClubs] = useState<MyClub[] | null>(null);
@@ -84,10 +84,6 @@ export default function HomePage() {
           {t("viewClub", { clubName: club.name })}
         </Button>
       ))}
-
-      <Button variant="outline" onClick={() => logout()}>
-        {t("logout")}
-      </Button>
     </div>
   );
 }

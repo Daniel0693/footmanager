@@ -14,6 +14,7 @@ import type { ComponentProps, Ref } from "react";
  */
 export const push = jest.fn();
 export const replace = jest.fn();
+export const usePathname = jest.fn(() => "/home");
 
 export function Link({
   href,

@@ -142,11 +142,17 @@ frontend/
         (app)/home/                         # bascule créer un club / voir mes clubs
         (app)/clubs/[clubId]/teams/         # liste + création d'équipes
         (app)/clubs/[clubId]/teams/[teamId]/players/  # liste effectif, filtres poste/ligne
-        (app)/layout.tsx                    # guard client (redirige si non connecté)
+        (app)/settings/                     # placeholder (à venir)
+        (app)/layout.tsx                    # délègue à AppShell (guard + sidebar + header)
         layout.tsx                          # <html>/<body>, NextIntlClientProvider
         page.tsx                            # redirige vers /login
       globals.css
-    components/ui/   # shadcn/ui (Tailwind v4) : button, card, input, label, table, select, badge, sonner
+    components/ui/   # shadcn/ui (Tailwind v4) : button, card, input, label, table, select, badge,
+                      # sonner, dialog, dropdown-menu, avatar
+    components/layout/   # template applicatif : app-shell (guard + composition),
+                          # sidebar-nav (nav-modules.ts pour la liste des modules),
+                          # site-header, language-switcher, notifications-menu (placeholder
+                          # visuel, voir decisions-ouvertes-et-rgpd.md §2/§4), user-menu
     i18n/             # routing.ts, navigation.ts, request.ts
     lib/
       api.ts          # apiFetch, parseErrorCode

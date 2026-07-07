@@ -1,6 +1,23 @@
 {
   "common": {
-    "appName": "FootManager"
+    "appName": "FootManager",
+    "comingSoon": "Cette section arrivera dans une prochaine phase."
+  },
+  "nav": {
+    "home": "Accueil",
+    "roster": "Effectif"
+  },
+  "header": {
+    "toggleSidebar": "Ouvrir le menu de navigation",
+    "language": "Langue",
+    "settings": "Paramètres",
+    "notifications": {
+      "title": "Notifications",
+      "empty": "Aucune notification pour l'instant"
+    },
+    "userMenu": {
+      "logout": "Se déconnecter"
+    }
   },
   "auth": {
     "login": {
@@ -32,7 +49,6 @@
     "clubCreated": "Club créé avec succès",
     "clubCreationFailed": "Échec de la création du club",
     "demoClubName": "Mon club",
-    "logout": "Se déconnecter",
     "viewClub": "Voir l'effectif de {clubName}"
   },
   "teams": {

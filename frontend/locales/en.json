@@ -1,6 +1,23 @@
 {
   "common": {
-    "appName": "FootManager"
+    "appName": "FootManager",
+    "comingSoon": "This section will be available in a future phase."
+  },
+  "nav": {
+    "home": "Home",
+    "roster": "Roster"
+  },
+  "header": {
+    "toggleSidebar": "Open navigation menu",
+    "language": "Language",
+    "settings": "Settings",
+    "notifications": {
+      "title": "Notifications",
+      "empty": "No notifications yet"
+    },
+    "userMenu": {
+      "logout": "Sign out"
+    }
   },
   "auth": {
     "login": {
@@ -32,7 +49,6 @@
     "clubCreated": "Club created successfully",
     "clubCreationFailed": "Failed to create the club",
     "demoClubName": "My club",
-    "logout": "Sign out",
     "viewClub": "View {clubName} roster"
   },
   "teams": {
