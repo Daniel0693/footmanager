@@ -61,7 +61,7 @@ la fiche joueur :
 | **Entretien** | comptes-rendus d'entretiens individuels | `PlayerInterview` | Phase 2, étape A7.2 |
 | **Notes** | notes du staff sur le joueur, visibilité Privé/Semi-privé/Public | `PlayerNote` | Phase 2, étape A7.3 |
 | **Objectifs** | objectifs de développement, 4 statuts | `PlayerObjective` | Phase 2, étape A7.4 |
-| **Évaluation** | graphique radar sur 6 catégories | `EvaluationCriterion` + `PlayerEvaluation` | Phase 2, étape A7.5 |
+| **Évaluation** | session multi-critères, radar dynamique (N catégories selon la config du club) | `EvaluationCriterion` + `PlayerEvaluation` + `PlayerEvaluationScore` | Phase 2, étape A7.5 |
 | **Dashboard** | vue d'ensemble (stats clés, dernières évaluations, objectifs en cours) | agrégation | Phase 6 — dépend des stats Matchs (Phase 4) et Entraînement (Phase 5) |
 | **Absence** | absences planifiées | `PlayerAbsence` | Retiré de la Partie A ; à construire avec le Calendrier/présences (Partie B et/ou Phases 4-5) — emplacement précis à trancher |
 | **Blessure** | suivi médical | `Injury` — voir `docs/modules/blessures.md` | Phase 8 (données de santé, RGPD dédié) |
@@ -177,33 +177,11 @@ dans la mesure du possible, être résolu côté backend (query params sur le `G
   notes des joueurs réellement présents dans son équipe, jamais sur ceux d'une autre équipe du
   même club même en transmettant son propre `teamId`.
 
-### Évaluation — radar dynamique par catégories configurables
-
-Le radar de l'onglet Évaluation est **dynamique** : ses axes correspondent aux
-`ClubEvaluationConfig` du club où `isEnabled = true`, triées par `displayOrder`. Le nombre
-d'axes n'est pas fixé à 6 — il reflète la configuration du club.
-
-**6 catégories système football** (activées par défaut à la création de tout club football) :
-Technique · Tactique · Physique · Mental · Émotionnel · Vie de groupe
-
-**Ce qu'un club peut faire** :
-- Désactiver une catégorie qui ne correspond pas à sa philosophie.
-- Renommer une catégorie (ex. "Comportement" au lieu de "Vie de groupe").
-- Réordonner les axes selon ses priorités.
-- Ajouter une catégorie personnalisée (ex. "Vision de jeu" comme 7ème axe).
-- Ajouter des critères personnalisés dans n'importe quelle catégorie.
-
-**Extension multi-sports** : un club de basket verra des catégories différentes (définies
-dans le seed pour `sport = BASKETBALL`). La logique de l'UI et du radar est identique —
-seul le contenu du seed change. Aucune modification de code requise pour ajouter un sport.
-
-Voir `docs/schema/joueurs.md` pour le détail des entités `EvaluationCategory`,
-`ClubEvaluationConfig` et `EvaluationCriterion`.
-
 ### Notation — unique dans toute l'application
 
 Toutes les notes sont **sur 10**, stockées en `Decimal(4,1)` par paliers de 0.5, affichées en
-**étoiles sur 5** dans l'UI (valeur / 2, demi-étoiles). Voir `docs/schema-bdd.md` §16.
+**étoiles sur 5** dans l'UI (valeur / 2, demi-étoiles). Voir `docs/schema/index.md` §"Convention
+de notation".
 
 ### Objectifs — 4 statuts, visibilité par défaut Semi-privé
 
@@ -238,7 +216,28 @@ Toutes les notes sont **sur 10**, stockées en `Decimal(4,1)` par paliers de 0.5
 - Comme Notes, applique `assertPlayerInTeam` dès sa conception pour le scope `TEAM` (Coach) —
   voir `docs/modules/auth-roles.md` §Patterns découverts.
 
-### Évaluation — une évaluation = une session multi-critères
+### Évaluation — radar dynamique, une évaluation = une session multi-critères
+
+Le radar de l'onglet Évaluation est **dynamique** : ses axes correspondent aux
+`ClubEvaluationConfig` du club où `isEnabled = true`, triées par `displayOrder`. Le nombre
+d'axes n'est pas fixé à 6 — il reflète la configuration du club.
+
+**6 catégories système football** (activées par défaut à la création de tout club football) :
+Technique · Tactique · Physique · Mental · Émotionnel · Vie de groupe
+
+**Ce qu'un club peut faire** :
+- Désactiver une catégorie qui ne correspond pas à sa philosophie.
+- Renommer une catégorie (ex. "Comportement" au lieu de "Vie de groupe").
+- Réordonner les axes selon ses priorités.
+- Ajouter une catégorie personnalisée (ex. "Vision de jeu" comme 7ème axe).
+- Ajouter des critères personnalisés dans n'importe quelle catégorie.
+
+**Extension multi-sports** : un club de basket verra des catégories différentes (définies
+dans le seed pour `sport = BASKETBALL`). La logique de l'UI et du radar est identique —
+seul le contenu du seed change. Aucune modification de code requise pour ajouter un sport.
+
+Voir `docs/schema/joueurs.md` pour le détail des entités `EvaluationCategory`,
+`ClubEvaluationConfig` et `EvaluationCriterion`.
 
 **Décision du 2026-07-06 (revue après une première implémentation une-ligne-par-critère, jamais
 commitée)** : une évaluation est **une session unique** où le coach note en un seul formulaire
@@ -285,8 +284,10 @@ plus récente ; les sessions précédentes restent en base pour l'historique.
   pas de niveau Privé pour ce modèle.
 - **`evaluatorId` auto-assigné** au membre à l'origine de la création (même pattern que
   `PlayerInterview.staffId`/`PlayerNote.authorId`/`PlayerObjective.assignedById`), jamais
-  sélectionnable. `teamId` (contexte multi-équipe) et `trainingSessionId`/`matchId` existent en
-  base mais ne sont pas exposés par l'API pour l'instant — voir `docs/schema/joueurs.md`.
+  sélectionnable. `teamId` (contexte multi-équipe) existe en base mais n'est pas exposé par
+  l'API pour l'instant. `trainingSessionId`/`matchId` (liens optionnels vers une séance/un
+  match) sont différés aux Phases 5/4 — ces modèles n'existent pas encore, aucune colonne
+  correspondante en base pour l'instant — voir `docs/schema/joueurs.md`.
 - **Filtres par plage de dates** (`dateFrom`/`dateTo`) plus le tri (`sortOrder`), résolus côté
   backend — même convention que les autres onglets. Pas de filtre par critère : une évaluation
   est une session multi-critères, ce filtre n'a plus de sens à cette granularité.
@@ -338,6 +339,7 @@ catégories). Dans ce cas :
 
 - L'onglet **Blessure** s'appuie sur le module Blessures — qui peut influer sur la disponibilité
   du joueur dans le calendrier et les convocations.
-- Les `PlayerEvaluation` peuvent être liées à une séance (`trainingSessionId`) ou à un match
-  (`matchId`) via les champs optionnels anticipés dans le schéma.
+- Les `PlayerEvaluation` pourront être liées à une séance (`trainingSessionId`) ou à un match
+  (`matchId`) une fois `TrainingSession`/`Match` implémentés (Phases 5/4) — aucune colonne
+  correspondante n'existe encore en base (voir `docs/schema/joueurs.md`).
 - Le module **Matchs** alimente les statistiques affichées dans le Dashboard du joueur.

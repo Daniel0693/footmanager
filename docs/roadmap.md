@@ -56,8 +56,8 @@ depuis la Phase 6 dans la Partie A)_
 | Backend `members` (création/édition sans compte) | ✅ | `POST`/`PATCH /clubs/:clubId/members`, `Member.userId` nullable, champs `gender`/`preferredFoot` |
 | Frontend liste effectif | ✅ | Table + filtres par ligne/poste, navigation club → équipe → effectif |
 | Frontend fiche joueur (2 colonnes) | ✅ | Panneau infos statiques (identité + affectation, fonctionnel) + sélecteur de poste visuel (terrain interactif, postes secondaires multiples) + formulaire ajout/édition |
-| **A7 — Profil joueur enrichi** | 🚧 | **Décision du 2026-07-06** : contenu réel des onglets, un par un (voir sous-étapes ci-dessous), plutôt que de tout renvoyer en Phase 6 |
-| A8 — Tests multi-rôles bout-en-bout | ⬜ | Scénario complet + revue de cohérence doc ↔ code (anciennement dernière étape de la Partie A, renumérotée après l'ajout de A7) |
+| **A7 — Profil joueur enrichi** | ✅ | **Décision du 2026-07-06** : contenu réel des onglets, un par un (voir sous-étapes ci-dessous), plutôt que de tout renvoyer en Phase 6. Les 5 sous-étapes (A7.1-A7.5) sont terminées |
+| A8 — Tests multi-rôles bout-en-bout | ✅ | Scénario complet + revue de cohérence doc ↔ code (anciennement dernière étape de la Partie A, renumérotée après l'ajout de A7). Détail ci-dessous |
 
 #### Sous-étapes A7 — une entité à la fois
 
@@ -92,7 +92,7 @@ tests frontend au total. A7.2 (Entretien) : 136 tests backend + 78 tests fronten
 A7.3 (Notes) : 178 tests backend + 92 tests frontend au total. A7.4 (Objectifs), avec les
 filtres de date ajoutés après coup sur Notes et Objectifs : 205 tests backend + 110 tests
 frontend au total. A7.5 (Évaluation), après la refonte en session multi-critères : 235 tests
-backend + 136 tests frontend au total.
+backend + 136 tests frontend au total. A8 : 250 tests backend + 136 tests frontend au total.
 Plusieurs bugs réels ont été trouvés et corrigés en testant manuellement avec les 6
 rôles (voir `docs/modules/auth-roles.md` §Patterns
 découverts).
@@ -103,6 +103,32 @@ de n'importe quel joueur du club en transmettant sa propre équipe en `?teamId=`
 le joueur ciblé appartient réellement à cette équipe (seulement au club). Corrigé via
 `assertPlayerInTeam` avant de démarrer A7.3, avec tests de régression dédiés. 153 tests backend
 au total après correctif. Voir `docs/modules/auth-roles.md` §Patterns découverts.
+
+#### A8 — Tests multi-rôles bout-en-bout + revue de cohérence doc ↔ code
+
+- **Test d'intégration consolidé** (`backend/src/common/effectif-multi-role.integration.spec.ts`,
+  15 tests) : un seul membre (Marc) cumulant Coach équipe 5/Player équipe 8 (Club 1)/Parent
+  (Club 2, `Member` distinct par club) exercé à travers les vrais guards/services des 5
+  ressources Effectif (A7.1-A7.5) — pas seulement au niveau abstrait déjà couvert par
+  `permissions.service.spec.ts`. Complète la règle multi-rôles obligatoire de
+  `docs/modules/auth-roles.md` pour l'ensemble du module, pas module par module isolément.
+- **Smoke test Docker en conditions réelles** (3 rôles × 5 endpoints) : création par un Coach,
+  lecture filtrée par un Player (jamais de `PRIVE`/`staffAssessment`, écriture refusée), lecture
+  et nettoyage par un AdminClub. A révélé un cas limite non trivial (voir ci-dessous).
+- **Bug découvert (non corrigé, documenté)** : `PermissionsService.matchesContext()` exige une
+  correspondance de `teamId` dès que le `MemberRole` de l'appelant en porte un — y compris pour
+  une permission en scope `OWN`, qui ne devrait pourtant pas dépendre d'une équipe. Un Player
+  omettant `?teamId=` reçoit un 403 même pour lire ses propres données. Sans impact aujourd'hui
+  (la fiche joueur transmet toujours `teamId`), mais latent pour un futur client. Voir
+  `docs/decisions-ouvertes-et-rgpd.md` #6 et `docs/modules/auth-roles.md` §Patterns découverts.
+- **Revue de cohérence doc ↔ code** : plusieurs écarts trouvés et corrigés dans
+  `docs/schema/joueurs.md` (`PlayerAbsence` documenté comme s'il existait déjà en base — annoté
+  "pas encore implémenté" ; `PlayerEvaluation` doublé à tort dans la liste des index ; index de
+  `PlayerEvaluationScore` manquants) et `docs/modules/effectif-joueurs.md` (référence morte vers
+  `docs/schema-bdd.md` §16 — fichier déplacé depuis, corrigée vers `docs/schema/index.md` ;
+  affirmation erronée que `trainingSessionId`/`matchId` existent en base sur `PlayerEvaluation`
+  alors qu'ils sont entièrement différés ; deux sections "Évaluation" séparées et non
+  adjacentes fusionnées en une seule).
 
 ### Partie B — Module Calendrier
 

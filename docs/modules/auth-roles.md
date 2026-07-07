@@ -219,6 +219,15 @@ aujourd'hui pas "global" au sens propre — il faut lui créer un `Member` par c
 vrai mécanisme multi-club sans cette limitation reste à concevoir si le besoin se confirme
 (voir "Multi-club" dans `docs/roadmap.md` §Évolutions post-MVP).
 
+**`matchesContext()` exige une correspondance de `teamId` dès que le `MemberRole` en porte un —
+y compris pour une permission en scope `OWN`, qui ne devrait pourtant pas dépendre d'une
+équipe.** Trouvé en A8 (smoke test bout-en-bout) : un Player omettant `?teamId=` reçoit un 403
+même pour lire ses propres mesures/entretiens/notes/objectifs/évaluations. Sans impact
+aujourd'hui (la fiche joueur transmet toujours `teamId`, voir §"Le paramètre `?teamId=`..."
+ci-dessus), mais à garder en tête pour tout futur module/client qui interrogerait une ressource
+scopée `OWN` sans passer par un écran ancré à une équipe précise. Décision ouverte, piste de
+correction et justification du report : voir `docs/decisions-ouvertes-et-rgpd.md` #6.
+
 ### Multi-rôles — règle de test obligatoire
 
 **Toute modification touchant aux droits doit être testée avec au moins un scénario multi-rôles
@@ -234,6 +243,15 @@ avant merge.** Exemple de scénario de référence :
 
 Si une modification de la logique de permission casse ce scénario dans un sens ou dans l'autre,
 elle ne peut pas être mergée.
+
+**Implémentations concrètes de ce scénario** : `src/roles/permissions.service.spec.ts` le teste
+au niveau abstrait de `PermissionsService.can()` (Phase 1). Pour le module Effectif (A8,
+Phase 2), `backend/src/common/effectif-multi-role.integration.spec.ts` l'applique aux 5
+ressources réelles (Mesures/Entretien/Notes/Objectifs/Évaluation) via les vrais guards/services
+— un seul membre (Marc) cumulant Coach/Player/Parent dans des contextes distincts, à la
+différence des `*-permissions.integration.spec.ts` de chaque module qui utilisent toujours un
+utilisateur différent par rôle. Le scénario Calendrier (séances/matchs/convocations) cité
+ci-dessus reste à couvrir concrètement une fois ce module construit (Partie B).
 
 ### Propriétaire — mécanisme de transfert sécurisé
 

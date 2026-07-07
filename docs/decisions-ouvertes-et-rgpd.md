@@ -87,6 +87,31 @@ n'existe dans le schéma actuel (`fondations.md`, `joueurs.md`). `PermissionScop
 sans sur-exposer le reste de l'équipe. À concevoir (ex. table `ParentChild` ou équivalent)
 avant de câbler le rôle `Parent` sur le module Effectif ou Calendrier — non traité en Phase 2.
 
+### 6. `PermissionsService.matchesContext()` exige `teamId` même pour un scope `OWN`
+
+**Trouvé le 2026-07-07 (A8, smoke test bout-en-bout)** : `matchesContext()`
+(`backend/src/roles/permissions.service.ts`) exige que `context.teamId` corresponde au `teamId`
+du `MemberRole` dès que celui-ci est non-null — **y compris quand la permission accordée est en
+scope `OWN`**, qui ne devrait conceptuellement pas dépendre d'une équipe (`OWN` = "mes propres
+données", pas "les données de mon équipe"). Conséquence concrète : un Player dont le
+`MemberRole` porte un `teamId` (le cas normal — un joueur appartient à une équipe précise) reçoit
+un 403 sur `GET .../measurements|interviews|notes|objectives|evaluations` s'il omet `?teamId=`
+dans la requête, **même pour lire ses propres données**.
+
+**Aucun impact utilisateur aujourd'hui** : la fiche joueur vit à
+`/clubs/:clubId/teams/:teamId/players/:playerId`, donc chaque onglet transmet toujours
+`?teamId=` (voir `docs/modules/effectif-joueurs.md`) — le frontend ne déclenche jamais ce cas.
+Risque latent pour un futur client qui appellerait ces endpoints sans connaître le `teamId`
+(app mobile, script, futur écran "mon profil" en libre-service comme `GET
+/clubs/:clubId/players/me`).
+
+**Piste de correction envisagée (non implémentée)** : `matchesContext()` pourrait ignorer la
+correspondance de `teamId` lorsque la permission évaluée est en scope `OWN` — mais c'est une
+modification du cœur du moteur RBAC partagé par **tous** les modules déjà livrés, pas seulement
+Effectif, donc à traiter avec une revue de non-régression multi-rôles complète (règle d'or de
+CLAUDE.md), pas en correctif ponctuel. À trancher avant d'exposer un nouveau client qui
+consommerait ces endpoints sans passer par la fiche joueur classique.
+
 ## Contraintes RGPD
 
 ### Tension Article 15 (droit d'accès) vs notes privées
