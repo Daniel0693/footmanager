@@ -311,102 +311,105 @@ export function MeasurementsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 1. Filtres partagés (graphique + tableau) */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("chartFiltersTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-end gap-x-4 gap-y-3">
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("type")}</Label>
-            <Select
-              value={filterType}
-              onValueChange={(v) => setFilterType((v as MeasurementType | typeof ALL) ?? ALL)}
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue>
-                  {(v: string | null) => (v && v !== ALL ? tType(v) : t("allTypes"))}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{t("allTypes")}</SelectItem>
-                {MEASUREMENT_TYPES.map((measurementType) => (
-                  <SelectItem key={measurementType} value={measurementType}>
-                    {tType(measurementType)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {/* Plage de dates groupée en un seul bloc : les deux champs
-              wrappent ensemble plutôt que de se retrouver séparés sur deux
-              lignes (retour du 2026-07-06, appliqué aux onglets
-              Entretien/Notes/Objectifs puis ici pour garder le même gabarit). */}
-          <div className="flex flex-col gap-1.5">
-            <Label>{t("dateRangeLabel")}</Label>
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="date"
-                aria-label={t("dateFrom")}
-                value={dateFrom}
-                onChange={(event) => setDateFrom(event.target.value)}
-                className="w-36"
-              />
-              <span className="text-xs text-muted-foreground">–</span>
-              <Input
-                type="date"
-                aria-label={t("dateTo")}
-                value={dateTo}
-                onChange={(event) => setDateTo(event.target.value)}
-                className="w-36"
-              />
+      {/* 1. Filtres (colonne 1) + graphique (colonne 2) côte à côte : évite
+          qu'un graphique pleine largeur (aspect-video) ne devienne trop haut
+          et n'impose un scroll dès l'arrivée sur l'onglet. */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[20rem_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("chartFiltersTitle")}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-end gap-x-4 gap-y-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>{t("type")}</Label>
+              <Select
+                value={filterType}
+                onValueChange={(v) => setFilterType((v as MeasurementType | typeof ALL) ?? ALL)}
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue>
+                    {(v: string | null) => (v && v !== ALL ? tType(v) : t("allTypes"))}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>{t("allTypes")}</SelectItem>
+                  {MEASUREMENT_TYPES.map((measurementType) => (
+                    <SelectItem key={measurementType} value={measurementType}>
+                      {tType(measurementType)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 2. Graphique unique, deux courbes, légende cliquable */}
-      <Card>
-        <CardContent>
-          {chartHasError ? (
-            <p className="text-sm text-destructive">{t("loadFailed")}</p>
-          ) : chartMeasurements === null ? null : chartData.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("empty")}</p>
-          ) : (
-            <ChartContainer config={chartConfig}>
-              <LineChart data={chartData}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="date" tickLine={false} axisLine={false} />
-                <YAxis tickLine={false} axisLine={false} domain={["auto", "auto"]} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Legend content={renderLegend} />
-                <Line
-                  dataKey="HEIGHT"
-                  name={tType("HEIGHT")}
-                  type="monotone"
-                  stroke="var(--color-HEIGHT)"
-                  strokeWidth={2}
-                  hide={filterType !== ALL && filterType !== "HEIGHT"}
-                  dot
-                  connectNulls
+            {/* Plage de dates groupée en un seul bloc : les deux champs
+                wrappent ensemble plutôt que de se retrouver séparés sur deux
+                lignes (retour du 2026-07-06, appliqué aux onglets
+                Entretien/Notes/Objectifs puis ici pour garder le même gabarit). */}
+            <div className="flex flex-col gap-1.5">
+              <Label>{t("dateRangeLabel")}</Label>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="date"
+                  aria-label={t("dateFrom")}
+                  value={dateFrom}
+                  onChange={(event) => setDateFrom(event.target.value)}
+                  className="w-36"
                 />
-                <Line
-                  dataKey="WEIGHT"
-                  name={tType("WEIGHT")}
-                  type="monotone"
-                  stroke="var(--color-WEIGHT)"
-                  strokeWidth={2}
-                  hide={filterType !== ALL && filterType !== "WEIGHT"}
-                  dot
-                  connectNulls
+                <span className="text-xs text-muted-foreground">–</span>
+                <Input
+                  type="date"
+                  aria-label={t("dateTo")}
+                  value={dateTo}
+                  onChange={(event) => setDateTo(event.target.value)}
+                  className="w-36"
                 />
-              </LineChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* 3. Ligne d'ajout de mesure */}
+        <Card>
+          <CardContent>
+            {chartHasError ? (
+              <p className="text-sm text-destructive">{t("loadFailed")}</p>
+            ) : chartMeasurements === null ? null : chartData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("empty")}</p>
+            ) : (
+              <ChartContainer config={chartConfig}>
+                <LineChart data={chartData}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="date" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} domain={["auto", "auto"]} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Legend content={renderLegend} />
+                  <Line
+                    dataKey="HEIGHT"
+                    name={tType("HEIGHT")}
+                    type="monotone"
+                    stroke="var(--color-HEIGHT)"
+                    strokeWidth={2}
+                    hide={filterType !== ALL && filterType !== "HEIGHT"}
+                    dot
+                    connectNulls
+                  />
+                  <Line
+                    dataKey="WEIGHT"
+                    name={tType("WEIGHT")}
+                    type="monotone"
+                    stroke="var(--color-WEIGHT)"
+                    strokeWidth={2}
+                    hide={filterType !== ALL && filterType !== "WEIGHT"}
+                    dot
+                    connectNulls
+                  />
+                </LineChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 2. Ligne d'ajout de mesure */}
       <Card>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
@@ -453,7 +456,7 @@ export function MeasurementsTab({
         </CardContent>
       </Card>
 
-      {/* 4. Historique triable (filtres communs à la carte du haut) */}
+      {/* 3. Historique triable (filtres communs à la carte du haut) */}
       <Card>
         <CardContent>
           {tableHasError ? (

@@ -244,101 +244,105 @@ export function EvaluationTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 1. Radar dynamique — axes = catégories activées pour ce club,
-          valeurs = moyennes par catégorie de la dernière évaluation */}
-      <Card>
-        <CardContent>
-          {configHasError ? (
-            <p className="text-sm text-destructive">{t("configLoadFailed")}</p>
-          ) : axes === null || evaluations === null ? null : radarData.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("radarEmpty")}</p>
-          ) : (
-            <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-112">
-              <RadarChart
-                data={radarData}
-                outerRadius="62%"
-                margin={{ top: 24, right: 48, bottom: 24, left: 48 }}
-              >
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <PolarGrid />
-                <PolarAngleAxis dataKey="axis" />
-                <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={6} />
-                <Radar
-                  dataKey="score"
-                  name={t("score")}
-                  stroke="var(--color-score)"
-                  fill="var(--color-score)"
-                  fillOpacity={0.35}
-                />
-              </RadarChart>
-            </ChartContainer>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 2. Filtres (backend) + ajout */}
-      <Card>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("sortOrder")}</Label>
-              <Select
-                value={sortOrder}
-                onValueChange={(v) => setSortOrder((v as SortOrder) ?? "desc")}
-              >
-                <SelectTrigger className="w-36">
-                  <SelectValue>
-                    {(v: string | null) => (v === "asc" ? t("sortAsc") : t("sortDesc"))}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="desc">{t("sortDesc")}</SelectItem>
-                  <SelectItem value="asc">{t("sortAsc")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("dateRangeLabel")}</Label>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="date"
-                  aria-label={t("dateFrom")}
-                  value={dateFrom}
-                  onChange={(event) => setDateFrom(event.target.value)}
-                  className="w-36"
-                />
-                <span className="text-xs text-muted-foreground">–</span>
-                <Input
-                  type="date"
-                  aria-label={t("dateTo")}
-                  value={dateTo}
-                  onChange={(event) => setDateTo(event.target.value)}
-                  className="w-36"
-                />
+      {/* 1. Filtres + ajout (colonne 1) et radar dynamique (colonne 2) côte à
+          côte : évite qu'un graphique pleine largeur ne devienne trop haut
+          et n'impose un scroll dès l'arrivée sur l'onglet. */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[20rem_1fr]">
+        <Card>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>{t("sortOrder")}</Label>
+                <Select
+                  value={sortOrder}
+                  onValueChange={(v) => setSortOrder((v as SortOrder) ?? "desc")}
+                >
+                  <SelectTrigger className="w-36">
+                    <SelectValue>
+                      {(v: string | null) => (v === "asc" ? t("sortAsc") : t("sortDesc"))}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="desc">{t("sortDesc")}</SelectItem>
+                    <SelectItem value="asc">{t("sortAsc")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>{t("dateRangeLabel")}</Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date"
+                    aria-label={t("dateFrom")}
+                    value={dateFrom}
+                    onChange={(event) => setDateFrom(event.target.value)}
+                    className="w-36"
+                  />
+                  <span className="text-xs text-muted-foreground">–</span>
+                  <Input
+                    type="date"
+                    aria-label={t("dateTo")}
+                    value={dateTo}
+                    onChange={(event) => setDateTo(event.target.value)}
+                    className="w-36"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-          {axes && axes.length > 0 && (
-            <div className="flex justify-end">
-              <EvaluationFormDialog
-                clubId={clubId}
-                teamId={teamId}
-                playerId={playerId}
-                axes={axes}
-                onSuccess={load}
-                trigger={
-                  <Button>
-                    <Plus />
-                    {t("add")}
-                  </Button>
-                }
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            {axes && axes.length > 0 && (
+              <div className="flex justify-end">
+                <EvaluationFormDialog
+                  clubId={clubId}
+                  teamId={teamId}
+                  playerId={playerId}
+                  axes={axes}
+                  onSuccess={load}
+                  trigger={
+                    <Button>
+                      <Plus />
+                      {t("add")}
+                    </Button>
+                  }
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* 3. Historique en tableau : une ligne par évaluation, une colonne
+        {/* Radar dynamique — axes = catégories activées pour ce club,
+            valeurs = moyennes par catégorie de la dernière évaluation */}
+        <Card>
+          <CardContent>
+            {configHasError ? (
+              <p className="text-sm text-destructive">{t("configLoadFailed")}</p>
+            ) : axes === null || evaluations === null ? null : radarData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("radarEmpty")}</p>
+            ) : (
+              <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-112">
+                <RadarChart
+                  data={radarData}
+                  outerRadius="62%"
+                  margin={{ top: 24, right: 48, bottom: 24, left: 48 }}
+                >
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="axis" />
+                  <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={6} />
+                  <Radar
+                    dataKey="score"
+                    name={t("score")}
+                    stroke="var(--color-score)"
+                    fill="var(--color-score)"
+                    fillOpacity={0.35}
+                  />
+                </RadarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 2. Historique en tableau : une ligne par évaluation, une colonne
           par catégorie (moyenne de cette catégorie pour cette évaluation) */}
       {hasError ? (
         <p className="text-sm text-destructive">{t("loadFailed")}</p>
