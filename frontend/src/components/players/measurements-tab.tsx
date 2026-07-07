@@ -315,7 +315,7 @@ export function MeasurementsTab({
           (colonne 2) côte à côte : évite qu'un graphique pleine largeur
           (aspect-video) ne devienne trop haut et n'impose un scroll dès
           l'arrivée sur l'onglet — et remonte le tableau d'historique. */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[20rem_1fr]">
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[20rem_1fr]">
         <div className="flex flex-col gap-4">
           <Card>
             <CardHeader>
@@ -373,14 +373,14 @@ export function MeasurementsTab({
           {/* Formulaire d'ajout, sous les filtres (même colonne) */}
           <Card>
             <CardContent>
-              <form onSubmit={handleSubmit} className="flex flex-col items-start gap-3">
+              <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label>{t("type")}</Label>
                   <Select
                     value={type}
                     onValueChange={(v) => setType((v as MeasurementType) ?? "HEIGHT")}
                   >
-                    <SelectTrigger className="w-36">
+                    <SelectTrigger className="w-full">
                       <SelectValue>{(v: string | null) => (v ? tType(v) : "")}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -400,7 +400,7 @@ export function MeasurementsTab({
                     step="0.1"
                     value={value}
                     onChange={(event) => setValue(event.target.value)}
-                    className="w-36"
+                    className="w-full"
                   />
                   {errors.value && <p className="text-sm text-destructive">{t("valueRequired")}</p>}
                 </div>
@@ -411,7 +411,7 @@ export function MeasurementsTab({
                     type="date"
                     value={date}
                     onChange={(event) => setDate(event.target.value)}
-                    className="w-36"
+                    className="w-full"
                   />
                   {errors.date && <p className="text-sm text-destructive">{t("dateRequired")}</p>}
                 </div>
@@ -423,14 +423,14 @@ export function MeasurementsTab({
           </Card>
         </div>
 
-        <Card>
-          <CardContent>
+        <Card className="h-full">
+          <CardContent className="flex h-full min-h-0 flex-1 flex-col">
             {chartHasError ? (
               <p className="text-sm text-destructive">{t("loadFailed")}</p>
             ) : chartMeasurements === null ? null : chartData.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("empty")}</p>
             ) : (
-              <ChartContainer config={chartConfig}>
+              <ChartContainer config={chartConfig} className="aspect-auto h-full">
                 <LineChart data={chartData}>
                   <CartesianGrid vertical={false} />
                   <XAxis dataKey="date" tickLine={false} axisLine={false} />
