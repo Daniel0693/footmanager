@@ -310,12 +310,13 @@ export function MeasurementsTab({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
       {/* 1. Filtres + formulaire d'ajout (colonne 1, empilés) et graphique
           (colonne 2) côte à côte : évite qu'un graphique pleine largeur
           (aspect-video) ne devienne trop haut et n'impose un scroll dès
-          l'arrivée sur l'onglet — et remonte le tableau d'historique. */}
-      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[20rem_1fr]">
+          l'arrivée sur l'onglet — et remonte le tableau d'historique. Reste
+          fixe (shrink-0) : seul le tableau d'historique défile en dessous. */}
+      <div className="grid shrink-0 grid-cols-1 items-stretch gap-4 lg:grid-cols-[20rem_1fr]">
         <div className="flex flex-col gap-4">
           <Card>
             <CardHeader>
@@ -464,61 +465,65 @@ export function MeasurementsTab({
         </Card>
       </div>
 
-      {/* 2. Historique triable (filtres communs à la carte du haut) */}
-      <Card>
-        <CardContent>
-          {tableHasError ? (
-            <p className="text-sm text-destructive">{t("loadFailed")}</p>
-          ) : tableMeasurements === null ? null : tableMeasurements.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("empty")}</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("date")}
-                      className="flex items-center gap-1"
-                    >
-                      {t("date")} {sortIcon("date")}
-                    </button>
-                  </TableHead>
-                  <TableHead>{t("type")}</TableHead>
-                  <TableHead>
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("value")}
-                      className="flex items-center gap-1"
-                    >
-                      {t("value")} {sortIcon("value")}
-                    </button>
-                  </TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(tableMeasurements ?? []).map((measurement) => (
-                  <TableRow key={measurement.id}>
-                    <TableCell>{measurement.date.slice(0, 10)}</TableCell>
-                    <TableCell>{tType(measurement.type)}</TableCell>
-                    <TableCell>{measurement.value}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(measurement.id)}
+      {/* 2. Historique triable (filtres communs à la carte du haut) : seule
+          cette zone défile (flex-1 min-h-0 overflow-y-auto), tout ce qui
+          précède reste fixe à l'écran. */}
+      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+        <Card>
+          <CardContent>
+            {tableHasError ? (
+              <p className="text-sm text-destructive">{t("loadFailed")}</p>
+            ) : tableMeasurements === null ? null : tableMeasurements.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("empty")}</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("date")}
+                        className="flex items-center gap-1"
                       >
-                        {t("delete")}
-                      </Button>
-                    </TableCell>
+                        {t("date")} {sortIcon("date")}
+                      </button>
+                    </TableHead>
+                    <TableHead>{t("type")}</TableHead>
+                    <TableHead>
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("value")}
+                        className="flex items-center gap-1"
+                      >
+                        {t("value")} {sortIcon("value")}
+                      </button>
+                    </TableHead>
+                    <TableHead />
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {(tableMeasurements ?? []).map((measurement) => (
+                    <TableRow key={measurement.id}>
+                      <TableCell>{measurement.date.slice(0, 10)}</TableCell>
+                      <TableCell>{tType(measurement.type)}</TableCell>
+                      <TableCell>{measurement.value}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDelete(measurement.id)}
+                        >
+                          {t("delete")}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -336,14 +336,15 @@ export function PlayerDetailPageContent({
               </TabsTrigger>
             ))}
           </TabsList>
-          <TabsContent value="measurements">
-            <MeasurementsTab clubId={clubId} teamId={teamId} playerId={playerId} />
-          </TabsContent>
           {/* lg:min-h-0 : borne la hauteur à l'espace restant du Tabs (à
               partir de lg, colonnes côte à côte) plutôt que de suivre la
-              hauteur du contenu, pour que seule la timeline (flex-1
-              overflow-y-auto à l'intérieur de chaque onglet) défile — pas la
-              page entière. En dessous de lg, tout reste en flux normal. */}
+              hauteur du contenu, pour que seule la zone défilante à
+              l'intérieur de chaque onglet (timeline ou tableau d'historique,
+              flex-1 overflow-y-auto) défile — pas la page entière. En
+              dessous de lg, tout reste en flux normal. */}
+          <TabsContent value="measurements" className="lg:flex lg:min-h-0 lg:flex-col">
+            <MeasurementsTab clubId={clubId} teamId={teamId} playerId={playerId} />
+          </TabsContent>
           <TabsContent value="interview" className="lg:flex lg:min-h-0 lg:flex-col">
             <InterviewsTab clubId={clubId} teamId={teamId} playerId={playerId} />
           </TabsContent>
@@ -353,7 +354,7 @@ export function PlayerDetailPageContent({
           <TabsContent value="objectives" className="lg:flex lg:min-h-0 lg:flex-col">
             <ObjectivesTab clubId={clubId} teamId={teamId} playerId={playerId} />
           </TabsContent>
-          <TabsContent value="evaluation">
+          <TabsContent value="evaluation" className="lg:flex lg:min-h-0 lg:flex-col">
             <EvaluationTab clubId={clubId} teamId={teamId} playerId={playerId} />
           </TabsContent>
           {DETAIL_TABS.filter(
