@@ -88,7 +88,7 @@ export function TeamsPageContent({ clubId }: { clubId: string }) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
+    <div className="flex w-full flex-col gap-6 p-4">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
 
       <Card>

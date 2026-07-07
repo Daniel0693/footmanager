@@ -134,7 +134,7 @@ export function PlayerDetailPageContent({
 
   if (hasError) {
     return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
+      <div className="flex w-full flex-col gap-4 p-4">
         <Link
           href={`/clubs/${clubId}/teams/${teamId}/players`}
           className="text-sm text-muted-foreground underline"
@@ -220,7 +220,7 @@ export function PlayerDetailPageContent({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4">
+    <div className="flex w-full flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <Link
           href={`/clubs/${clubId}/teams/${teamId}/players`}

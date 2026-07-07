@@ -131,7 +131,7 @@ export function TeamPlayersPageContent({
   }, [roster, lineFilter, positionFilter]);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
+    <div className="flex w-full flex-col gap-4 p-4">
       <Link href={`/clubs/${clubId}/teams`} className="text-sm text-muted-foreground underline">
         {t("backToTeams")}
       </Link>
