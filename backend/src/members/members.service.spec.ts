@@ -145,4 +145,79 @@ describe('MembersService', () => {
       ).rejects.toBeInstanceOf(AppException);
     });
   });
+
+  describe('findMe / updateMe ("Mon profil")', () => {
+    it("renvoie le Member de l'utilisateur courant pour ce club", async () => {
+      const findUnique = jest.fn().mockResolvedValue(member);
+      const prismaStub = {
+        member: { findUnique },
+      } as unknown as PrismaService;
+      const service = new MembersService(prismaStub);
+
+      const result = await service.findMe(1, 7);
+
+      expect(findUnique).toHaveBeenCalledWith({
+        where: { userId_clubId: { userId: 7, clubId: 1 } },
+      });
+      expect(result).toBe(member);
+    });
+
+    it("rejette findMe si l'utilisateur n'a pas de fiche membre dans ce club", async () => {
+      const findUnique = jest.fn().mockResolvedValue(null);
+      const prismaStub = {
+        member: { findUnique },
+      } as unknown as PrismaService;
+      const service = new MembersService(prismaStub);
+
+      await expect(service.findMe(1, 999)).rejects.toBeInstanceOf(AppException);
+    });
+
+    it('met à jour la date de naissance du membre courant', async () => {
+      const birthDate = new Date('1985-03-02');
+      const findUnique = jest.fn().mockResolvedValue(member);
+      const update = jest.fn().mockResolvedValue({ ...member, birthDate });
+      const prismaStub = {
+        member: { findUnique, update },
+      } as unknown as PrismaService;
+      const service = new MembersService(prismaStub);
+
+      await service.updateMe(1, 7, { birthDate });
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: member.id },
+        data: { birthDate },
+      });
+    });
+
+    it("rejette updateMe si l'utilisateur n'a pas de fiche membre dans ce club", async () => {
+      const findUnique = jest.fn().mockResolvedValue(null);
+      const update = jest.fn();
+      const prismaStub = {
+        member: { findUnique, update },
+      } as unknown as PrismaService;
+      const service = new MembersService(prismaStub);
+
+      await expect(
+        service.updateMe(1, 999, { birthDate: new Date() }),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it("n'autorise pas la mise à jour du Member d'un autre club (userId+clubId ne matchent pas)", async () => {
+      // findByUserAndClub filtre déjà par userId_clubId : un utilisateur du
+      // club 2 n'a pas de Member pour le club 1, donc pas de fuite possible.
+      const findUnique = jest.fn().mockResolvedValue(null);
+      const prismaStub = {
+        member: { findUnique, update: jest.fn() },
+      } as unknown as PrismaService;
+      const service = new MembersService(prismaStub);
+
+      await expect(
+        service.updateMe(1, 7, { birthDate: new Date() }),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(findUnique).toHaveBeenCalledWith({
+        where: { userId_clubId: { userId: 7, clubId: 1 } },
+      });
+    });
+  });
 });
