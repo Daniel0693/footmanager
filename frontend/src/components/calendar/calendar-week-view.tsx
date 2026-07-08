@@ -6,41 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarGridDays } from "@/components/calendar/calendar-grid-days";
 import type { ExistingEvent } from "@/components/calendar/event-form-dialog";
+import { addDays, startOfWeek } from "@/lib/calendar-grid";
 
 type CalendarEvent = ExistingEvent;
 
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function addMonths(date: Date, delta: number) {
-  return new Date(date.getFullYear(), date.getMonth() + delta, 1);
-}
-
-// Grille de 42 jours (6 semaines) — hauteur constante quel que soit le mois,
-// semaine commençant le lundi (convention française).
-function buildGridDays(month: Date): Date[] {
-  const first = startOfMonth(month);
-  const firstWeekday = (first.getDay() + 6) % 7;
-  const gridStart = new Date(first.getFullYear(), first.getMonth(), 1 - firstWeekday);
-  return Array.from({ length: 42 }, (_, i) => {
-    const day = new Date(gridStart);
-    day.setDate(gridStart.getDate() + i);
-    return day;
-  });
-}
-
-export function CalendarMonthView({
-  month,
-  onMonthChange,
+// Variante zoomée de la vue Mensuelle (docs/roadmap.md §B6) : mêmes briques
+// de grille/interaction (CalendarGridDays), une seule semaine de 7 jours,
+// cellules plus hautes puisqu'il n'y a qu'une rangée à afficher.
+export function CalendarWeekView({
+  week,
+  onWeekChange,
   events,
   teams,
   colorMode,
   onSelectRange,
   onEditEvent,
 }: {
-  month: Date;
-  onMonthChange: (month: Date) => void;
+  week: Date;
+  onWeekChange: (week: Date) => void;
   events: CalendarEvent[];
   teams: { id: number; name: string }[];
   colorMode: "type" | "team";
@@ -50,11 +33,17 @@ export function CalendarMonthView({
   const t = useTranslations("calendar");
   const locale = useLocale();
 
-  const days = buildGridDays(month);
-  const monthLabel = month.toLocaleDateString(locale, { month: "long", year: "numeric" });
-  const weekdayLabels = days
-    .slice(0, 7)
-    .map((day) => day.toLocaleDateString(locale, { weekday: "short" }));
+  const weekStart = startOfWeek(week);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const weekEnd = days[6];
+
+  const rangeLabel = `${weekStart.toLocaleDateString(locale, {
+    day: "2-digit",
+    month: "short",
+  })} – ${weekEnd.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" })}`;
+  const weekdayLabels = days.map((day) =>
+    day.toLocaleDateString(locale, { weekday: "short", day: "2-digit" }),
+  );
 
   return (
     <Card>
@@ -63,17 +52,17 @@ export function CalendarMonthView({
           <Button
             variant="ghost"
             size="icon"
-            aria-label={t("previousMonth")}
-            onClick={() => onMonthChange(addMonths(month, -1))}
+            aria-label={t("previousWeek")}
+            onClick={() => onWeekChange(addDays(weekStart, -7))}
           >
             <ChevronLeft />
           </Button>
-          <span className="text-sm font-medium capitalize">{monthLabel}</span>
+          <span className="text-sm font-medium capitalize">{rangeLabel}</span>
           <Button
             variant="ghost"
             size="icon"
-            aria-label={t("nextMonth")}
-            onClick={() => onMonthChange(addMonths(month, 1))}
+            aria-label={t("nextWeek")}
+            onClick={() => onWeekChange(addDays(weekStart, 7))}
           >
             <ChevronRight />
           </Button>
@@ -94,8 +83,7 @@ export function CalendarMonthView({
           colorMode={colorMode}
           onSelectRange={onSelectRange}
           onEditEvent={onEditEvent}
-          referenceMonth={month}
-          cellMinHeightClass="min-h-24"
+          cellMinHeightClass="min-h-48"
         />
       </CardContent>
     </Card>

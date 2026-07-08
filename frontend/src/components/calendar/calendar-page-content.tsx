@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarMonthView } from "@/components/calendar/calendar-month-view";
+import { CalendarWeekView } from "@/components/calendar/calendar-week-view";
 import {
   EventFormDialog,
   type EventFormTeam,
@@ -59,11 +60,12 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
   const [hasError, setHasError] = useState(false);
 
-  const [view, setView] = useState<"list" | "month">("list");
+  const [view, setView] = useState<"list" | "month" | "week">("list");
   const [month, setMonth] = useState(() => new Date());
-  // Dialogue piloté par la grille mensuelle (clic/glisser sur une cellule
-  // ou clic sur un événement) — distinct des EventFormDialog à trigger
-  // visible utilisés par le bouton "Ajouter" et la vue Liste.
+  const [week, setWeek] = useState(() => new Date());
+  // Dialogue piloté par la grille mensuelle/hebdomadaire (clic/glisser sur
+  // une cellule ou clic sur un événement) — distinct des EventFormDialog à
+  // trigger visible utilisés par le bouton "Ajouter" et la vue Liste.
   const [gridDialog, setGridDialog] = useState<GridDialogState>({ open: false });
 
   // Vue AdminClub (multi-équipe) : code couleur par équipe. Vue Coach/Player
@@ -258,9 +260,13 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
 
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <div className="flex items-center justify-between gap-2">
-          <Tabs value={view} onValueChange={(value) => setView(value as "list" | "month")}>
+          <Tabs
+            value={view}
+            onValueChange={(value) => setView(value as "list" | "month" | "week")}
+          >
             <TabsList>
               <TabsTrigger value="list">{t("viewList")}</TabsTrigger>
+              <TabsTrigger value="week">{t("viewWeek")}</TabsTrigger>
               <TabsTrigger value="month">{t("viewMonth")}</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -283,6 +289,16 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
           <CalendarMonthView
             month={month}
             onMonthChange={setMonth}
+            events={events ?? []}
+            teams={teams ?? []}
+            colorMode={colorMode}
+            onSelectRange={handleSelectRange}
+            onEditEvent={handleEditFromGrid}
+          />
+        ) : view === "week" ? (
+          <CalendarWeekView
+            week={week}
+            onWeekChange={setWeek}
             events={events ?? []}
             teams={teams ?? []}
             colorMode={colorMode}
@@ -355,9 +371,10 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
         )}
       </div>
 
-      {/* Dialogue piloté par la grille mensuelle : clic/glisser sur une
-          cellule (création) ou clic sur un événement (édition) — sans
-          bouton déclencheur visible, voir EventFormDialog open contrôlé. */}
+      {/* Dialogue piloté par la grille mensuelle/hebdomadaire : clic/glisser
+          sur une cellule (création) ou clic sur un événement (édition) —
+          sans bouton déclencheur visible, voir EventFormDialog open
+          contrôlé. */}
       <EventFormDialog
         clubId={clubId}
         teams={teams ?? []}

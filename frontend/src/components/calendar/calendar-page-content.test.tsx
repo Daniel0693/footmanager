@@ -214,4 +214,37 @@ describe("CalendarPageContent", () => {
 
     expect(await screen.findByText("Modifier l'événement")).toBeInTheDocument();
   });
+
+  it("bascule vers la vue Semaine et affiche les événements de la semaine courante", async () => {
+    mockRoutes(twoTeams, oneEvent);
+    const user = userEvent.setup();
+
+    renderWithIntl(<CalendarPageContent clubId="1" />);
+    await screen.findByText("Match amical");
+
+    await user.click(screen.getByRole("tab", { name: "Semaine" }));
+
+    // La grille Semaine affiche les jours au format "lun. 06" (jour inclus) —
+    // distinct du "lun." seul de la vue Mois, donc pas de collision de texte.
+    expect(screen.getByText(/^lun\. \d{2}$/)).toBeInTheDocument();
+  });
+
+  it("clic sur une cellule vide en vue Semaine ouvre le dialogue de création pré-rempli", async () => {
+    mockRoutes(twoTeams, []);
+    const user = userEvent.setup();
+
+    renderWithIntl(<CalendarPageContent clubId="1" />);
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+    await user.click(screen.getByRole("tab", { name: "Semaine" }));
+
+    // Le lundi de la semaine courante est nécessairement affiché comme
+    // premier jour de la grille hebdomadaire.
+    const now = new Date();
+    const weekday = (now.getDay() + 6) % 7;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - weekday);
+    const key = `calendar-day-${monday.getFullYear()}-${monday.getMonth()}-${monday.getDate()}`;
+    await user.click(screen.getByTestId(key));
+
+    expect(await screen.findByText("Nouvel événement")).toBeInTheDocument();
+  });
 });

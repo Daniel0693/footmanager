@@ -262,9 +262,12 @@
     "teamsLoadFailed": "Impossible de charger vos équipes",
     "empty": "Aucun événement à afficher",
     "viewList": "Liste",
+    "viewWeek": "Semaine",
     "viewMonth": "Mois",
     "previousMonth": "Mois précédent",
-    "nextMonth": "Mois suivant"
+    "nextMonth": "Mois suivant",
+    "previousWeek": "Semaine précédente",
+    "nextWeek": "Semaine suivante"
   },
   "objectives": {
     "filtersTitle": "Filtres",

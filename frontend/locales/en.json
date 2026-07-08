@@ -262,9 +262,12 @@
     "teamsLoadFailed": "Failed to load your teams",
     "empty": "No events to display",
     "viewList": "List",
+    "viewWeek": "Week",
     "viewMonth": "Month",
     "previousMonth": "Previous month",
-    "nextMonth": "Next month"
+    "nextMonth": "Next month",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week"
   },
   "objectives": {
     "filtersTitle": "Filters",
