@@ -37,11 +37,16 @@ export function CalendarListView({
   teams,
   filters,
   refreshKey,
+  recenterKey,
 }: {
   clubId: string;
   teams: EventFormTeam[];
   filters: EventFilters;
   refreshKey: number;
+  // Incrémenté par le bouton "Aujourd'hui" (CalendarPageContent) : force le
+  // recentrage sur la fenêtre initiale plutôt que de recharger la fenêtre
+  // actuellement ouverte (comportement normal de refreshKey).
+  recenterKey: number;
 }) {
   const t = useTranslations("calendar");
   const locale = useLocale();
@@ -62,6 +67,14 @@ export function CalendarListView({
     boundsRef.current =
       pastBoundary && futureBoundary ? { from: pastBoundary, to: futureBoundary } : null;
   }, [pastBoundary, futureBoundary]);
+
+  // "Aujourd'hui" : efface la fenêtre mémorisée avant que l'effet de
+  // chargement ci-dessous ne s'exécute, pour qu'il retombe sur la fenêtre
+  // initiale centrée sur aujourd'hui plutôt que de recharger la fenêtre
+  // actuellement ouverte.
+  useEffect(() => {
+    boundsRef.current = null;
+  }, [recenterKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +107,14 @@ export function CalendarListView({
           setPastBoundary(from);
           setFutureBoundary(to);
           setHasError(false);
+          if (!existing) {
+            // Fenêtre initiale (montage ou recentrage) : repart du haut de
+            // la liste plutôt que de garder la position de scroll d'une
+            // fenêtre précédente qui n'existe plus.
+            requestAnimationFrame(() => {
+              if (scrollRef.current) scrollRef.current.scrollTop = 0;
+            });
+          }
         }
       } catch {
         if (!cancelled) {
@@ -105,7 +126,7 @@ export function CalendarListView({
     return () => {
       cancelled = true;
     };
-  }, [clubId, accessToken, filters, refreshKey, t]);
+  }, [clubId, accessToken, filters, refreshKey, recenterKey, t]);
 
   const loadOlder = useCallback(async () => {
     if (!pastBoundary || isLoadingMore) return;

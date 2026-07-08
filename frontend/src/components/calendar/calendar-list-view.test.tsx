@@ -52,7 +52,7 @@ describe("CalendarListView", () => {
 
   it("charge une fenêtre initiale centrée sur aujourd'hui (14 jours avant, 60 jours après)", async () => {
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
     );
 
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
@@ -74,6 +74,7 @@ describe("CalendarListView", () => {
         teams={teams}
         filters={{ types: new Set(), teamIds: new Set([5]) }}
         refreshKey={0}
+        recenterKey={0}
       />,
     );
 
@@ -84,7 +85,7 @@ describe("CalendarListView", () => {
   it("affiche les événements reçus", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse([eventItem()]));
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
     );
 
     expect(await screen.findByText("Match amical")).toBeInTheDocument();
@@ -93,7 +94,7 @@ describe("CalendarListView", () => {
   it("scroll près du haut charge les événements plus anciens et les ajoute au début", async () => {
     mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
     );
     await screen.findByText("Match amical");
     mockApiFetch.mockClear();
@@ -124,7 +125,7 @@ describe("CalendarListView", () => {
   it("scroll près du bas charge les événements futurs et les ajoute à la fin", async () => {
     mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
     );
     await screen.findByText("Match amical");
     mockApiFetch.mockClear();
@@ -145,7 +146,7 @@ describe("CalendarListView", () => {
     mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
     );
     await screen.findByText("Match amical");
     mockApiFetch.mockResolvedValue(jsonResponse(null));
@@ -159,5 +160,37 @@ describe("CalendarListView", () => {
       ),
     );
     expect(await screen.findByText("Aucun événement à afficher")).toBeInTheDocument();
+  });
+
+  it("le bouton Aujourd'hui (recenterKey) abandonne la fenêtre étendue et revient à la fenêtre initiale", async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
+    const { rerender } = renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+    );
+    await screen.findByText("Match amical");
+
+    // Étend la fenêtre vers le passé (scroll).
+    mockApiFetch.mockClear();
+    mockApiFetch.mockResolvedValue(jsonResponse([]));
+    const container = screen.getByTestId("calendar-list-scroll");
+    Object.defineProperty(container, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(container, "clientHeight", { value: 400, configurable: true });
+    container.scrollTop = 50;
+    fireEvent.scroll(container);
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+
+    mockApiFetch.mockClear();
+    mockApiFetch.mockResolvedValue(jsonResponse([]));
+    rerender(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={1} />,
+    );
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+    const [url] = mockApiFetch.mock.calls[0];
+    const query = new URL(url as string, "http://localhost").searchParams;
+    const dateFrom = new Date(query.get("dateFrom")!);
+    const today = new Date("2026-07-10T12:00:00.000Z");
+    const daysBefore = Math.round((today.getTime() - dateFrom.getTime()) / 86_400_000);
+    expect(daysBefore).toBe(14); // fenêtre initiale, pas la fenêtre étendue (44 jours)
   });
 });

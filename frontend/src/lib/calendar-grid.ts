@@ -37,3 +37,22 @@ export function startOfWeek(date: Date): Date {
   const weekday = (date.getDay() + 6) % 7;
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() - weekday);
 }
+
+// Un événement dont startAt/endAt tombent sur des jours calendaires
+// différents (vue Mensuelle : bandeau qui s'étend sur les jours concernés ;
+// vue Hebdomadaire : bandeau au-dessus de la grille horaire).
+export function isMultiDay(event: { startAt: string; endAt: string | null }): boolean {
+  return !!event.endAt && !isSameDay(new Date(event.startAt), new Date(event.endAt));
+}
+
+// Numéro de semaine ISO 8601 (semaine du jeudi — algorithme standard),
+// affiché dans la gouttière de la vue Mensuelle.
+export function getIsoWeekNumber(date: Date): number {
+  const thursday = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const weekday = (thursday.getUTCDay() + 6) % 7;
+  thursday.setUTCDate(thursday.getUTCDate() - weekday + 3);
+  const firstThursday = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 4));
+  const firstWeekday = (firstThursday.getUTCDay() + 6) % 7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - firstWeekday + 3);
+  return 1 + Math.round((thursday.getTime() - firstThursday.getTime()) / (7 * 86_400_000));
+}

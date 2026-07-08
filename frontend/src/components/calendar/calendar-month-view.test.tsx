@@ -1,9 +1,10 @@
 import { fireEvent } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { renderWithIntl, screen, waitFor } from "@/test-utils/render";
+import { renderWithIntl, screen, waitFor, within } from "@/test-utils/render";
 import { CalendarMonthView } from "./calendar-month-view";
 import type { ExistingEvent } from "./event-form-dialog";
 import { EVENT_TYPES } from "@/lib/event";
+import { getIsoWeekNumber } from "@/lib/calendar-grid";
 
 jest.mock("sonner", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 
@@ -157,5 +158,59 @@ describe("CalendarMonthView", () => {
     expect(onEditEvent).toHaveBeenCalledWith(theEvent);
     fireEvent.mouseUp(window);
     expect(onSelectRange).not.toHaveBeenCalled();
+  });
+
+  it("affiche un événement multi-jours comme un bandeau qui s'étend sur les jours concernés", async () => {
+    const onEditEvent = jest.fn();
+    const multiDay = event({
+      id: 2,
+      title: "Camp d'été",
+      startAt: "2026-07-08T00:00:00.000Z",
+      endAt: "2026-07-10T00:00:00.000Z",
+    });
+    mockApiFetch.mockResolvedValue(jsonResponse([multiDay]));
+    renderMonthView({ onEditEvent });
+
+    const banner = await screen.findByText("Camp d'été");
+    fireEvent.click(banner);
+    expect(onEditEvent).toHaveBeenCalledWith(multiDay);
+
+    // Pas de puce dupliquée dans les cellules individuelles que le
+    // bandeau traverse.
+    const middleDay = screen.getByTestId(dayKey(new Date(2026, 6, 9)));
+    expect(middleDay).not.toHaveTextContent("Camp d'été");
+  });
+
+  it("le bandeau multi-jours apparaît sous le numéro du jour, pas comme une ligne entre deux semaines", async () => {
+    const multiDay = event({
+      id: 2,
+      title: "Camp d'été",
+      startAt: "2026-07-08T00:00:00.000Z",
+      endAt: "2026-07-10T00:00:00.000Z",
+    });
+    mockApiFetch.mockResolvedValue(jsonResponse([multiDay]));
+    renderMonthView();
+
+    // Attendre le bandeau lui-même : les cellules de jour existent dès le
+    // premier rendu (avant la résolution du fetch), donc attendre la
+    // cellule seule ne garantit pas que les événements sont déjà chargés.
+    await screen.findByText("Camp d'été");
+    const cell = screen.getByTestId(dayKey(new Date(2026, 6, 9)));
+    // Le bandeau est superposé au bloc de la semaine qui contient la
+    // cellule qu'il traverse (juillet 2026 : semaine du 6-12 juillet est le
+    // 2e bloc), pas une ligne séparée entre deux semaines.
+    const weekBlock = cell.closest('[data-testid^="calendar-week-block-"]')!;
+    expect(within(weekBlock as HTMLElement).getByText("Camp d'été")).toBeInTheDocument();
+  });
+
+  it("affiche le numéro de semaine ISO pour chaque semaine", async () => {
+    renderMonthView();
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+
+    // Grille de juillet 2026 : première semaine commence le lundi 29 juin.
+    const firstWeekNumber = getIsoWeekNumber(new Date(2026, 5, 29));
+    expect(screen.getByTestId("calendar-week-block-0")).toHaveTextContent(
+      String(firstWeekNumber),
+    );
   });
 });

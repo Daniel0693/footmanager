@@ -9,7 +9,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { EventFormTeam, ExistingEvent } from "@/components/calendar/event-form-dialog";
 import { useAuth } from "@/lib/auth/auth-context";
 import { eventTypeColorClass, teamColorClass } from "@/lib/calendar-color";
-import { addDays, endOfDay, isSameDay, startOfWeek, toDayKey } from "@/lib/calendar-grid";
+import {
+  addDays,
+  endOfDay,
+  isMultiDay,
+  isSameDay,
+  startOfWeek,
+  toDayKey,
+} from "@/lib/calendar-grid";
 import {
   fetchCalendarEvents,
   isEmptyFilterSelection,
@@ -42,10 +49,6 @@ function effectiveEndFraction(event: CalendarEvent): number {
     return timeToHourFraction(event.endAt);
   }
   return timeToHourFraction(event.startAt) + DEFAULT_DURATION_HOURS;
-}
-
-function isMultiDay(event: CalendarEvent): boolean {
-  return !!event.endAt && !isSameDay(new Date(event.startAt), new Date(event.endAt));
 }
 
 // Répartit les événements chevauchants d'un même jour en colonnes côte à

@@ -261,6 +261,7 @@
     "loadFailed": "Failed to load the calendar",
     "teamsLoadFailed": "Failed to load your teams",
     "empty": "No events to display",
+    "today": "Today",
     "viewList": "List",
     "viewWeek": "Week",
     "viewMonth": "Month",

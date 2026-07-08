@@ -236,4 +236,21 @@ describe("CalendarPageContent", () => {
       `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}T08:00`,
     );
   });
+
+  it("le bouton Aujourd'hui recentre la vue Mois après une navigation", async () => {
+    mockRoutes(twoTeams, []);
+    const user = userEvent.setup();
+
+    renderWithIntl(<CalendarPageContent clubId="1" />);
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+    await user.click(screen.getByRole("tab", { name: "Mois" }));
+
+    const now = new Date();
+    const currentMonthLabel = now.toLocaleDateString("fr", { month: "long", year: "numeric" });
+    await user.click(screen.getByRole("button", { name: "Mois suivant" }));
+    expect(screen.queryByText(currentMonthLabel)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Aujourd'hui" }));
+    expect(screen.getByText(currentMonthLabel)).toBeInTheDocument();
+  });
 });

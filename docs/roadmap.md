@@ -201,6 +201,41 @@ de poursuivre :
   nouveau modèle de chargement par vue (chaque test mocke désormais `apiFetch` avec sa propre
   fenêtre de dates plutôt que de recevoir des `events` en prop) — 184 tests frontend au total.
 
+**Corrections post-revue visuelle #2 (2026-07-08, sur B5/B6)** : deuxième retour (capture
+d'écran) après les premières corrections, deux correctifs :
+- **Vue Mensuelle → bandeau multi-jours** : un événement dont `startAt`/`endAt` tombent sur des
+  jours différents n'apparaissait auparavant que comme une puce sur son seul jour de départ,
+  sans indiquer qu'il s'étend sur plusieurs jours (déjà correct en vue Hebdomadaire).
+  `CalendarGridDays` restructuré : la grille de 42 jours est découpée en 6 blocs "semaine"
+  (`flex flex-col`, chacun `flex-1`), chaque bloc affichant un bandeau optionnel au-dessus de
+  ses cellules pour les événements multi-jours qui le traversent — même algorithme de voies
+  glouton que le chevauchement horaire de la vue Hebdomadaire, appliqué ici à des colonnes de
+  jours (`isMultiDay` déplacé dans `lib/calendar-grid.ts`, partagé Mois/Semaine).
+- **Bouton "Aujourd'hui"** : recentre la vue active. Mois/Semaine se recentrent directement via
+  leur état de navigation (`setMonth`/`setWeek(new Date())`) ; la vue Liste n'a pas d'état de
+  navigation équivalent (fenêtre de scroll ouverte progressivement) — nouveau prop
+  `recenterKey` sur `CalendarListView`, incrémenté par le bouton, qui efface la fenêtre
+  mémorisée pour forcer un retour à la fenêtre initiale centrée sur aujourd'hui (au lieu du
+  comportement `refreshKey` habituel qui préserve la fenêtre ouverte).
+- 8 tests ajoutés (bandeau multi-jours, recentrage Liste et Mois) — 187 tests frontend au total.
+
+**Corrections post-revue visuelle #3 (2026-07-08, sur B5/B6)** : troisième retour (capture
+d'écran) — le bandeau multi-jours de la correction #2 s'affichait entre deux semaines plutôt que
+dans les cellules qu'il traverse. Deux correctifs :
+- **Bandeau repositionné à l'intérieur des cellules** : `CalendarGridDays` restructuré une
+  deuxième fois — chaque semaine est désormais un conteneur `relative` contenant la grille des 7
+  cellules ET une superposition (`position: absolute`) de bandeaux alignée sur les mêmes colonnes
+  (`grid-cols-7 gap-px` identique des deux côtés). Chaque cellule réserve un espace vide
+  (`DAY_NUMBER_AREA_PX` + `laneCount × BANNER_LANE_HEIGHT_PX`) juste sous son numéro de jour pour
+  que la superposition s'y intercale visuellement sans recouvrir le contenu de la cellule. Le
+  glisser (drag-to-select) reste sur les cellules ; les boutons de bandeau interceptent le clic
+  (`pointer-events-auto` sur un conteneur `pointer-events-none`) sans déclencher de sélection.
+- **Numéro de semaine ISO 8601** : `getIsoWeekNumber` ajouté à `lib/calendar-grid.ts` (algorithme
+  standard "semaine du jeudi"), affiché dans une gouttière `w-5` à gauche de chaque semaine — même
+  gouttière ajoutée à l'en-tête des jours dans `CalendarMonthView` pour l'alignement des colonnes.
+- 2 tests ajoutés (bandeau superposé à l'intérieur du bon bloc de semaine, numéro de semaine) —
+  189 tests frontend au total.
+
 ---
 
 ## Phase 3 — Saisons & Championnats ⬜

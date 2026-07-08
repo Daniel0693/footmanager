@@ -50,6 +50,18 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
   // lib/calendar-events-api.ts), plus de liste globale non bornée ici.
   const [refreshKey, setRefreshKey] = useState(0);
   const bumpRefresh = () => setRefreshKey((key) => key + 1);
+  // Bouton "Aujourd'hui" : recentre la vue active. Mois/Semaine se
+  // recentrent directement via leur état de navigation ; la vue Liste n'a
+  // pas d'état de navigation équivalent, elle écoute recenterKey pour
+  // abandonner sa fenêtre de scroll actuelle et revenir à la fenêtre
+  // initiale centrée sur aujourd'hui (voir CalendarListView).
+  const [recenterKey, setRecenterKey] = useState(0);
+  const goToToday = () => {
+    const today = new Date();
+    if (view === "month") setMonth(today);
+    else if (view === "week") setWeek(today);
+    else setRecenterKey((key) => key + 1);
+  };
 
   // Dialogue piloté par la grille mensuelle/hebdomadaire (clic/glisser sur
   // une cellule ou clic sur un événement) — distinct des EventFormDialog à
@@ -158,16 +170,21 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
 
       <div className="flex min-w-0 flex-1 flex-col gap-4 lg:min-h-0">
         <div className="flex shrink-0 items-center justify-between gap-2">
-          <Tabs
-            value={view}
-            onValueChange={(value) => setView(value as "list" | "month" | "week")}
-          >
-            <TabsList>
-              <TabsTrigger value="list">{t("viewList")}</TabsTrigger>
-              <TabsTrigger value="week">{t("viewWeek")}</TabsTrigger>
-              <TabsTrigger value="month">{t("viewMonth")}</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={goToToday}>
+              {t("today")}
+            </Button>
+            <Tabs
+              value={view}
+              onValueChange={(value) => setView(value as "list" | "month" | "week")}
+            >
+              <TabsList>
+                <TabsTrigger value="list">{t("viewList")}</TabsTrigger>
+                <TabsTrigger value="week">{t("viewWeek")}</TabsTrigger>
+                <TabsTrigger value="month">{t("viewMonth")}</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           <EventFormDialog
             clubId={clubId}
             teams={teams ?? []}
@@ -211,6 +228,7 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
             teams={teams ?? []}
             filters={filters}
             refreshKey={refreshKey}
+            recenterKey={recenterKey}
           />
         )}
       </div>

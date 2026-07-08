@@ -138,12 +138,18 @@ export function CalendarMonthView({
 
         {hasError && <p className="text-sm text-destructive">{t("loadFailed")}</p>}
 
-        <div className="grid shrink-0 grid-cols-7 gap-px overflow-hidden rounded-md border bg-border text-center text-xs text-muted-foreground">
-          {weekdayLabels.map((label, index) => (
-            <div key={index} className="bg-card py-1 capitalize">
-              {label}
-            </div>
-          ))}
+        {/* Gouttière w-5 alignée sur la colonne de numéros de semaine de
+            CalendarGridDays (même largeur/gap) pour que les en-têtes de
+            jour restent alignés avec leurs colonnes. */}
+        <div className="flex shrink-0 gap-px">
+          <div className="w-5 shrink-0" />
+          <div className="grid flex-1 grid-cols-7 gap-px overflow-hidden rounded-md border bg-border text-center text-xs text-muted-foreground">
+            {weekdayLabels.map((label, index) => (
+              <div key={index} className="bg-card py-1 capitalize">
+                {label}
+              </div>
+            ))}
+          </div>
         </div>
 
         <CalendarGridDays
