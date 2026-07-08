@@ -5,7 +5,8 @@
   },
   "nav": {
     "home": "Accueil",
-    "roster": "Effectif"
+    "roster": "Effectif",
+    "calendar": "Calendrier"
   },
   "header": {
     "toggleSidebar": "Ouvrir le menu de navigation",

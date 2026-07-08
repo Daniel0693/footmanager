@@ -150,7 +150,7 @@ l'Effectif) ; `TrainingSession`/`Match` (extensions 1–1 de `Event`, Phases 4/5
 
 | Étape | Statut | Contenu |
 |---|---|---|
-| B0 — Prérequis transverse | ⬜ | Permission `event` (READ/CREATE/UPDATE/DELETE, scope TEAM pour Coach, CLUB pour AdminClub, ALL pour SuperAdmin ; Player en READ seul) ajoutée au seed + entrée `Calendrier` dans `frontend/src/components/layout/nav-modules.ts` (le fichier anticipe déjà "Ajouter un futur module = une entrée de plus ici") |
+| B0 — Prérequis transverse | ✅ | Permission `event` ajoutée au seed (READ/CREATE/UPDATE/DELETE scope TEAM pour Coach, CLUB pour AdminClub, ALL pour SuperAdmin/Proprietaire ; Player en READ/TEAM seul, même pattern que `team` — pas de scope OWN, un événement n'appartient à personne en particulier) + entrée `Calendrier` dans `frontend/src/components/layout/nav-modules.ts` (icône `Calendar`, `href` vers `/clubs/:clubId/calendar` — page pas encore créée, livrée en B4) + clés `nav.calendar` (fr/en) |
 | B1 — Schéma `Event` | ⬜ | Migration + enum `EventType` (TRAINING/MATCH/OTHER), index `(teamId, startAt)`. Voir `docs/schema/evenements.md` |
 | B2 — Backend `events` CRUD | ⬜ | CRUD scopé équipe (`/clubs/:clubId/teams/:teamId/events`), réutilise le pattern `?teamId=` et les vérifications d'appartenance équipe déjà établies en Effectif (voir `docs/modules/auth-roles.md` §Patterns découverts) |
 | B3 — Backend vue agrégée multi-équipes | ⬜ | Route self-service `GET /clubs/:clubId/events/mine` (même pattern que `teams/mine`) : agrège les événements de toutes les équipes accessibles selon le scope de l'appelant — condition préalable à toute vue calendrier utilisable (notamment AdminClub multi-équipe) |

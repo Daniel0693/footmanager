@@ -207,6 +207,7 @@ async function seedRoles() {
         OWN,
         'Consulter ses propres scores d’évaluation',
       ],
+      ['event', READ, TEAM, 'Consulter le calendrier de son équipe'],
     ],
     Parent: [
       ['member', READ, OWN, 'Consulter le profil membre lié à son enfant'],
@@ -380,6 +381,10 @@ async function seedRoles() {
         TEAM,
         'Supprimer une évaluation pour un joueur de ses équipes',
       ],
+      ['event', READ, TEAM, 'Consulter le calendrier de ses équipes'],
+      ['event', CREATE, TEAM, 'Créer un événement pour ses équipes'],
+      ['event', UPDATE, TEAM, 'Modifier un événement de ses équipes'],
+      ['event', DELETE, TEAM, 'Supprimer un événement de ses équipes'],
     ],
     AdminClub: [
       ['club', READ, CLUB, 'Consulter son club'],
@@ -535,6 +540,15 @@ async function seedRoles() {
         CLUB,
         "Supprimer une évaluation d'un joueur du club",
       ],
+      [
+        'event',
+        READ,
+        CLUB,
+        'Consulter le calendrier de toutes les équipes du club',
+      ],
+      ['event', CREATE, CLUB, 'Créer un événement pour une équipe du club'],
+      ['event', UPDATE, CLUB, 'Modifier un événement du club'],
+      ['event', DELETE, CLUB, 'Supprimer un événement du club'],
     ],
     SuperAdmin: [
       ['club', READ, ALL, 'Consulter tous les clubs'],
@@ -730,6 +744,15 @@ async function seedRoles() {
         ALL,
         "Supprimer une évaluation de n'importe quel joueur",
       ],
+      [
+        'event',
+        READ,
+        ALL,
+        "Consulter le calendrier de n'importe quelle équipe",
+      ],
+      ['event', CREATE, ALL, "Créer un événement dans n'importe quelle équipe"],
+      ['event', UPDATE, ALL, "Modifier n'importe quel événement"],
+      ['event', DELETE, ALL, "Supprimer n'importe quel événement"],
     ],
     // Le mécanisme de transfert sécurisé du rôle Proprietaire est une
     // décision ouverte (docs/decisions-ouvertes-et-rgpd.md) — en attendant,

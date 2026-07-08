@@ -1,4 +1,4 @@
-import { Home, Users, type LucideIcon } from "lucide-react";
+import { Calendar, Home, Users, type LucideIcon } from "lucide-react";
 
 type RouteParams = Record<string, string | string[] | undefined>;
 
@@ -14,8 +14,8 @@ function paramString(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-// Un seul module Effectif existe pour l'instant (voir docs/roadmap.md, Phase 2).
-// Ajouter un futur module (Calendrier, Matchs...) = une entrée de plus ici.
+// Modules Effectif et Calendrier existent pour l'instant (voir docs/roadmap.md, Phase 2).
+// Ajouter un futur module (Matchs, Entraînement...) = une entrée de plus ici.
 export const navModules: NavModule[] = [
   {
     key: "home",
@@ -34,6 +34,17 @@ export const navModules: NavModule[] = [
       if (!clubId) return "/home";
       return teamId ? `/clubs/${clubId}/teams/${teamId}/players` : `/clubs/${clubId}/teams`;
     },
-    isActive: (pathname) => pathname.startsWith("/clubs"),
+    isActive: (pathname) => pathname.startsWith("/clubs") && !pathname.includes("/calendar"),
+  },
+  {
+    key: "calendar",
+    icon: Calendar,
+    labelKey: "calendar",
+    href: (params) => {
+      const clubId = paramString(params.clubId);
+      if (!clubId) return "/home";
+      return `/clubs/${clubId}/calendar`;
+    },
+    isActive: (pathname) => pathname.includes("/calendar"),
   },
 ];

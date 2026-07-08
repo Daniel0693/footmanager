@@ -5,7 +5,8 @@
   },
   "nav": {
     "home": "Home",
-    "roster": "Roster"
+    "roster": "Roster",
+    "calendar": "Calendar"
   },
   "header": {
     "toggleSidebar": "Open navigation menu",
