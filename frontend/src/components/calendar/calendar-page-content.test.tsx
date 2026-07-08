@@ -1,9 +1,18 @@
 import { fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithIntl, screen, waitFor } from "@/test-utils/render";
+import { replace as mockReplace } from "@/test-utils/navigation-mock";
 import { CalendarPageContent } from "./calendar-page-content";
 
 jest.mock("sonner", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
+
+// require() dans la factory : voir navigation-mock.tsx.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock("@/i18n/navigation", () => require("@/test-utils/navigation-mock"));
+let mockSearchParams = new URLSearchParams();
+jest.mock("next/navigation", () => ({
+  useSearchParams: () => mockSearchParams,
+}));
 
 const mockUseAuth = jest.fn();
 jest.mock("@/lib/auth/auth-context", () => ({
@@ -54,6 +63,7 @@ describe("CalendarPageContent", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({ accessToken: "token" });
+    mockSearchParams = new URLSearchParams();
   });
 
   it("charge les équipes puis la vue Liste (par défaut) avec tous les types/équipes", async () => {
@@ -281,5 +291,51 @@ describe("CalendarPageContent", () => {
 
     await user.click(screen.getByRole("button", { name: "Aujourd'hui" }));
     expect(screen.getByText(currentMonthLabel)).toBeInTheDocument();
+  });
+
+  describe("persistance de la vue dans l'URL (docs/roadmap.md étape B7)", () => {
+    it("bascule vers la vue Mois : l'URL est mise à jour avec view=month", async () => {
+      mockRoutes(twoTeams, []);
+      const user = userEvent.setup();
+
+      renderWithIntl(<CalendarPageContent clubId="1" />);
+      await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+      mockReplace.mockClear();
+
+      await user.click(screen.getByRole("tab", { name: "Mois" }));
+
+      await waitFor(() => {
+        const lastCall = mockReplace.mock.calls.at(-1) as [string, unknown] | undefined;
+        expect(lastCall?.[0]).toContain("view=month");
+      });
+    });
+
+    it("sans paramètre d'URL, retombe sur la vue Liste par défaut", async () => {
+      mockRoutes(twoTeams, []);
+      mockSearchParams = new URLSearchParams();
+
+      renderWithIntl(<CalendarPageContent clubId="1" />);
+
+      expect(await screen.findByTestId("calendar-list-scroll")).toBeInTheDocument();
+    });
+
+    it("avec view=week dans l'URL, affiche directement la vue Semaine au montage", async () => {
+      mockRoutes(twoTeams, []);
+      mockSearchParams = new URLSearchParams("view=week&week=2026-07-13");
+
+      renderWithIntl(<CalendarPageContent clubId="1" />);
+
+      expect(await screen.findByText(/^lun\. 13$/)).toBeInTheDocument();
+      expect(screen.queryByTestId("calendar-list-scroll")).not.toBeInTheDocument();
+    });
+
+    it("avec view=month et month=... dans l'URL, affiche le bon mois au montage", async () => {
+      mockRoutes(twoTeams, []);
+      mockSearchParams = new URLSearchParams("view=month&month=2026-03-01");
+
+      renderWithIntl(<CalendarPageContent clubId="1" />);
+
+      expect(await screen.findByText("mars 2026")).toBeInTheDocument();
+    });
   });
 });

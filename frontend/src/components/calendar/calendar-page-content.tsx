@@ -2,6 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
   type EventFormTeam,
   type ExistingEvent,
 } from "@/components/calendar/event-form-dialog";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { eventTypeCheckboxColorClass, teamCheckboxColorClass } from "@/lib/calendar-color";
@@ -24,15 +26,38 @@ import { isSameDay } from "@/lib/calendar-grid";
 import { EVENT_TYPES, type EventType } from "@/lib/event";
 
 type CalendarEvent = ExistingEvent;
+type CalendarView = "list" | "month" | "week";
 
 type GridDialogState =
   | { open: false }
   | { open: true; mode: "create"; start: Date; end?: Date }
   | { open: true; mode: "edit"; event: CalendarEvent };
 
+function parseViewParam(value: string | null): CalendarView {
+  return value === "month" || value === "week" ? value : "list";
+}
+
+// "AAAA-MM-JJ" → Date locale à minuit, jamais new Date(value) seul (parse en
+// UTC, peut décaler d'un jour selon le fuseau — même piège documenté dans
+// event-form-dialog.tsx parseDateInputValue).
+function parseDateParam(value: string | null): Date | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function toDateParam(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 export function CalendarPageContent({ clubId }: { clubId: string }) {
   const t = useTranslations("calendar");
   const { accessToken } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [teams, setTeams] = useState<EventFormTeam[] | null>(null);
   const [selectedTypes, setSelectedTypes] = useState<Set<EventType>>(
@@ -43,9 +68,28 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<number> | null>(null);
   const [showBirthdays, setShowBirthdays] = useState(true);
 
-  const [view, setView] = useState<"list" | "month" | "week">("list");
-  const [month, setMonth] = useState(() => new Date());
-  const [week, setWeek] = useState(() => new Date());
+  // Persistance entre navigations (docs/roadmap.md étape B7) : vue active et
+  // position affichée (mois/semaine) encodées dans l'URL — un rechargement
+  // de page ou un lien partagé retombe sur la même vue, pas sur la Liste
+  // recentrée sur aujourd'hui. Lu une seule fois au montage (initialiseur
+  // paresseux) : la synchronisation retour se fait dans l'effet ci-dessous,
+  // pas par une re-lecture continue de l'URL.
+  const [view, setView] = useState<CalendarView>(() =>
+    parseViewParam(searchParams.get("view")),
+  );
+  const [month, setMonth] = useState(
+    () => parseDateParam(searchParams.get("month")) ?? new Date(),
+  );
+  const [week, setWeek] = useState(() => parseDateParam(searchParams.get("week")) ?? new Date());
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("view", view);
+    params.set("month", toDateParam(month));
+    params.set("week", toDateParam(week));
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, month, week]);
   // Incrémenté après toute création/édition/suppression pour que la vue
   // active (Liste/Mois/Semaine) sache qu'elle doit recharger sa fenêtre —
   // chaque vue gère son propre chargement borné à sa plage affichée (voir
@@ -195,7 +239,7 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
             </Button>
             <Tabs
               value={view}
-              onValueChange={(value) => setView(value as "list" | "month" | "week")}
+              onValueChange={(value) => setView(value as CalendarView)}
             >
               <TabsList>
                 <TabsTrigger value="list">{t("viewList")}</TabsTrigger>
