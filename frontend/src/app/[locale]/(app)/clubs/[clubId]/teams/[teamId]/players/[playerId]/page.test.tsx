@@ -38,7 +38,6 @@ function playerDetail(overrides: Record<string, unknown> = {}) {
     id: 1,
     licenseNumber: "1939034",
     nationality: "Suisse",
-    birthDate: "2011-10-30",
     preferredFoot: "RIGHT",
     member: {
       id: 6,
@@ -46,6 +45,7 @@ function playerDetail(overrides: Record<string, unknown> = {}) {
       lastName: "Joueur",
       phone: "+41 78 252 81 83",
       gender: "MALE",
+      birthDate: "2011-10-30",
       isActive: true,
       user: { email: "tom@footmanager.test" },
     },
@@ -102,7 +102,10 @@ describe("PlayerDetailPageContent", () => {
     expect(screen.getByText("Homme")).toBeInTheDocument();
     expect(screen.getByText("1939034")).toBeInTheDocument();
     expect(screen.getByText("Droit")).toBeInTheDocument();
-    expect(screen.getByText("2025-09-05")).toBeInTheDocument();
+    // JJ/MM/AAAA : format d'affichage unique du projet (lib/date-format.ts),
+    // jamais la chaîne ISO brute renvoyée par l'API.
+    expect(screen.getByText("05/09/2025")).toBeInTheDocument();
+    expect(screen.getByText("30/10/2011")).toBeInTheDocument();
     expect(screen.getByText("Actif")).toBeInTheDocument();
     expect(screen.getByText("Milieu offensif")).toBeInTheDocument();
     expect(screen.getByText("Milieu défensif")).toBeInTheDocument();

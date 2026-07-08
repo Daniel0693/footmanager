@@ -15,6 +15,7 @@ import {
 import { Link } from "@/i18n/navigation";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
+import { formatDate } from "@/lib/date-format";
 import type { Foot } from "@/lib/foot";
 import type { Gender } from "@/lib/gender";
 import type { Position } from "@/lib/positions";
@@ -33,7 +34,6 @@ interface PlayerDetail {
   id: number;
   licenseNumber: string | null;
   nationality: string | null;
-  birthDate: string | null;
   preferredFoot: Foot | null;
   member: {
     id: number;
@@ -41,6 +41,7 @@ interface PlayerDetail {
     lastName: string;
     phone: string | null;
     gender: Gender | null;
+    birthDate: string | null;
     isActive: boolean;
     user: { email: string } | null;
   };
@@ -165,7 +166,7 @@ export function PlayerDetailPageContent({
         gender: player.member.gender,
         licenseNumber: player.licenseNumber,
         nationality: player.nationality,
-        birthDate: player.birthDate,
+        birthDate: player.member.birthDate,
         preferredFoot: player.preferredFoot,
         jerseyNumber: assignment.jerseyNumber,
         mainPosition: assignment.mainPosition,
@@ -270,7 +271,11 @@ export function PlayerDetailPageContent({
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">{t("birthDate")}</span>
-                <span>{player.birthDate ?? tPlayers("emptyValue")}</span>
+                <span>
+                  {player.member.birthDate
+                    ? formatDate(player.member.birthDate)
+                    : tPlayers("emptyValue")}
+                </span>
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">{t("gender")}</span>
@@ -291,7 +296,9 @@ export function PlayerDetailPageContent({
             <CardContent className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">{t("joinDate")}</span>
-                <span>{assignment?.joinDate ?? tPlayers("emptyValue")}</span>
+                <span>
+                  {assignment?.joinDate ? formatDate(assignment.joinDate) : tPlayers("emptyValue")}
+                </span>
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">{t("licenseNumber")}</span>
