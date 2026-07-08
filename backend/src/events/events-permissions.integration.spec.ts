@@ -219,7 +219,11 @@ describe('Module Calendrier — scénario multi-rôles (EventsController)', () =
       team: { findFirst: teamFindFirst },
       event: { findMany: eventFindMany, create: eventCreate },
     } as unknown as PrismaService;
-    eventsService = new EventsService(prismaStub);
+    eventsService = new EventsService(
+      prismaStub,
+      membersService,
+      permissionsService,
+    );
   });
 
   it('Coach crée un événement pour sa propre équipe', async () => {
@@ -299,5 +303,62 @@ describe('Module Calendrier — scénario multi-rôles (EventsController)', () =
     await expect(
       guard.canActivate(buildContext(request, findAllHandler)),
     ).rejects.toBeInstanceOf(AppException);
+  });
+
+  // "Mes événements" (B3) : pas de PermissionsGuard/@RequirePermission sur
+  // cette route (voir EventsMineController), donc exercée directement via
+  // EventsService.findMineInClub avec le vrai PermissionsService construit
+  // ci-dessus — pas seulement le guard.
+  describe('findMineInClub — agrégation multi-équipes', () => {
+    const expectedFindManyArgs = (team: object) => ({
+      where: {
+        team,
+        type: undefined,
+        startAt: { gte: undefined, lte: undefined },
+      },
+      include: { team: { select: { id: true, name: true } } },
+      orderBy: { startAt: 'asc' },
+    });
+
+    it('AdminClub (scope CLUB) voit les événements de toutes les équipes du club', async () => {
+      await eventsService.findMineInClub(1, 70);
+
+      expect(eventFindMany).toHaveBeenCalledWith(
+        expectedFindManyArgs({ clubId: 1 }),
+      );
+    });
+
+    it('Coach (scope TEAM) ne voit que les événements de ses propres équipes', async () => {
+      await eventsService.findMineInClub(1, 71);
+
+      expect(eventFindMany).toHaveBeenCalledWith(
+        expectedFindManyArgs({
+          clubId: 1,
+          memberRoles: { some: { memberId: 43, teamId: { not: null } } },
+        }),
+      );
+    });
+
+    it('Player (scope TEAM, READ seul) ne voit que les événements de ses propres équipes', async () => {
+      await eventsService.findMineInClub(1, 7);
+
+      expect(eventFindMany).toHaveBeenCalledWith(
+        expectedFindManyArgs({
+          clubId: 1,
+          memberRoles: { some: { memberId: 42, teamId: { not: null } } },
+        }),
+      );
+    });
+
+    it("un membre du club sans aucun rôle voit un calendrier vide (pas d'erreur)", async () => {
+      await eventsService.findMineInClub(1, 500);
+
+      expect(eventFindMany).toHaveBeenCalledWith(
+        expectedFindManyArgs({
+          clubId: 1,
+          memberRoles: { some: { memberId: 1000, teamId: { not: null } } },
+        }),
+      );
+    });
   });
 });

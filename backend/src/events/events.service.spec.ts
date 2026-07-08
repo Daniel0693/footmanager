@@ -1,7 +1,23 @@
 import { HttpStatus } from '@nestjs/common';
-import type { Event, Team } from '@prisma/client';
+import type { Event, Member, Team } from '@prisma/client';
+import { MembersService } from '../members/members.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PermissionsService } from '../roles/permissions.service';
 import { EventsService } from './events.service';
+
+const member: Member = {
+  id: 42,
+  userId: 7,
+  clubId: 1,
+  firstName: 'Marc',
+  lastName: 'Dupont',
+  phone: null,
+  avatarUrl: null,
+  gender: null,
+  isActive: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
 
 const team: Team = {
   id: 5,
@@ -32,6 +48,8 @@ describe('EventsService', () => {
   let eventCreate: jest.Mock;
   let eventUpdate: jest.Mock;
   let eventDelete: jest.Mock;
+  let findByUserAndClub: jest.Mock;
+  let can: jest.Mock;
   let service: EventsService;
 
   beforeEach(() => {
@@ -53,7 +71,19 @@ describe('EventsService', () => {
       },
     } as unknown as PrismaService;
 
-    service = new EventsService(prismaStub);
+    findByUserAndClub = jest.fn();
+    const membersServiceStub = {
+      findByUserAndClub,
+    } as unknown as MembersService;
+
+    can = jest.fn();
+    const permissionsServiceStub = { can } as unknown as PermissionsService;
+
+    service = new EventsService(
+      prismaStub,
+      membersServiceStub,
+      permissionsServiceStub,
+    );
   });
 
   describe('create', () => {
@@ -139,6 +169,61 @@ describe('EventsService', () => {
       expect(eventFindMany).toHaveBeenCalledWith(
         expect.objectContaining({ orderBy: { startAt: 'desc' } }),
       );
+    });
+  });
+
+  describe('findMineInClub', () => {
+    it("refuse si l'appelant n'a pas de fiche membre dans ce club", async () => {
+      findByUserAndClub.mockResolvedValue(null);
+
+      await expect(service.findMineInClub(1, 7)).rejects.toMatchObject({
+        status: HttpStatus.FORBIDDEN,
+      });
+      expect(eventFindMany).not.toHaveBeenCalled();
+    });
+
+    it('scope club-entier (AdminClub/SuperAdmin) : voit les événements de toutes les équipes du club', async () => {
+      findByUserAndClub.mockResolvedValue(member);
+      can.mockResolvedValue('CLUB');
+      eventFindMany.mockResolvedValue([trainingEvent]);
+
+      const result = await service.findMineInClub(1, 7);
+
+      expect(result).toEqual([trainingEvent]);
+      expect(can).toHaveBeenCalledWith(42, 'READ', 'event', { clubId: 1 });
+      expect(eventFindMany).toHaveBeenCalledWith({
+        where: {
+          team: { clubId: 1 },
+          type: undefined,
+          startAt: { gte: undefined, lte: undefined },
+        },
+        include: { team: { select: { id: true, name: true } } },
+        orderBy: { startAt: 'asc' },
+      });
+    });
+
+    it('scope équipe (Coach/Player) : ne voit que les événements de ses propres équipes', async () => {
+      findByUserAndClub.mockResolvedValue(member);
+      can.mockResolvedValue(null);
+      eventFindMany.mockResolvedValue([trainingEvent]);
+
+      const result = await service.findMineInClub(1, 7, { type: 'MATCH' });
+
+      expect(result).toEqual([trainingEvent]);
+      expect(eventFindMany).toHaveBeenCalledWith({
+        where: {
+          team: {
+            clubId: 1,
+            memberRoles: {
+              some: { memberId: 42, teamId: { not: null } },
+            },
+          },
+          type: 'MATCH',
+          startAt: { gte: undefined, lte: undefined },
+        },
+        include: { team: { select: { id: true, name: true } } },
+        orderBy: { startAt: 'asc' },
+      });
     });
   });
 
