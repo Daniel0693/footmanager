@@ -236,6 +236,31 @@ dans les cellules qu'il traverse. Deux correctifs :
 - 2 tests ajoutés (bandeau superposé à l'intérieur du bon bloc de semaine, numéro de semaine) —
   189 tests frontend au total.
 
+**Événements récurrents (2026-07-08)** : demande explicite (pas dans le découpage B1-B9 initial —
+`Event.isRecurring`/`recurringRuleId` avaient été posés en base dès B1 comme "future entité", ce
+moment est arrivé). Décision structurante : **pas de nouvelle entité `RecurringRule`**. Le
+frontend calcule la liste concrète des dates d'occurrence à la validation du formulaire
+(`lib/recurrence.ts`) et le backend crée chaque occurrence comme un `Event` indépendant
+(`isRecurring = true`, sans lien de groupe entre elles) via un nouvel endpoint bulk — pas de règle
+vivante réévaluée dynamiquement, conforme à la demande ("créer tous les événements en question
+entre les dates de récurrence").
+- **Backend** : `POST /clubs/:clubId/teams/:teamId/events/bulk` (`CreateEventsBulkDto`, tableau de
+  `CreateEventDto` validé, `@ArrayMaxSize(200)`), `EventsService.createBulk` (`prisma.event.createMany`
+  en une requête). Même permission `event CREATE` que la création simple. 6 tests ajoutés (service +
+  intégration multi-rôles) — 280 tests backend au total.
+- **Frontend — `lib/recurrence.ts`** (pur, testé indépendamment de l'UI) : `computeOccurrenceDates(rule,
+  rangeStart, rangeEnd)` pour 3 types de règle — hebdomadaire (jours de semaine cochés), mensuel
+  (jour fixe du mois OU Nième/dernier jour de semaine du mois), annuel (date fixe OU Nième/dernier
+  jour de semaine d'un mois donné). Garde-fou `MAX_OCCURRENCES = 200` (même borne que le backend).
+  11 tests.
+- **Frontend — `EventFormDialog`** : case "Événement récurrent" (création uniquement, absente en
+  édition — éditer une occurrence n'a pas de sens en tant que série) qui remplace les champs
+  Début/Fin normaux par heure de début/fin (communes à toutes les occurrences) + sélecteur de type
+  de récurrence + champs spécifiques au type + plage de dates de la récurrence. Aperçu du nombre
+  d'occurrences recalculé en direct (`useMemo` sur les valeurs surveillées). À la soumission :
+  calcule les dates, construit un événement par date (même heure/lieu/description), envoie tout à
+  l'endpoint bulk en une requête. 5 tests ajoutés — 204 tests frontend au total.
+
 ---
 
 ## Phase 3 — Saisons & Championnats ⬜

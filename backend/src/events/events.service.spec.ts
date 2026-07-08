@@ -46,6 +46,7 @@ describe('EventsService', () => {
   let eventFindFirst: jest.Mock;
   let eventFindMany: jest.Mock;
   let eventCreate: jest.Mock;
+  let eventCreateMany: jest.Mock;
   let eventUpdate: jest.Mock;
   let eventDelete: jest.Mock;
   let findByUserAndClub: jest.Mock;
@@ -57,6 +58,7 @@ describe('EventsService', () => {
     eventFindFirst = jest.fn();
     eventFindMany = jest.fn();
     eventCreate = jest.fn();
+    eventCreateMany = jest.fn();
     eventUpdate = jest.fn();
     eventDelete = jest.fn();
 
@@ -66,6 +68,7 @@ describe('EventsService', () => {
         findFirst: eventFindFirst,
         findMany: eventFindMany,
         create: eventCreate,
+        createMany: eventCreateMany,
         update: eventUpdate,
         delete: eventDelete,
       },
@@ -123,6 +126,60 @@ describe('EventsService', () => {
           location: 'Stade municipal',
           description: undefined,
         },
+      });
+    });
+  });
+
+  describe('createBulk', () => {
+    it("refuse si l'équipe n'appartient pas au club", async () => {
+      teamFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createBulk(1, 5, [
+          {
+            type: 'TRAINING',
+            title: 'Entraînement',
+            startAt: new Date('2026-07-06T17:30:00Z'),
+          },
+        ]),
+      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      expect(eventCreateMany).not.toHaveBeenCalled();
+    });
+
+    it('crée toutes les occurrences en une seule requête, marquées isRecurring', async () => {
+      teamFindFirst.mockResolvedValue(team);
+      eventCreateMany.mockResolvedValue({ count: 2 });
+
+      const occurrences = [
+        {
+          type: 'TRAINING' as const,
+          title: 'Entraînement',
+          startAt: new Date('2026-07-06T17:30:00Z'),
+          endAt: new Date('2026-07-06T19:00:00Z'),
+          location: 'Ecossia',
+        },
+        {
+          type: 'TRAINING' as const,
+          title: 'Entraînement',
+          startAt: new Date('2026-07-08T17:30:00Z'),
+          endAt: new Date('2026-07-08T19:00:00Z'),
+          location: 'Ecossia',
+        },
+      ];
+
+      await service.createBulk(1, 5, occurrences);
+
+      expect(eventCreateMany).toHaveBeenCalledWith({
+        data: occurrences.map((occurrence) => ({
+          teamId: 5,
+          type: occurrence.type,
+          title: occurrence.title,
+          startAt: occurrence.startAt,
+          endAt: occurrence.endAt,
+          location: occurrence.location,
+          description: undefined,
+          isRecurring: true,
+        })),
       });
     });
   });

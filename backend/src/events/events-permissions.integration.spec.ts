@@ -182,6 +182,8 @@ function buildContext(
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const createHandler = EventsController.prototype.create;
 // eslint-disable-next-line @typescript-eslint/unbound-method
+const createBulkHandler = EventsController.prototype.createBulk;
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const findAllHandler = EventsController.prototype.findAll;
 
 describe('Module Calendrier — scénario multi-rôles (EventsController)', () => {
@@ -190,6 +192,7 @@ describe('Module Calendrier — scénario multi-rôles (EventsController)', () =
   let teamFindFirst: jest.Mock;
   let eventFindMany: jest.Mock;
   let eventCreate: jest.Mock;
+  let eventCreateMany: jest.Mock;
 
   beforeEach(() => {
     const permissionsService = new PermissionsService(buildPrismaStub());
@@ -215,9 +218,14 @@ describe('Module Calendrier — scénario multi-rôles (EventsController)', () =
     teamFindFirst = jest.fn().mockResolvedValue({ id: 5, clubId: 1 });
     eventFindMany = jest.fn().mockResolvedValue([]);
     eventCreate = jest.fn().mockResolvedValue({ id: 900 });
+    eventCreateMany = jest.fn().mockResolvedValue({ count: 3 });
     const prismaStub = {
       team: { findFirst: teamFindFirst },
-      event: { findMany: eventFindMany, create: eventCreate },
+      event: {
+        findMany: eventFindMany,
+        create: eventCreate,
+        createMany: eventCreateMany,
+      },
     } as unknown as PrismaService;
     eventsService = new EventsService(
       prismaStub,
@@ -254,6 +262,44 @@ describe('Module Calendrier — scénario multi-rôles (EventsController)', () =
     await expect(
       guard.canActivate(buildContext(request, createHandler)),
     ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it('Coach crée une série d’événements récurrents pour sa propre équipe', async () => {
+    const request = {
+      params: { clubId: '1', teamId: '5' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, createBulkHandler)),
+    ).resolves.toBe(true);
+    expect(request.permissionScope).toBe('TEAM');
+
+    await eventsService.createBulk(1, 5, [
+      {
+        type: 'TRAINING',
+        title: 'Entraînement',
+        startAt: new Date('2026-07-06T17:30:00Z'),
+      },
+      {
+        type: 'TRAINING',
+        title: 'Entraînement',
+        startAt: new Date('2026-07-08T17:30:00Z'),
+      },
+    ]);
+    expect(eventCreateMany).toHaveBeenCalled();
+  });
+
+  it("Player n'a pas la permission de créer une série récurrente", async () => {
+    const request = {
+      params: { clubId: '1', teamId: '5' },
+      user: { userId: 7 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, createBulkHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+    expect(eventCreateMany).not.toHaveBeenCalled();
   });
 
   it('AdminClub crée un événement pour n’importe quelle équipe du club', async () => {

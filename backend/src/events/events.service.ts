@@ -38,6 +38,32 @@ export class EventsService {
     });
   }
 
+  /**
+   * Création en masse pour un événement récurrent (docs/roadmap.md) : le
+   * frontend a déjà résolu la règle de récurrence en dates concrètes
+   * (lib/recurrence.ts) — chaque occurrence est créée ici comme un Event
+   * indépendant, `isRecurring = true`, sans lien de groupe entre elles
+   * (pas de RecurringRule, décision documentée dans docs/schema/evenements.md).
+   * `createMany` : une seule requête, pas de retour des lignes créées —
+   * suffisant puisque l'appelant recharge la vue calendrier après succès.
+   */
+  async createBulk(clubId: number, teamId: number, dtos: CreateEventDto[]) {
+    await this.assertTeamInClub(clubId, teamId);
+
+    await this.prisma.event.createMany({
+      data: dtos.map((dto) => ({
+        teamId,
+        type: dto.type,
+        title: dto.title,
+        startAt: dto.startAt,
+        endAt: dto.endAt,
+        location: dto.location,
+        description: dto.description,
+        isRecurring: true,
+      })),
+    });
+  }
+
   async findAllByTeam(
     clubId: number,
     teamId: number,

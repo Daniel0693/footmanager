@@ -14,6 +14,7 @@ import { RequirePermission } from '../auth/decorators/require-permission.decorat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CreateEventDto } from './dto/create-event.dto';
+import { CreateEventsBulkDto } from './dto/create-events-bulk.dto';
 import { FindEventsQueryDto } from './dto/find-events-query.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { EventsService } from './events.service';
@@ -31,6 +32,20 @@ export class EventsController {
     @Body() dto: CreateEventDto,
   ) {
     return this.eventsService.create(clubId, teamId, dto);
+  }
+
+  // Doit être déclaré avant :id implicite des routes GET/PATCH/DELETE — pas
+  // de conflit ici puisque seul POST porte cette route (:id n'existe que
+  // sur PATCH/DELETE), mais on garde 'bulk' en chemin explicite plutôt que
+  // ':id' pour éviter toute ambiguïté future.
+  @RequirePermission('event', 'CREATE')
+  @Post('bulk')
+  createBulk(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @Body() dto: CreateEventsBulkDto,
+  ) {
+    return this.eventsService.createBulk(clubId, teamId, dto.events);
   }
 
   @RequirePermission('event', 'READ')
