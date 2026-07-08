@@ -44,20 +44,25 @@ export function DeleteEventDialog({
               : t("deleteDialogDescription")}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
+        <AlertDialogFooter
+          // 3 choix avec des libellés longs : jamais sur une seule ligne
+          // (débordait du cadre de la modale à sm:flex-row, voir capture
+          // utilisateur) — empilés en pleine largeur à tous les gabarits.
+          className={event.isRecurring ? "sm:flex-col-reverse" : undefined}
+        >
           {event.isRecurring ? (
             <>
-              <AlertDialogClose render={<Button variant="outline">{t("cancel")}</Button>} />
+              <AlertDialogClose render={<Button variant="outline" className="w-full">{t("cancel")}</Button>} />
               <AlertDialogClose
                 render={
-                  <Button variant="destructive" onClick={() => onConfirm("single")}>
+                  <Button variant="secondary" className="w-full" onClick={() => onConfirm("single")}>
                     {t("scopeSingleOccurrence")}
                   </Button>
                 }
               />
               <AlertDialogClose
                 render={
-                  <Button variant="destructive" onClick={() => onConfirm("future")}>
+                  <Button variant="destructive" className="w-full" onClick={() => onConfirm("future")}>
                     {t("scopeFutureOccurrences")}
                   </Button>
                 }

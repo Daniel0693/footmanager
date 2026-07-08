@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DeleteEventDialog } from "@/components/calendar/delete-event-dialog";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiFetch, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { EVENT_TYPES, type EventType } from "@/lib/event";
+import { cn } from "@/lib/utils";
 import {
   computeOccurrenceDates,
   MAX_OCCURRENCES,
@@ -379,6 +381,25 @@ export function EventFormDialog({
     );
   }, [watched]);
 
+  // Suppression accessible depuis ce même dialogue d'édition (mois/semaine/
+  // liste l'ouvrent toutes via ce composant, voir CalendarPageContent) —
+  // seul point d'entrée jusqu'ici était la vue Liste (DeleteEventDialog déjà
+  // utilisé là-bas, même flux de confirmation réutilisé ici).
+  const handleDelete = async (scope: "single" | "future") => {
+    const headers = { Authorization: `Bearer ${accessToken}` };
+    try {
+      const response = await apiFetch(
+        `/clubs/${clubId}/teams/${event!.team.id}/events/${event!.id}?scope=${scope}`,
+        { method: "DELETE", headers },
+      );
+      if (!response.ok) throw new Error();
+      setOpen(false);
+      onSuccess();
+    } catch {
+      toast.error(t("deleteFailed"));
+    }
+  };
+
   const onSubmit = async (values: FormValues) => {
     if (mode === "edit" && event!.isRecurring) {
       setPendingEditValues(values);
@@ -488,7 +509,11 @@ export function EventFormDialog({
           <DialogTitle>{mode === "create" ? t("createTitle") : t("editTitle")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
+          {/* Une seule équipe accessible en création : pas de sélecteur
+              d'équipe affiché (voir branche ci-dessous) — le champ Type
+              occupe alors seul toute la largeur plutôt que la moitié d'une
+              grille à 2 colonnes avec une case vide. */}
+          <div className={cn("grid gap-3", mode === "edit" || teams.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
             {mode === "create" && teams.length > 1 ? (
               <div className="flex flex-col gap-1.5">
                 <Label>{t("team")}</Label>
@@ -694,7 +719,6 @@ export function EventFormDialog({
                         type="number"
                         min={1}
                         max={31}
-                        className="w-24"
                         {...register("recurrenceDayOfMonth")}
                       />
                       {errors.recurrenceDayOfMonth && (
@@ -812,7 +836,18 @@ export function EventFormDialog({
             <Textarea id="event-description" rows={3} {...register("description")} />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className={mode === "edit" ? "sm:justify-between" : undefined}>
+            {mode === "edit" && (
+              <DeleteEventDialog
+                event={event!}
+                onConfirm={(scope) => void handleDelete(scope)}
+                trigger={
+                  <Button type="button" variant="destructive">
+                    {t("delete")}
+                  </Button>
+                }
+              />
+            )}
             <Button type="submit" disabled={isSubmitting}>
               {mode === "create" ? t("submitCreate") : t("submitEdit")}
             </Button>
@@ -833,12 +868,16 @@ export function EventFormDialog({
             <AlertDialogTitle>{t("editScopeDialogTitle")}</AlertDialogTitle>
             <AlertDialogDescription>{t("editScopeDialogDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogClose render={<Button variant="outline">{t("cancel")}</Button>} />
+          {/* 3 choix avec des libellés longs : jamais sur une seule ligne
+              (débordait du cadre de la modale à sm:flex-row) — empilés en
+              pleine largeur à tous les gabarits. */}
+          <AlertDialogFooter className="sm:flex-col-reverse">
+            <AlertDialogClose render={<Button variant="outline" className="w-full">{t("cancel")}</Button>} />
             <AlertDialogClose
               render={
                 <Button
                   variant="secondary"
+                  className="w-full"
                   onClick={() => pendingEditValues && void performSubmit(pendingEditValues, "single")}
                 >
                   {t("scopeSingleOccurrence")}
@@ -848,6 +887,7 @@ export function EventFormDialog({
             <AlertDialogClose
               render={
                 <Button
+                  className="w-full"
                   onClick={() => pendingEditValues && void performSubmit(pendingEditValues, "future")}
                 >
                   {t("scopeFutureOccurrences")}

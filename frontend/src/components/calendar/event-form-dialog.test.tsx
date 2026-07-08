@@ -293,6 +293,58 @@ describe("EventFormDialog", () => {
     );
   });
 
+  it("mode édition : bouton Supprimer disponible, confirme puis envoie un DELETE", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse(null));
+    const onSuccess = jest.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <EventFormDialog
+        clubId="1"
+        teams={teams}
+        event={existingEvent}
+        onSuccess={onSuccess}
+        trigger={<Button>Modifier</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    await user.click(screen.getByRole("button", { name: "Supprimer" }));
+    await user.click(screen.getByRole("button", { name: "Confirmer la suppression" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/clubs/1/teams/8/events/42?scope=single",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
+  it("mode édition d'un événement récurrent : bouton Supprimer propose aussi le choix single/future", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse(null));
+    const onSuccess = jest.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <EventFormDialog
+        clubId="1"
+        teams={teams}
+        event={existingRecurringEvent}
+        onSuccess={onSuccess}
+        trigger={<Button>Modifier</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    await user.click(screen.getByRole("button", { name: "Supprimer" }));
+    await user.click(screen.getByRole("button", { name: "Cet événement et les suivants" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/clubs/1/teams/8/events/43?scope=future",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
   it("mode édition d'un événement récurrent : Annuler referme le choix sans requête réseau", async () => {
     const user = userEvent.setup();
 

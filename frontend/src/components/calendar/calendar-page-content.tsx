@@ -19,6 +19,7 @@ import {
 } from "@/components/calendar/event-form-dialog";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
+import { eventTypeCheckboxColorClass, teamCheckboxColorClass } from "@/lib/calendar-color";
 import { isSameDay } from "@/lib/calendar-grid";
 import { EVENT_TYPES, type EventType } from "@/lib/event";
 
@@ -146,6 +147,12 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
                 <Checkbox
                   checked={selectedTypes.has(type)}
                   onCheckedChange={() => toggleType(type)}
+                  // La couleur des événements ne suit le type que si aucune
+                  // couleur par équipe n'est déjà appliquée (colorMode
+                  // "team", vue AdminClub) — sinon la case garde son style
+                  // par défaut plutôt que de suggérer une correspondance
+                  // inexistante (voir lib/calendar-color.ts).
+                  className={colorMode === "type" ? eventTypeCheckboxColorClass(type) : undefined}
                 />
                 {t(`type${type}`)}
               </label>
@@ -154,11 +161,12 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
           {teams && teams.length > 1 && (
             <div className="flex flex-col gap-2">
               <Label className="text-xs text-muted-foreground">{t("teamFilter")}</Label>
-              {teams.map((team) => (
+              {teams.map((team, index) => (
                 <label key={team.id} className="flex items-center gap-2 text-sm">
                   <Checkbox
                     checked={selectedTeamIds?.has(team.id) ?? false}
                     onCheckedChange={() => toggleTeam(team.id)}
+                    className={teamCheckboxColorClass(index)}
                   />
                   {team.name}
                 </label>
