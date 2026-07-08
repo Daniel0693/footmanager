@@ -14,6 +14,7 @@ const marcMember: Member = {
   phone: null,
   avatarUrl: null,
   gender: null,
+  birthDate: null,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -24,7 +25,6 @@ const marcProfile: PlayerProfile = {
   memberId: 42,
   licenseNumber: null,
   nationality: null,
-  birthDate: null,
   preferredFoot: null,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -108,7 +108,6 @@ describe('PlayersService', () => {
           memberId: 42,
           licenseNumber: undefined,
           nationality: 'FR',
-          birthDate: undefined,
           preferredFoot: undefined,
         },
       });
@@ -129,7 +128,6 @@ describe('PlayersService', () => {
           memberId: 42,
           licenseNumber: undefined,
           nationality: undefined,
-          birthDate: undefined,
           preferredFoot: 'LEFT',
         },
       });

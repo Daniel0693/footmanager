@@ -96,19 +96,20 @@ model Team {
 }
 
 model Member {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   userId    Int?
-  user      User?    @relation(fields: [userId], references: [id])
+  user      User?     @relation(fields: [userId], references: [id])
   clubId    Int
-  club      Club     @relation(fields: [clubId], references: [id])
+  club      Club      @relation(fields: [clubId], references: [id])
   firstName String
   lastName  String
   phone     String?
   avatarUrl String?
   gender    Gender?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  birthDate DateTime? @db.Date
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   memberRoles         MemberRole[]
   playerProfile       PlayerProfile?
@@ -240,15 +241,14 @@ enum Foot {
 }
 
 model PlayerProfile {
-  id            Int       @id @default(autoincrement())
-  memberId      Int       @unique
-  member        Member    @relation(fields: [memberId], references: [id])
-  licenseNumber String?   @unique
+  id            Int      @id @default(autoincrement())
+  memberId      Int      @unique
+  member        Member   @relation(fields: [memberId], references: [id])
+  licenseNumber String?  @unique
   nationality   String?
-  birthDate     DateTime? @db.Date
   preferredFoot Foot?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   playerTeams        PlayerTeam[]
   playerMeasurements PlayerMeasurement[]

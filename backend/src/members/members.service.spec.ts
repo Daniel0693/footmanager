@@ -12,6 +12,7 @@ const member: Member = {
   phone: null,
   avatarUrl: null,
   gender: null,
+  birthDate: null,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -74,6 +75,24 @@ describe('MembersService', () => {
         },
       });
     });
+
+    it('crée un membre avec une date de naissance renseignée', async () => {
+      const birthDate = new Date('1998-05-12');
+      const create = jest.fn().mockResolvedValue({ ...member, birthDate });
+      const prismaStub = { member: { create } } as unknown as PrismaService;
+      const service = new MembersService(prismaStub);
+
+      await service.create({
+        clubId: 1,
+        firstName: 'Tom',
+        lastName: 'Joueur',
+        birthDate,
+      });
+
+      expect(create).toHaveBeenCalledWith({
+        data: { clubId: 1, firstName: 'Tom', lastName: 'Joueur', birthDate },
+      });
+    });
   });
 
   describe('update', () => {
@@ -95,6 +114,23 @@ describe('MembersService', () => {
         data: { firstName: 'Thomas' },
       });
       expect(result.firstName).toBe('Thomas');
+    });
+
+    it('met à jour la date de naissance', async () => {
+      const birthDate = new Date('1990-01-20');
+      const findFirst = jest.fn().mockResolvedValue(member);
+      const update = jest.fn().mockResolvedValue({ ...member, birthDate });
+      const prismaStub = {
+        member: { findFirst, update },
+      } as unknown as PrismaService;
+      const service = new MembersService(prismaStub);
+
+      await service.update(1, 1, { birthDate });
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { birthDate },
+      });
     });
 
     it("rejette la mise à jour d'un membre absent du club (pas de fuite inter-club)", async () => {

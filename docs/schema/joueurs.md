@@ -16,8 +16,10 @@ Relation **1–1** avec `Member`. Isole les données propres au rôle Player.
 | `memberId` | FK → Member, **unique** | garantit la relation 1–1 |
 | `licenseNumber` | String, unique, nullable | numéro de licence fédérale |
 | `nationality` | String, nullable | |
-| `birthDate` | Date, nullable | |
 | `preferredFoot` | enum `Foot`, nullable | `LEFT` \| `RIGHT` \| `BOTH` — non renseigné par défaut |
+
+**`birthDate`** : déplacé sur `Member` le 2026-07-08 (voir `docs/schema/fondations.md`) — commun à
+tous les rôles, pas seulement au Player.
 
 ---
 

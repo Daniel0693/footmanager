@@ -15,6 +15,7 @@ export class MembersService {
     phone?: string;
     avatarUrl?: string;
     gender?: Gender;
+    birthDate?: Date;
   }) {
     return this.prisma.member.create({ data });
   }
@@ -27,6 +28,7 @@ export class MembersService {
       lastName?: string;
       phone?: string;
       gender?: Gender;
+      birthDate?: Date;
     },
   ) {
     const member = await this.prisma.member.findFirst({

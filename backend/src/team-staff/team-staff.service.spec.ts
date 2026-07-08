@@ -20,6 +20,7 @@ const member: Member = {
   phone: null,
   avatarUrl: null,
   gender: null,
+  birthDate: null,
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),

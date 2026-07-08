@@ -81,7 +81,6 @@ export class PlayersService {
         memberId: dto.memberId,
         licenseNumber: dto.licenseNumber,
         nationality: dto.nationality,
-        birthDate: dto.birthDate,
         preferredFoot: dto.preferredFoot,
       },
     });
@@ -147,7 +146,6 @@ export class PlayersService {
       data: {
         licenseNumber: dto.licenseNumber,
         nationality: dto.nationality,
-        birthDate: dto.birthDate,
         preferredFoot: dto.preferredFoot,
       },
     });
