@@ -90,6 +90,7 @@ model Team {
   playerTeams       PlayerTeam[]
   teamStaffs        TeamStaff[]
   playerEvaluations PlayerEvaluation[]
+  events            Event[]
 
   @@index([clubId])
 }
@@ -438,6 +439,36 @@ model TeamStaff {
   updatedAt DateTime      @updatedAt
 
   @@index([teamId, memberId])
+}
+
+enum EventType {
+  TRAINING
+  MATCH
+  OTHER
+}
+
+// Événement générique du calendrier (docs/modules/calendrier-evenements.md,
+// docs/schema/evenements.md) — entité parente de tout ce qui s'affiche dans
+// le calendrier. TrainingSession et Match l'étendront en relation 1-1
+// (Phases 4/5, pas encore implémentées). `recurringRuleId` différé : la
+// future entité RecurringRule n'existe pas encore (même logique que
+// trainingSessionId sur PlayerNote — champ ajouté une fois le modèle cible
+// disponible, pas anticipé ici).
+model Event {
+  id          Int       @id @default(autoincrement())
+  teamId      Int
+  team        Team      @relation(fields: [teamId], references: [id])
+  type        EventType
+  title       String
+  startAt     DateTime
+  endAt       DateTime?
+  location    String?
+  description String?   @db.Text
+  isRecurring Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([teamId, startAt])
 }
 
 model EvaluationCategory {
