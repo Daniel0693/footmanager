@@ -260,7 +260,11 @@
     "deleteFailed": "Échec de la suppression de l'événement",
     "loadFailed": "Impossible de charger le calendrier",
     "teamsLoadFailed": "Impossible de charger vos équipes",
-    "empty": "Aucun événement à afficher"
+    "empty": "Aucun événement à afficher",
+    "viewList": "Liste",
+    "viewMonth": "Mois",
+    "previousMonth": "Mois précédent",
+    "nextMonth": "Mois suivant"
   },
   "objectives": {
     "filtersTitle": "Filtres",

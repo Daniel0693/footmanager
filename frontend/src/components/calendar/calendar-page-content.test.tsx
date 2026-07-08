@@ -166,4 +166,52 @@ describe("CalendarPageContent", () => {
       expect(screen.getByText("Aucun événement à afficher")).toBeInTheDocument(),
     );
   });
+
+  it("bascule vers la vue Mois et affiche les événements du mois courant", async () => {
+    mockRoutes(twoTeams, oneEvent);
+    const user = userEvent.setup();
+
+    renderWithIntl(<CalendarPageContent clubId="1" />);
+    await screen.findByText("Match amical");
+
+    await user.click(screen.getByRole("tab", { name: "Mois" }));
+
+    expect(screen.getByText("lun.")).toBeInTheDocument();
+    const now = new Date();
+    const monthLabel = now.toLocaleDateString("fr", { month: "long", year: "numeric" });
+    expect(screen.getByText(monthLabel)).toBeInTheDocument();
+  });
+
+  it("clic sur une cellule vide en vue Mois ouvre le dialogue de création pré-rempli", async () => {
+    mockRoutes(twoTeams, []);
+    const user = userEvent.setup();
+
+    renderWithIntl(<CalendarPageContent clubId="1" />);
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+    await user.click(screen.getByRole("tab", { name: "Mois" }));
+
+    const now = new Date();
+    const target = new Date(now.getFullYear(), now.getMonth(), 15);
+    const key = `calendar-day-${target.getFullYear()}-${target.getMonth()}-${target.getDate()}`;
+    await user.click(screen.getByTestId(key));
+
+    expect(await screen.findByText("Nouvel événement")).toBeInTheDocument();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    expect(screen.getByLabelText<HTMLInputElement>("Début")).toHaveValue(
+      `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T09:00`,
+    );
+  });
+
+  it("clic sur un événement en vue Mois ouvre le dialogue d'édition", async () => {
+    mockRoutes(twoTeams, oneEvent);
+    const user = userEvent.setup();
+
+    renderWithIntl(<CalendarPageContent clubId="1" />);
+    await screen.findByText("Match amical");
+    await user.click(screen.getByRole("tab", { name: "Mois" }));
+
+    await user.click(screen.getByText("Match amical"));
+
+    expect(await screen.findByText("Modifier l'événement")).toBeInTheDocument();
+  });
 });

@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CalendarMonthView } from "@/components/calendar/calendar-month-view";
 import {
   EventFormDialog,
   type EventFormTeam,
@@ -20,12 +22,25 @@ import { EVENT_TYPES, type EventType } from "@/lib/event";
 
 type CalendarEvent = ExistingEvent;
 
+type GridDialogState =
+  | { open: false }
+  | { open: true; mode: "create"; start: Date; end?: Date }
+  | { open: true; mode: "edit"; event: CalendarEvent };
+
 function toQueryString(params: Record<string, string | undefined>) {
   const search = new URLSearchParams();
   for (const [key, val] of Object.entries(params)) {
     if (val) search.set(key, val);
   }
   return search.toString();
+}
+
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 export function CalendarPageContent({ clubId }: { clubId: string }) {
@@ -43,6 +58,19 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
 
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
   const [hasError, setHasError] = useState(false);
+
+  const [view, setView] = useState<"list" | "month">("list");
+  const [month, setMonth] = useState(() => new Date());
+  // Dialogue piloté par la grille mensuelle (clic/glisser sur une cellule
+  // ou clic sur un événement) — distinct des EventFormDialog à trigger
+  // visible utilisés par le bouton "Ajouter" et la vue Liste.
+  const [gridDialog, setGridDialog] = useState<GridDialogState>({ open: false });
+
+  // Vue AdminClub (multi-équipe) : code couleur par équipe. Vue Coach/Player
+  // (une seule équipe accessible) : code couleur par type — proxy simple sur
+  // le rôle réel, non exposé côté frontend (docs/modules/calendrier-evenements.md
+  // §Code couleur ; voir aussi docs/roadmap.md étape B5, décision documentée).
+  const colorMode: "type" | "team" = (teams?.length ?? 0) > 1 ? "team" : "type";
 
   const loadTeams = useCallback(async () => {
     try {
@@ -150,6 +178,22 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
     });
   };
 
+  // Clic (start === end) ou glisser (docs/modules/calendrier-evenements.md
+  // §Création) sur une cellule de la grille mensuelle : ouvre le dialogue de
+  // création pré-rempli, sans endAt si un seul jour a été sélectionné.
+  const handleSelectRange = (start: Date, end: Date) => {
+    setGridDialog({
+      open: true,
+      mode: "create",
+      start,
+      end: isSameDay(start, end) ? undefined : end,
+    });
+  };
+
+  const handleEditFromGrid = (event: CalendarEvent) => {
+    setGridDialog({ open: true, mode: "edit", event });
+  };
+
   const handleDelete = async (item: CalendarEvent) => {
     try {
       const response = await apiFetch(
@@ -213,7 +257,13 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
       </Card>
 
       <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-2">
+          <Tabs value={view} onValueChange={(value) => setView(value as "list" | "month")}>
+            <TabsList>
+              <TabsTrigger value="list">{t("viewList")}</TabsTrigger>
+              <TabsTrigger value="month">{t("viewMonth")}</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <EventFormDialog
             clubId={clubId}
             teams={teams ?? []}
@@ -227,70 +277,102 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
           />
         </div>
 
-        {hasError ? (
-          <p className="text-sm text-destructive">{t("loadFailed")}</p>
-        ) : events === null ? null : events.length === 0 ? (
+        {hasError && <p className="text-sm text-destructive">{t("loadFailed")}</p>}
+
+        {view === "month" ? (
+          <CalendarMonthView
+            month={month}
+            onMonthChange={setMonth}
+            events={events ?? []}
+            teams={teams ?? []}
+            colorMode={colorMode}
+            onSelectRange={handleSelectRange}
+            onEditEvent={handleEditFromGrid}
+          />
+        ) : !hasError && events !== null && events.length === 0 ? (
           <Card>
             <CardContent className="py-6 text-sm text-muted-foreground">
               {t("empty")}
             </CardContent>
           </Card>
         ) : (
-          <ol className="flex flex-col gap-3">
-            {events.map((event) => (
-              <li key={event.id}>
-                <Card>
-                  <CardContent className="flex flex-col gap-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary">{t(`type${event.type}`)}</Badge>
-                        <Badge variant="outline">{event.team.name}</Badge>
-                        <span className="font-medium">{event.title}</span>
+          !hasError &&
+          events !== null && (
+            <ol className="flex flex-col gap-3">
+              {events.map((event) => (
+                <li key={event.id}>
+                  <Card>
+                    <CardContent className="flex flex-col gap-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary">{t(`type${event.type}`)}</Badge>
+                          <Badge variant="outline">{event.team.name}</Badge>
+                          <span className="font-medium">{event.title}</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <EventFormDialog
+                            clubId={clubId}
+                            teams={teams ?? []}
+                            event={event}
+                            onSuccess={load}
+                            trigger={
+                              <Button variant="ghost" size="icon" aria-label={t("edit")}>
+                                <Pencil />
+                              </Button>
+                            }
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={t("delete")}
+                            onClick={() => handleDelete(event)}
+                          >
+                            <Trash2 className="text-destructive" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex gap-1">
-                        <EventFormDialog
-                          clubId={clubId}
-                          teams={teams ?? []}
-                          event={event}
-                          onSuccess={load}
-                          trigger={
-                            <Button variant="ghost" size="icon" aria-label={t("edit")}>
-                              <Pencil />
-                            </Button>
-                          }
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={t("delete")}
-                          onClick={() => handleDelete(event)}
-                        >
-                          <Trash2 className="text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span>
-                        {formatDateTime(event.startAt)}
-                        {event.endAt && ` – ${formatTime(event.endAt)}`}
-                      </span>
-                      {event.location && (
-                        <span className="flex items-center gap-1.5">
-                          <MapPin className="size-3.5" />
-                          {event.location}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>
+                          {formatDateTime(event.startAt)}
+                          {event.endAt && ` – ${formatTime(event.endAt)}`}
                         </span>
+                        {event.location && (
+                          <span className="flex items-center gap-1.5">
+                            <MapPin className="size-3.5" />
+                            {event.location}
+                          </span>
+                        )}
+                      </div>
+                      {event.description && (
+                        <p className="text-sm whitespace-pre-wrap">{event.description}</p>
                       )}
-                    </div>
-                    {event.description && (
-                      <p className="text-sm whitespace-pre-wrap">{event.description}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              </li>
-            ))}
-          </ol>
+                    </CardContent>
+                  </Card>
+                </li>
+              ))}
+            </ol>
+          )
         )}
       </div>
+
+      {/* Dialogue piloté par la grille mensuelle : clic/glisser sur une
+          cellule (création) ou clic sur un événement (édition) — sans
+          bouton déclencheur visible, voir EventFormDialog open contrôlé. */}
+      <EventFormDialog
+        clubId={clubId}
+        teams={teams ?? []}
+        open={gridDialog.open}
+        onOpenChange={(open) => {
+          if (!open) setGridDialog({ open: false });
+        }}
+        event={gridDialog.open && gridDialog.mode === "edit" ? gridDialog.event : undefined}
+        defaultDate={gridDialog.open && gridDialog.mode === "create" ? gridDialog.start : undefined}
+        defaultEndDate={gridDialog.open && gridDialog.mode === "create" ? gridDialog.end : undefined}
+        onSuccess={() => {
+          setGridDialog({ open: false });
+          void load();
+        }}
+      />
     </div>
   );
 }

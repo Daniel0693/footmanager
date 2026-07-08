@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
-import { useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -59,9 +59,10 @@ type FormValues = z.infer<typeof formSchema>;
 
 // L'input natif <input type="datetime-local"> attend "AAAA-MM-JJTHH:mm" en
 // heure locale (pas d'offset) — conversion aller-retour avec l'ISO renvoyé
-// par le backend.
-function toDatetimeLocalValue(iso: string): string {
-  const date = new Date(iso);
+// par le backend, ou depuis une Date passée directement (clic/glisser sur
+// la grille mensuelle, voir defaultDate/defaultEndDate ci-dessous).
+function toDatetimeLocalValue(value: string | Date): string {
+  const date = typeof value === "string" ? new Date(value) : value;
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
@@ -74,13 +75,34 @@ function toOptionalText(value?: string): string | undefined {
   return value && value.trim() !== "" ? value : undefined;
 }
 
-function defaultValues(teams: EventFormTeam[], event?: ExistingEvent): FormValues {
+// Heure par défaut pour une date posée sans heure précise (clic sur une
+// cellule de jour) : 9h locale, modifiable ensuite dans le formulaire.
+function atDefaultHour(date: Date): Date {
+  const withHour = new Date(date);
+  withHour.setHours(9, 0, 0, 0);
+  return withHour;
+}
+
+function defaultValues(
+  teams: EventFormTeam[],
+  event?: ExistingEvent,
+  defaultDate?: Date,
+  defaultEndDate?: Date,
+): FormValues {
   return {
     teamId: String(event?.team.id ?? teams[0]?.id ?? ""),
     type: event?.type ?? "TRAINING",
     title: event?.title ?? "",
-    startAt: event ? toDatetimeLocalValue(event.startAt) : "",
-    endAt: event?.endAt ? toDatetimeLocalValue(event.endAt) : "",
+    startAt: event
+      ? toDatetimeLocalValue(event.startAt)
+      : defaultDate
+        ? toDatetimeLocalValue(atDefaultHour(defaultDate))
+        : "",
+    endAt: event?.endAt
+      ? toDatetimeLocalValue(event.endAt)
+      : defaultEndDate
+        ? toDatetimeLocalValue(atDefaultHour(defaultEndDate))
+        : "",
     location: event?.location ?? "",
     description: event?.description ?? "",
   };
@@ -91,19 +113,33 @@ export function EventFormDialog({
   teams,
   trigger,
   event,
+  defaultDate,
+  defaultEndDate,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
   onSuccess,
 }: {
   clubId: string;
   teams: EventFormTeam[];
-  trigger: ReactElement;
+  // Optionnel : sans trigger, le dialogue est piloté en externe via
+  // open/onOpenChange (voir CalendarMonthView — clic/glisser sur une
+  // cellule, pas de bouton visible pour déclencher l'ouverture).
+  trigger?: ReactElement;
   event?: ExistingEvent;
+  // Pré-remplit startAt/endAt en mode création (clic/glisser sur la grille
+  // mensuelle) — ignorés en mode édition.
+  defaultDate?: Date;
+  defaultEndDate?: Date;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   onSuccess: () => void;
 }) {
   const mode = event ? "edit" : "create";
   const t = useTranslations("calendar");
   const tErrors = useTranslations("errors");
   const { accessToken } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -114,14 +150,27 @@ export function EventFormDialog({
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: defaultValues(teams, event),
+    defaultValues: defaultValues(teams, event, defaultDate, defaultEndDate),
   });
+
+  const setOpen = (nextOpen: boolean) => {
+    setInternalOpen(nextOpen);
+    onOpenChangeProp?.(nextOpen);
+  };
+
+  // Réinitialise le formulaire à chaque ouverture — y compris pilotée en
+  // externe (open contrôlé change sans passer par handleOpenChange, ex.
+  // CalendarMonthView qui rouvre le même dialogue pour un event/une date
+  // différente à chaque clic).
+  useEffect(() => {
+    if (open) {
+      reset(defaultValues(teams, event, defaultDate, defaultEndDate));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, event, defaultDate, defaultEndDate]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
-    if (nextOpen) {
-      reset(defaultValues(teams, event));
-    }
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -162,7 +211,7 @@ export function EventFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={trigger} />
+      {trigger && <DialogTrigger render={trigger} />}
       <DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? t("createTitle") : t("editTitle")}</DialogTitle>

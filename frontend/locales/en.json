@@ -260,7 +260,11 @@
     "deleteFailed": "Failed to delete the event",
     "loadFailed": "Failed to load the calendar",
     "teamsLoadFailed": "Failed to load your teams",
-    "empty": "No events to display"
+    "empty": "No events to display",
+    "viewList": "List",
+    "viewMonth": "Month",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month"
   },
   "objectives": {
     "filtersTitle": "Filters",
