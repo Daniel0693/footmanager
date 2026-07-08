@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { EventType } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { AppException } from '../common/exceptions/app.exception';
 import { MembersService } from '../members/members.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -50,6 +51,11 @@ export class EventsService {
   async createBulk(clubId: number, teamId: number, dtos: CreateEventDto[]) {
     await this.assertTeamInClub(clubId, teamId);
 
+    // Un seul identifiant pour tout le lot : permet de retrouver "cet
+    // événement et les suivants" plus tard (update/remove en scope=future,
+    // voir docs/schema/evenements.md §Événements récurrents).
+    const recurringGroupId = randomUUID();
+
     await this.prisma.event.createMany({
       data: dtos.map((dto) => ({
         teamId,
@@ -60,6 +66,7 @@ export class EventsService {
         location: dto.location,
         description: dto.description,
         isRecurring: true,
+        recurringGroupId,
       })),
     });
   }
@@ -145,13 +152,55 @@ export class EventsService {
     });
   }
 
+  /**
+   * `scope: 'future'` (docs/schema/evenements.md §Événements récurrents) :
+   * ne s'applique que si l'événement appartient à un lot récurrent
+   * (`recurringGroupId` non null) — sinon retombe silencieusement sur le
+   * comportement `single`, un événement isolé n'a pas de "suivants". Seuls
+   * titre/type/lieu/description/heure (extraite de `dto.startAt`/`endAt`)
+   * se propagent aux occurrences trouvées ; la date de chacune est
+   * préservée (`combineDateWithTime`), jamais écrasée par la date soumise
+   * pour l'occurrence éditée.
+   */
   async update(
     clubId: number,
     teamId: number,
     id: number,
     dto: UpdateEventDto,
+    scope: 'single' | 'future' = 'single',
   ) {
-    await this.findEventOrThrow(clubId, teamId, id);
+    const anchor = await this.findEventOrThrow(clubId, teamId, id);
+
+    if (scope === 'future' && anchor.recurringGroupId) {
+      const occurrences = await this.prisma.event.findMany({
+        where: {
+          teamId,
+          recurringGroupId: anchor.recurringGroupId,
+          startAt: { gte: anchor.startAt },
+        },
+      });
+
+      await this.prisma.$transaction(
+        occurrences.map((occurrence) =>
+          this.prisma.event.update({
+            where: { id: occurrence.id },
+            data: {
+              type: dto.type,
+              title: dto.title,
+              startAt: dto.startAt
+                ? combineDateWithTime(occurrence.startAt, dto.startAt)
+                : undefined,
+              endAt: dto.endAt
+                ? combineDateWithTime(occurrence.startAt, dto.endAt)
+                : dto.endAt,
+              location: dto.location,
+              description: dto.description,
+            },
+          }),
+        ),
+      );
+      return { count: occurrences.length };
+    }
 
     return this.prisma.event.update({
       where: { id },
@@ -166,8 +215,24 @@ export class EventsService {
     });
   }
 
-  async remove(clubId: number, teamId: number, id: number) {
-    await this.findEventOrThrow(clubId, teamId, id);
+  async remove(
+    clubId: number,
+    teamId: number,
+    id: number,
+    scope: 'single' | 'future' = 'single',
+  ) {
+    const anchor = await this.findEventOrThrow(clubId, teamId, id);
+
+    if (scope === 'future' && anchor.recurringGroupId) {
+      await this.prisma.event.deleteMany({
+        where: {
+          teamId,
+          recurringGroupId: anchor.recurringGroupId,
+          startAt: { gte: anchor.startAt },
+        },
+      });
+      return;
+    }
 
     await this.prisma.event.delete({ where: { id } });
   }
@@ -190,4 +255,18 @@ export class EventsService {
       throw new AppException('EVENTS.TEAM_NOT_IN_CLUB', HttpStatus.BAD_REQUEST);
     }
   }
+}
+
+// Conserve la date (année/mois/jour) de `date`, applique l'heure de `time` —
+// utilisé par update() en scope=future pour ne propager que l'heure aux
+// occurrences suivantes, jamais la date de l'occurrence éditée.
+function combineDateWithTime(date: Date, time: Date): Date {
+  const result = new Date(date);
+  result.setHours(
+    time.getHours(),
+    time.getMinutes(),
+    time.getSeconds(),
+    time.getMilliseconds(),
+  );
+  return result;
 }

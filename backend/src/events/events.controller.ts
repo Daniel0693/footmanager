@@ -58,6 +58,11 @@ export class EventsController {
     return this.eventsService.findAllByTeam(clubId, teamId, query);
   }
 
+  // scope=future (docs/schema/evenements.md §Événements récurrents) : édite
+  // aussi les occurrences suivantes du même lot récurrent. Query plutôt que
+  // corps — c'est un modificateur de l'opération, pas une donnée de la
+  // ressource ; 'single' par défaut si absent ou invalide (comportement
+  // historique inchangé pour les appelants existants).
   @RequirePermission('event', 'UPDATE')
   @Patch(':id')
   update(
@@ -65,8 +70,15 @@ export class EventsController {
     @Param('teamId', ParseIntPipe) teamId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateEventDto,
+    @Query('scope') scope?: string,
   ) {
-    return this.eventsService.update(clubId, teamId, id, dto);
+    return this.eventsService.update(
+      clubId,
+      teamId,
+      id,
+      dto,
+      scope === 'future' ? 'future' : 'single',
+    );
   }
 
   @RequirePermission('event', 'DELETE')
@@ -75,7 +87,13 @@ export class EventsController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('teamId', ParseIntPipe) teamId: number,
     @Param('id', ParseIntPipe) id: number,
+    @Query('scope') scope?: string,
   ) {
-    return this.eventsService.remove(clubId, teamId, id);
+    return this.eventsService.remove(
+      clubId,
+      teamId,
+      id,
+      scope === 'future' ? 'future' : 'single',
+    );
   }
 }

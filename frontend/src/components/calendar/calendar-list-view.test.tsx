@@ -33,6 +33,7 @@ function eventItem(overrides: Record<string, unknown> = {}) {
     endAt: null,
     location: null,
     description: null,
+    isRecurring: false,
     team: teams[0],
     ...overrides,
   };
@@ -152,14 +153,43 @@ describe("CalendarListView", () => {
     mockApiFetch.mockResolvedValue(jsonResponse(null));
 
     await user.click(screen.getByRole("button", { name: "Supprimer" }));
+    await user.click(screen.getByRole("button", { name: "Confirmer la suppression" }));
 
     await waitFor(() =>
       expect(mockApiFetch).toHaveBeenCalledWith(
-        "/clubs/1/teams/5/events/1",
+        "/clubs/1/teams/5/events/1?scope=single",
         expect.objectContaining({ method: "DELETE" }),
       ),
     );
     expect(await screen.findByText("Aucun événement à afficher")).toBeInTheDocument();
+  });
+
+  it("supprime un événement récurrent : propose le choix cet événement seulement / et les suivants", async () => {
+    mockApiFetch.mockResolvedValueOnce(
+      jsonResponse([eventItem({ id: 1, isRecurring: true })]),
+    );
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+    );
+    await screen.findByText("Match amical");
+    mockApiFetch.mockResolvedValue(jsonResponse(null));
+
+    await user.click(screen.getByRole("button", { name: "Supprimer" }));
+    expect(
+      screen.getByText(
+        "Cet événement fait partie d'une série récurrente. Que souhaitez-vous supprimer ?",
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cet événement et les suivants" }));
+
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        "/clubs/1/teams/5/events/1?scope=future",
+        expect.objectContaining({ method: "DELETE" }),
+      ),
+    );
   });
 
   it("le bouton Aujourd'hui (recenterKey) abandonne la fenêtre étendue et revient à la fenêtre initiale", async () => {

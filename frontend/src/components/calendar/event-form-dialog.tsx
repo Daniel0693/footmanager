@@ -6,6 +6,15 @@ import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { Controller, useForm, useWatch, type Control } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -52,6 +61,7 @@ export interface ExistingEvent {
   endAt: string | null;
   location: string | null;
   description: string | null;
+  isRecurring: boolean;
   team: EventFormTeam;
 }
 
@@ -299,6 +309,12 @@ export function EventFormDialog({
   const [internalOpen, setInternalOpen] = useState(false);
   const open = openProp ?? internalOpen;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Édition d'un événement récurrent (docs/schema/evenements.md §Événements
+  // récurrents) : la soumission du formulaire ne PATCH pas immédiatement,
+  // elle met les valeurs en attente le temps que l'utilisateur choisisse
+  // "cet événement seulement" ou "cet événement et les suivants" — jamais
+  // les occurrences passées.
+  const [pendingEditValues, setPendingEditValues] = useState<FormValues | null>(null);
 
   const {
     control,
@@ -323,6 +339,11 @@ export function EventFormDialog({
   useEffect(() => {
     if (open) {
       reset(defaultValues(teams, event, defaultDate, defaultEndDate));
+      // Sécurité en cas de réouverture pilotée en externe (CalendarMonthView) :
+      // performSubmit et le choix "Annuler" remettent déjà pendingEditValues à
+      // null dans tous les autres cas.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPendingEditValues(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, event, defaultDate, defaultEndDate]);
@@ -359,6 +380,15 @@ export function EventFormDialog({
   }, [watched]);
 
   const onSubmit = async (values: FormValues) => {
+    if (mode === "edit" && event!.isRecurring) {
+      setPendingEditValues(values);
+      return;
+    }
+
+    await performSubmit(values);
+  };
+
+  const performSubmit = async (values: FormValues, scope: "single" | "future" = "single") => {
     setIsSubmitting(true);
     const headers = { Authorization: `Bearer ${accessToken}` };
 
@@ -427,11 +457,10 @@ export function EventFormDialog({
               headers,
               body,
             })
-          : await apiFetch(`/clubs/${clubId}/teams/${event!.team.id}/events/${event!.id}`, {
-              method: "PATCH",
-              headers,
-              body,
-            });
+          : await apiFetch(
+              `/clubs/${clubId}/teams/${event!.team.id}/events/${event!.id}?scope=${scope}`,
+              { method: "PATCH", headers, body },
+            );
       if (!response.ok) throw new Error(await parseErrorCode(response));
 
       toast.success(mode === "create" ? t("created") : t("updated"));
@@ -442,6 +471,7 @@ export function EventFormDialog({
       toast.error(tErrors(code));
     } finally {
       setIsSubmitting(false);
+      setPendingEditValues(null);
     }
   };
 
@@ -789,6 +819,44 @@ export function EventFormDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      {/* Édition d'un événement récurrent : choix du périmètre avant le
+          PATCH réel (voir performSubmit et docs/schema/evenements.md). */}
+      <AlertDialog
+        open={pendingEditValues !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setPendingEditValues(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("editScopeDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("editScopeDialogDescription")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline">{t("cancel")}</Button>} />
+            <AlertDialogClose
+              render={
+                <Button
+                  variant="secondary"
+                  onClick={() => pendingEditValues && void performSubmit(pendingEditValues, "single")}
+                >
+                  {t("scopeSingleOccurrence")}
+                </Button>
+              }
+            />
+            <AlertDialogClose
+              render={
+                <Button
+                  onClick={() => pendingEditValues && void performSubmit(pendingEditValues, "future")}
+                >
+                  {t("scopeFutureOccurrences")}
+                </Button>
+              }
+            />
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

@@ -261,6 +261,37 @@ entre les dates de récurrence").
   calcule les dates, construit un événement par date (même heure/lieu/description), envoie tout à
   l'endpoint bulk en une requête. 5 tests ajoutés — 204 tests frontend au total.
 
+**Édition/suppression en masse des événements récurrents + confirmation de suppression
+(2026-07-08)** : demande explicite suite aux événements récurrents ci-dessus — édition d'une
+occurrence doit proposer "cet événement seulement" ou "cet événement et les suivants" (jamais les
+occurrences passées), et **toute** suppression (récurrente ou non) doit être confirmée (aucune
+validation n'existait auparavant — risque d'erreur humaine signalé explicitement). Décision
+structurante : ajout de `Event.recurringGroupId` (UUID, nullable, migration
+`add_event_recurring_group`) — un seul identifiant généré par lot dans `createBulk`, partagé par
+toutes les occurrences de ce lot, permettant de retrouver "cet événement et les suivants" sans
+entité `RecurringRule` dédiée (décision initiale du 2026-07-08 ci-dessus inchangée).
+- **Backend** : `PATCH`/`DELETE .../events/:id` acceptent `?scope=single|future` (`single` par
+  défaut, comportement historique inchangé). En scope `future`, seuls titre/type/lieu/description/
+  heure se propagent aux occurrences trouvées (`recurringGroupId` égal + `startAt >= ancre`) ; la
+  date de chacune est préservée via `combineDateWithTime`. Retombe silencieusement sur `single` si
+  l'événement n'appartient à aucun lot récurrent. 4 tests service ajoutés — 284 tests backend au
+  total. Pas de nouveau test de permission dédié : `scope` ne change pas le modèle RBAC (même
+  `@RequirePermission` qu'avant), voir `docs/schema/evenements.md`.
+- **Frontend — `components/ui/alert-dialog.tsx`** (nouveau, mirroir de `dialog.tsx` sur
+  `@base-ui/react/alert-dialog`) : primitives brutes sans boutons Action/Cancel imposés — chaque
+  appelant compose son propre jeu de boutons (2 pour une confirmation simple, 3 pour le choix
+  "cet événement seulement / et les suivants / annuler").
+- **Frontend — `DeleteEventDialog`** (nouveau) : confirmation systématique avant toute suppression,
+  seul point d'entrée de suppression du calendrier (`CalendarListView`). Affiche une simple
+  confirmation pour un événement isolé, ou le choix single/future pour un événement récurrent.
+- **Frontend — `EventFormDialog`** : soumission d'une édition (`mode="edit"`) sur un événement
+  récurrent n'envoie plus le `PATCH` immédiatement — un `AlertDialog` demande le périmètre
+  (single/future) avant d'appeler `performSubmit`. Édition d'un événement non récurrent : inchangée,
+  PATCH direct avec `scope=single`.
+- `ExistingEvent.isRecurring` ajouté (le champ existait déjà côté API, seul le type frontend
+  manquait). 4 tests ajoutés (3 `event-form-dialog.test.tsx`, 1 `calendar-list-view.test.tsx`, plus
+  fixtures existantes mises à jour) — 208 tests frontend au total.
+
 ---
 
 ## Phase 3 — Saisons & Championnats ⬜

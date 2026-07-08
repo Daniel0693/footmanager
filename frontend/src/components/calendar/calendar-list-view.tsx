@@ -12,6 +12,7 @@ import {
   type EventFormTeam,
   type ExistingEvent,
 } from "@/components/calendar/event-form-dialog";
+import { DeleteEventDialog } from "@/components/calendar/delete-event-dialog";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { addDays, endOfDay } from "@/lib/calendar-grid";
@@ -189,19 +190,6 @@ export function CalendarListView({
     }
   };
 
-  const handleDelete = async (item: CalendarEvent) => {
-    try {
-      const response = await apiFetch(
-        `/clubs/${clubId}/teams/${item.team.id}/events/${item.id}`,
-        { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      if (!response.ok) throw new Error();
-      setEvents((prev) => prev?.filter((existing) => existing.id !== item.id) ?? null);
-    } catch {
-      toast.error(t("deleteFailed"));
-    }
-  };
-
   // EventFormDialog ne renvoie pas la ressource mise à jour (onSuccess est
   // un simple signal) : on recharge la fenêtre actuellement ouverte plutôt
   // que d'essayer de fusionner un objet partiel dans la liste en mémoire.
@@ -220,6 +208,26 @@ export function CalendarListView({
       toast.error(t("loadFailed"));
     }
   }, [clubId, accessToken, filters, pastBoundary, futureBoundary, t]);
+
+  // scope "future" (événement récurrent, docs/schema/evenements.md) supprime
+  // plusieurs occurrences à la fois : recharge la fenêtre plutôt que de
+  // recalculer localement quelles occurrences ont été touchées.
+  const handleDelete = async (item: CalendarEvent, scope: "single" | "future") => {
+    try {
+      const response = await apiFetch(
+        `/clubs/${clubId}/teams/${item.team.id}/events/${item.id}?scope=${scope}`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      if (!response.ok) throw new Error();
+      if (scope === "future") {
+        await reloadCurrentWindow();
+      } else {
+        setEvents((prev) => prev?.filter((existing) => existing.id !== item.id) ?? null);
+      }
+    } catch {
+      toast.error(t("deleteFailed"));
+    }
+  };
 
   const formatDateTime = (iso: string) =>
     new Date(iso).toLocaleString(locale, {
@@ -270,14 +278,15 @@ export function CalendarListView({
                           </Button>
                         }
                       />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={t("delete")}
-                        onClick={() => handleDelete(event)}
-                      >
-                        <Trash2 className="text-destructive" />
-                      </Button>
+                      <DeleteEventDialog
+                        event={event}
+                        onConfirm={(scope) => void handleDelete(event, scope)}
+                        trigger={
+                          <Button variant="ghost" size="icon" aria-label={t("delete")}>
+                            <Trash2 className="text-destructive" />
+                          </Button>
+                        }
+                      />
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">

@@ -455,20 +455,27 @@ enum EventType {
 // trainingSessionId sur PlayerNote — champ ajouté une fois le modèle cible
 // disponible, pas anticipé ici).
 model Event {
-  id          Int       @id @default(autoincrement())
-  teamId      Int
-  team        Team      @relation(fields: [teamId], references: [id])
-  type        EventType
-  title       String
-  startAt     DateTime
-  endAt       DateTime?
-  location    String?
-  description String?   @db.Text
-  isRecurring Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id               Int       @id @default(autoincrement())
+  teamId           Int
+  team             Team      @relation(fields: [teamId], references: [id])
+  type             EventType
+  title            String
+  startAt          DateTime
+  endAt            DateTime?
+  location         String?
+  description      String?   @db.Text
+  isRecurring      Boolean   @default(false)
+  // Identifiant partagé par toutes les occurrences créées en une seule fois
+  // par EventsService.createBulk (docs/roadmap.md — événements récurrents) —
+  // permet de retrouver "cet événement et les suivants" pour une édition/
+  // suppression en masse (scope=future), sans entité RecurringRule dédiée.
+  // null pour un événement non récurrent.
+  recurringGroupId String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([teamId, startAt])
+  @@index([recurringGroupId])
 }
 
 model EvaluationCategory {

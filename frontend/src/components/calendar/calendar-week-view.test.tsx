@@ -38,6 +38,7 @@ function event(overrides: Partial<ExistingEvent> = {}): ExistingEvent {
     endAt: null,
     location: null,
     description: null,
+    isRecurring: false,
     team: teams[1],
     ...overrides,
   };

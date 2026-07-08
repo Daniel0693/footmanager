@@ -37,6 +37,22 @@ const trainingEvent: Event = {
   location: 'Stade municipal',
   description: null,
   isRecurring: false,
+  recurringGroupId: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const recurringAnchorEvent: Event = {
+  id: 301,
+  teamId: 5,
+  type: 'TRAINING',
+  title: 'Entraînement hebdomadaire',
+  startAt: new Date('2026-07-13T17:30:00Z'),
+  endAt: new Date('2026-07-13T19:00:00Z'),
+  location: 'Ecossia',
+  description: null,
+  isRecurring: true,
+  recurringGroupId: 'a1b2c3d4-0000-4000-8000-000000000000',
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -49,6 +65,8 @@ describe('EventsService', () => {
   let eventCreateMany: jest.Mock;
   let eventUpdate: jest.Mock;
   let eventDelete: jest.Mock;
+  let eventDeleteMany: jest.Mock;
+  let transaction: jest.Mock;
   let findByUserAndClub: jest.Mock;
   let can: jest.Mock;
   let service: EventsService;
@@ -61,6 +79,13 @@ describe('EventsService', () => {
     eventCreateMany = jest.fn();
     eventUpdate = jest.fn();
     eventDelete = jest.fn();
+    eventDeleteMany = jest.fn();
+    // Les opérations sont déjà des Promises construites par le .map() du
+    // service au moment de l'appel — $transaction n'a qu'à toutes les
+    // attendre, comme le fait réellement Prisma pour un tableau de requêtes.
+    transaction = jest.fn((operations: Promise<unknown>[]) =>
+      Promise.all(operations),
+    );
 
     const prismaStub = {
       team: { findFirst: teamFindFirst },
@@ -71,7 +96,9 @@ describe('EventsService', () => {
         createMany: eventCreateMany,
         update: eventUpdate,
         delete: eventDelete,
+        deleteMany: eventDeleteMany,
       },
+      $transaction: transaction,
     } as unknown as PrismaService;
 
     findByUserAndClub = jest.fn();
@@ -169,8 +196,12 @@ describe('EventsService', () => {
 
       await service.createBulk(1, 5, occurrences);
 
-      expect(eventCreateMany).toHaveBeenCalledWith({
-        data: occurrences.map((occurrence) => ({
+      expect(eventCreateMany).toHaveBeenCalledTimes(1);
+      const [{ data }] = eventCreateMany.mock.calls[0] as [
+        { data: { recurringGroupId: string }[] },
+      ];
+      expect(data).toEqual(
+        occurrences.map((occurrence) => ({
           teamId: 5,
           type: occurrence.type,
           title: occurrence.title,
@@ -179,8 +210,12 @@ describe('EventsService', () => {
           location: occurrence.location,
           description: undefined,
           isRecurring: true,
+          recurringGroupId: data[0].recurringGroupId,
         })),
-      });
+      );
+      // Même identifiant de lot sur toutes les occurrences.
+      expect(data[0].recurringGroupId).toEqual(expect.any(String));
+      expect(data[1].recurringGroupId).toBe(data[0].recurringGroupId);
     });
   });
 
@@ -323,7 +358,7 @@ describe('EventsService', () => {
         title: 'Nouveau titre',
       });
 
-      expect(result.title).toBe('Nouveau titre');
+      expect((result as Event).title).toBe('Nouveau titre');
       expect(eventUpdate).toHaveBeenCalledWith({
         where: { id: 300 },
         data: {
@@ -334,6 +369,100 @@ describe('EventsService', () => {
           location: undefined,
           description: undefined,
         },
+      });
+    });
+
+    describe('scope future', () => {
+      it('propage titre/type/lieu/description/heure aux occurrences suivantes en préservant leur date', async () => {
+        eventFindFirst.mockResolvedValue(recurringAnchorEvent);
+        const nextOccurrence: Event = {
+          ...recurringAnchorEvent,
+          id: 302,
+          startAt: new Date('2026-07-20T17:30:00Z'),
+          endAt: new Date('2026-07-20T19:00:00Z'),
+        };
+        eventFindMany.mockResolvedValue([recurringAnchorEvent, nextOccurrence]);
+        eventUpdate.mockResolvedValue({});
+
+        const result = await service.update(
+          1,
+          5,
+          301,
+          {
+            title: 'Entraînement renforcé',
+            startAt: new Date('2026-07-13T18:00:00Z'),
+            endAt: new Date('2026-07-13T19:30:00Z'),
+          },
+          'future',
+        );
+
+        expect(eventFindMany).toHaveBeenCalledWith({
+          where: {
+            teamId: 5,
+            recurringGroupId: recurringAnchorEvent.recurringGroupId,
+            startAt: { gte: recurringAnchorEvent.startAt },
+          },
+        });
+
+        expect(transaction).toHaveBeenCalledTimes(1);
+        expect(eventUpdate).toHaveBeenCalledTimes(2);
+        expect(eventUpdate).toHaveBeenNthCalledWith(1, {
+          where: { id: recurringAnchorEvent.id },
+          data: {
+            type: undefined,
+            title: 'Entraînement renforcé',
+            // Heure recalculée (18h00) mais date d'origine (13/07) préservée.
+            startAt: new Date('2026-07-13T18:00:00Z'),
+            endAt: new Date('2026-07-13T19:30:00Z'),
+            location: undefined,
+            description: undefined,
+          },
+        });
+        expect(eventUpdate).toHaveBeenNthCalledWith(2, {
+          where: { id: nextOccurrence.id },
+          data: {
+            type: undefined,
+            title: 'Entraînement renforcé',
+            // Même heure appliquée, mais date du 20/07 préservée (pas celle de l'ancre).
+            startAt: new Date('2026-07-20T18:00:00Z'),
+            endAt: new Date('2026-07-20T19:30:00Z'),
+            location: undefined,
+            description: undefined,
+          },
+        });
+        expect(result).toEqual({ count: 2 });
+      });
+
+      it("retombe sur une édition simple si l'événement ne fait pas partie d'un lot récurrent", async () => {
+        eventFindFirst.mockResolvedValue(trainingEvent);
+        eventUpdate.mockResolvedValue({
+          ...trainingEvent,
+          title: 'Nouveau titre',
+        });
+
+        const result = await service.update(
+          1,
+          5,
+          300,
+          { title: 'Nouveau titre' },
+          'future',
+        );
+
+        expect(eventFindMany).not.toHaveBeenCalled();
+        expect(transaction).not.toHaveBeenCalled();
+        expect(eventUpdate).toHaveBeenCalledTimes(1);
+        expect(eventUpdate).toHaveBeenCalledWith({
+          where: { id: 300 },
+          data: {
+            type: undefined,
+            title: 'Nouveau titre',
+            startAt: undefined,
+            endAt: undefined,
+            location: undefined,
+            description: undefined,
+          },
+        });
+        expect((result as Event).title).toBe('Nouveau titre');
       });
     });
   });
@@ -354,6 +483,33 @@ describe('EventsService', () => {
       await service.remove(1, 5, 300);
 
       expect(eventDelete).toHaveBeenCalledWith({ where: { id: 300 } });
+    });
+
+    describe('scope future', () => {
+      it('supprime cette occurrence et toutes les suivantes du même lot récurrent', async () => {
+        eventFindFirst.mockResolvedValue(recurringAnchorEvent);
+        eventDeleteMany.mockResolvedValue({ count: 3 });
+
+        await service.remove(1, 5, 301, 'future');
+
+        expect(eventDeleteMany).toHaveBeenCalledWith({
+          where: {
+            teamId: 5,
+            recurringGroupId: recurringAnchorEvent.recurringGroupId,
+            startAt: { gte: recurringAnchorEvent.startAt },
+          },
+        });
+        expect(eventDelete).not.toHaveBeenCalled();
+      });
+
+      it("retombe sur une suppression simple si l'événement ne fait pas partie d'un lot récurrent", async () => {
+        eventFindFirst.mockResolvedValue(trainingEvent);
+
+        await service.remove(1, 5, 300, 'future');
+
+        expect(eventDeleteMany).not.toHaveBeenCalled();
+        expect(eventDelete).toHaveBeenCalledWith({ where: { id: 300 } });
+      });
     });
   });
 });

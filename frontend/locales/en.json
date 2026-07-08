@@ -301,7 +301,16 @@
     "recurrenceOccurrenceCount": "{count, plural, =0 {No events will be created} one {# event will be created} other {# events will be created}}",
     "recurrenceTooMany": "Too many events to create ({max} max) — reduce the date range",
     "recurrenceNoOccurrences": "No events match this rule over this period",
-    "createdRecurring": "{count, plural, one {# event created successfully} other {# events created successfully}}"
+    "createdRecurring": "{count, plural, one {# event created successfully} other {# events created successfully}}",
+    "cancel": "Cancel",
+    "scopeSingleOccurrence": "This event only",
+    "scopeFutureOccurrences": "This event and following ones",
+    "deleteDialogTitle": "Delete event",
+    "deleteDialogDescription": "Are you sure you want to delete this event? This action cannot be undone.",
+    "deleteDialogRecurringDescription": "This event is part of a recurring series. What would you like to delete?",
+    "deleteConfirm": "Confirm deletion",
+    "editScopeDialogTitle": "Edit recurring event",
+    "editScopeDialogDescription": "This event is part of a recurring series. Apply changes to:"
   },
   "objectives": {
     "filtersTitle": "Filters",

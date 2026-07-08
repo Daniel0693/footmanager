@@ -34,7 +34,15 @@ const existingEvent: ExistingEvent = {
   endAt: "2026-07-10T19:30:00.000Z",
   location: "Stade municipal",
   description: "Contre l'équipe voisine",
+  isRecurring: false,
   team: { id: 8, name: "Seniors" },
+};
+
+const existingRecurringEvent: ExistingEvent = {
+  ...existingEvent,
+  id: 43,
+  title: "Entraînement hebdomadaire",
+  isRecurring: true,
 };
 
 describe("EventFormDialog", () => {
@@ -161,7 +169,7 @@ describe("EventFormDialog", () => {
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
     expect(mockApiFetch).toHaveBeenCalledWith(
-      "/clubs/1/teams/8/events/42",
+      "/clubs/1/teams/8/events/42?scope=single",
       expect.objectContaining({ method: "PATCH" }),
     );
   });
@@ -227,6 +235,83 @@ describe("EventFormDialog", () => {
 
     await user.click(screen.getByRole("button", { name: "Modifier" }));
     expect(screen.queryByRole("checkbox", { name: "Événement récurrent" })).not.toBeInTheDocument();
+  });
+
+  it("mode édition d'un événement récurrent : demande le périmètre avant d'envoyer le PATCH", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse({}));
+    const onSuccess = jest.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <EventFormDialog
+        clubId="1"
+        teams={teams}
+        event={existingRecurringEvent}
+        onSuccess={onSuccess}
+        trigger={<Button>Modifier</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(screen.getByText("Modifier l'événement récurrent")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cet événement et les suivants" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/clubs/1/teams/8/events/43?scope=future",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+  });
+
+  it("mode édition d'un événement récurrent : \"cet événement seulement\" envoie scope=single", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse({}));
+    const onSuccess = jest.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <EventFormDialog
+        clubId="1"
+        teams={teams}
+        event={existingRecurringEvent}
+        onSuccess={onSuccess}
+        trigger={<Button>Modifier</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await user.click(screen.getByRole("button", { name: "Cet événement seulement" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/clubs/1/teams/8/events/43?scope=single",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+  });
+
+  it("mode édition d'un événement récurrent : Annuler referme le choix sans requête réseau", async () => {
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <EventFormDialog
+        clubId="1"
+        teams={teams}
+        event={existingRecurringEvent}
+        onSuccess={jest.fn()}
+        trigger={<Button>Modifier</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await user.click(screen.getByRole("button", { name: "Annuler" }));
+
+    expect(screen.queryByText("Modifier l'événement récurrent")).not.toBeInTheDocument();
+    expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
   it("récurrence hebdomadaire : crée une occurrence par jour sélectionné via l'endpoint bulk", async () => {
