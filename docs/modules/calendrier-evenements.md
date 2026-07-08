@@ -37,6 +37,22 @@ AdminClub/SuperAdmin, sinon union de deux chemins d'appartenance équipe : staff
 et joueurs via `PlayerTeam` actif (`leaveDate: null`). Ne renvoie jamais `birthDate` brut, jamais
 les occurrences passées par rapport à la fenêtre demandée.
 
+## Absences (étape B8, 2026-07-08)
+
+`PlayerAbsence` (docs/schema/joueurs.md) — absence planifiée d'un joueur, indépendante de
+l'équipe. CRUD scopé joueur (`POST/GET/PATCH/DELETE clubs/:clubId/players/:playerId/absences`,
+permission `player_absence`), même conventions que `player_objective` (assignation automatique
+de `reportedById` au membre appelant, `assertPlayerInTeam` pour le scope Coach) mais sans modèle
+de visibilité — une absence n'a rien à cacher entre Privé/Semi-privé/Public.
+
+Backend agrégé calendrier : `GET /clubs/:clubId/absences/mine`
+(`PlayerAbsencesService.findMineInClub`), même principe de scope que `events/mine` et
+`members/birthdays` — club entier pour AdminClub/SuperAdmin, sinon joueurs ayant un `PlayerTeam`
+actif sur une équipe accessible (pas de chemin "staff" ici, contrairement aux anniversaires : une
+absence ne concerne que des joueurs). Chevauchement de plage (pas une correspondance exacte) :
+une absence est incluse dès que sa période croise la fenêtre demandée, même commencée avant ou
+terminée après.
+
 ## Lien avec les autres modules
 
 - Un événement de type "entraînement" est étendu en relation 1–1 par l'entité

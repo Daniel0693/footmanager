@@ -195,6 +195,7 @@ async function seedRoles() {
         OWN,
         'Consulter ses propres objectifs (hors objectifs privés)',
       ],
+      ['player_absence', READ, OWN, 'Consulter ses propres absences'],
       [
         'evaluation_config',
         READ,
@@ -350,6 +351,30 @@ async function seedRoles() {
         DELETE,
         TEAM,
         'Supprimer un objectif pour un joueur de ses équipes',
+      ],
+      [
+        'player_absence',
+        READ,
+        TEAM,
+        'Consulter les absences des joueurs de ses équipes',
+      ],
+      [
+        'player_absence',
+        CREATE,
+        TEAM,
+        'Ajouter une absence pour un joueur de ses équipes',
+      ],
+      [
+        'player_absence',
+        UPDATE,
+        TEAM,
+        'Modifier une absence pour un joueur de ses équipes',
+      ],
+      [
+        'player_absence',
+        DELETE,
+        TEAM,
+        'Supprimer une absence pour un joueur de ses équipes',
       ],
       [
         'evaluation_config',
@@ -509,6 +534,30 @@ async function seedRoles() {
         DELETE,
         CLUB,
         "Supprimer un objectif d'un joueur du club",
+      ],
+      [
+        'player_absence',
+        READ,
+        CLUB,
+        'Consulter les absences de tous les joueurs du club',
+      ],
+      [
+        'player_absence',
+        CREATE,
+        CLUB,
+        'Ajouter une absence pour un joueur du club',
+      ],
+      [
+        'player_absence',
+        UPDATE,
+        CLUB,
+        "Modifier une absence d'un joueur du club",
+      ],
+      [
+        'player_absence',
+        DELETE,
+        CLUB,
+        "Supprimer une absence d'un joueur du club",
       ],
       [
         'evaluation_config',
@@ -713,6 +762,30 @@ async function seedRoles() {
         DELETE,
         ALL,
         "Supprimer un objectif de n'importe quel joueur",
+      ],
+      [
+        'player_absence',
+        READ,
+        ALL,
+        "Consulter les absences de n'importe quel joueur",
+      ],
+      [
+        'player_absence',
+        CREATE,
+        ALL,
+        "Ajouter une absence pour n'importe quel joueur",
+      ],
+      [
+        'player_absence',
+        UPDATE,
+        ALL,
+        "Modifier une absence de n'importe quel joueur",
+      ],
+      [
+        'player_absence',
+        DELETE,
+        ALL,
+        "Supprimer une absence de n'importe quel joueur",
       ],
       [
         'evaluation_config',

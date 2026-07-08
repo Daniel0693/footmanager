@@ -297,12 +297,10 @@ scope `OWN` (Player) — voir `docs/decisions-ouvertes-et-rgpd.md` (Article 15).
 
 ## PlayerAbsence — Absence planifiée
 
-**Pas encore implémenté** (n'existe pas dans `schema.prisma`) : retiré de la Partie A
-(Phase 2) — sera construit avec le module Calendrier/présences (Partie B et/ou Phases 4-5),
-emplacement précis à trancher au moment venu. Voir `docs/roadmap.md` §Partie A/étape A7. Champs
-ci-dessous à titre de design prévisionnel, à confirmer avant implémentation.
-
-Indépendante de l'équipe : s'applique à toutes les activités du joueur sur la période.
+Implémenté à l'étape B8 du module Calendrier (`docs/roadmap.md` §Partie B). Indépendante de
+l'équipe : s'applique à toutes les activités du joueur sur la période. Pas de rapprochement
+automatique avec les convocations (`MatchAttendance`/`TrainingAttendance` n'existent pas
+encore) — différé aux Phases 4/5.
 
 | Champ | Type | Notes |
 |---|---|---|
@@ -384,9 +382,10 @@ ci-dessous est à ajouter rétroactivement en Phase 3 — voir `docs/roadmap.md`
 @@unique([clubId, categoryId])             sur ClubEvaluationConfig
 @@unique([evaluationId, criterionId])      sur PlayerEvaluationScore
 @@index([playerId])                        sur PlayerTeam, PlayerNote, PlayerInterview,
-                                              PlayerObjective, PlayerAbsence, PlayerMeasurement
+                                              PlayerObjective, PlayerMeasurement
 @@index([teamId])                          sur PlayerTeam
-@@index([playerId, date])                  sur PlayerEvaluation, PlayerAbsence
+@@index([playerId, date])                  sur PlayerEvaluation
+@@index([playerId, startDate])             sur PlayerAbsence
 @@index([evaluationId])                    sur PlayerEvaluationScore
 @@index([teamId, memberId])                sur TeamStaff
 @@index([categoryId])                      sur EvaluationCriterion

@@ -118,6 +118,7 @@ model Member {
   authoredNotes       PlayerNote[]
   assignedObjectives  PlayerObjective[]
   evaluationsGiven    PlayerEvaluation[]
+  reportedAbsences    PlayerAbsence[]
 
   @@unique([userId, clubId])
 }
@@ -256,6 +257,7 @@ model PlayerProfile {
   playerNotes        PlayerNote[]
   playerObjectives   PlayerObjective[]
   playerEvaluations  PlayerEvaluation[]
+  playerAbsences     PlayerAbsence[]
 }
 
 enum MeasurementType {
@@ -398,6 +400,26 @@ model PlayerObjective {
   updatedAt     DateTime         @updatedAt
 
   @@index([playerId])
+}
+
+// Indépendante de l'équipe : s'applique à toutes les activités du joueur sur
+// la période (docs/schema/joueurs.md §PlayerAbsence). Pas de rapprochement
+// automatique avec les convocations (MatchAttendance/TrainingAttendance
+// n'existent pas encore) — différé aux Phases 4/5.
+model PlayerAbsence {
+  id           Int           @id @default(autoincrement())
+  playerId     Int
+  player       PlayerProfile @relation(fields: [playerId], references: [id])
+  reason       String
+  startDate    DateTime      @db.Date
+  endDate      DateTime      @db.Date
+  isExcused    Boolean?
+  reportedById Int?
+  reportedBy   Member?       @relation(fields: [reportedById], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([playerId, startDate])
 }
 
 model PlayerTeam {

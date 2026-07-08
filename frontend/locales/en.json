@@ -507,6 +507,10 @@
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
       "NOT_FOUND": "Objective not found"
     },
+    "PLAYER_ABSENCES": {
+      "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
+      "NOT_FOUND": "Absence not found"
+    },
     "PLAYER_EVALUATIONS": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
       "NOT_FOUND": "Evaluation not found",

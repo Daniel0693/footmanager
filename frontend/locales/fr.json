@@ -507,6 +507,10 @@
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
       "NOT_FOUND": "Objectif introuvable"
     },
+    "PLAYER_ABSENCES": {
+      "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
+      "NOT_FOUND": "Absence introuvable"
+    },
     "PLAYER_EVALUATIONS": {
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
       "NOT_FOUND": "Évaluation introuvable",
