@@ -44,6 +44,15 @@
       "loginLink": "Sign in"
     }
   },
+  "settings": {
+    "myProfileTitle": "My profile",
+    "club": "Club",
+    "noClub": "You are not a member of any club.",
+    "birthDate": "Date of birth",
+    "save": "Save",
+    "loadFailed": "Unable to load your profile",
+    "updated": "Profile updated successfully"
+  },
   "home": {
     "welcome": "Welcome, {email}",
     "createClub": "Create a club",
