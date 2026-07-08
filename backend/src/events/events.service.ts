@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import type { EventType } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { MembersService } from '../members/members.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -66,11 +67,23 @@ export class EventsService {
    * (AdminClub/SuperAdmin) voit tout le club ; sinon on retombe sur les
    * équipes où le membre a un MemberRole scopé équipe — visibles pour lui
    * par construction, sans consulter le système RBAC générique pour ce cas.
+   *
+   * `types`/`teamIds` (pluriels, tableaux) alimentent les cases à cocher de
+   * la barre latérale du calendrier (docs/modules/calendrier-evenements.md
+   * §Filtres) — distinct du `type` singulier de FindEventsQueryDto utilisé
+   * par le CRUD scopé équipe (findAllByTeam), résolu côté backend comme le
+   * reste du filtrage/tri de l'application.
    */
   async findMineInClub(
     clubId: number,
     userId: number,
-    query: FindEventsQueryDto = {},
+    filters: {
+      types?: EventType[];
+      teamIds?: number[];
+      dateFrom?: Date;
+      dateTo?: Date;
+      sortOrder?: 'asc' | 'desc';
+    } = {},
   ) {
     const member = await this.membersService.findByUserAndClub(userId, clubId);
     if (!member) {
@@ -84,21 +97,25 @@ export class EventsService {
       { clubId },
     );
 
+    const accessibleTeams = clubWideScope
+      ? { clubId }
+      : {
+          clubId,
+          memberRoles: {
+            some: { memberId: member.id, teamId: { not: null } },
+          },
+        };
+
     return this.prisma.event.findMany({
       where: {
-        team: clubWideScope
-          ? { clubId }
-          : {
-              clubId,
-              memberRoles: {
-                some: { memberId: member.id, teamId: { not: null } },
-              },
-            },
-        type: query.type,
-        startAt: { gte: query.dateFrom, lte: query.dateTo },
+        team: filters.teamIds?.length
+          ? { ...accessibleTeams, id: { in: filters.teamIds } }
+          : accessibleTeams,
+        type: filters.types?.length ? { in: filters.types } : undefined,
+        startAt: { gte: filters.dateFrom, lte: filters.dateTo },
       },
       include: { team: { select: { id: true, name: true } } },
-      orderBy: { startAt: query.sortOrder ?? 'asc' },
+      orderBy: { startAt: filters.sortOrder ?? 'asc' },
     });
   }
 

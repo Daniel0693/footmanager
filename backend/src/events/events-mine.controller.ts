@@ -9,7 +9,7 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { FindEventsQueryDto } from './dto/find-events-query.dto';
+import { FindMyEventsQueryDto } from './dto/find-my-events-query.dto';
 import { EventsService } from './events.service';
 
 // Base distincte de EventsController (clubs/:clubId/teams/:teamId/events) :
@@ -27,7 +27,7 @@ export class EventsMineController {
   findMine(
     @Param('clubId', ParseIntPipe) clubId: number,
     @CurrentUser() user: { userId: number },
-    @Query() query: FindEventsQueryDto,
+    @Query() query: FindMyEventsQueryDto,
   ) {
     return this.eventsService.findMineInClub(clubId, user.userId, query);
   }

@@ -231,6 +231,37 @@
     "loadFailed": "Impossible de charger les notes",
     "empty": "Aucune note enregistrée pour l'instant"
   },
+  "calendar": {
+    "title": "Calendrier",
+    "filtersTitle": "Filtres",
+    "typeFilter": "Type d'événement",
+    "teamFilter": "Équipe",
+    "typeTRAINING": "Entraînement",
+    "typeMATCH": "Match",
+    "typeOTHER": "Autre",
+    "add": "Ajouter un événement",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "createTitle": "Nouvel événement",
+    "editTitle": "Modifier l'événement",
+    "team": "Équipe",
+    "type": "Type",
+    "titleLabel": "Titre",
+    "titleRequired": "Le titre est requis",
+    "startAt": "Début",
+    "startAtRequired": "La date de début est requise",
+    "endAt": "Fin",
+    "location": "Lieu",
+    "description": "Description",
+    "submitCreate": "Ajouter",
+    "submitEdit": "Enregistrer",
+    "created": "Événement ajouté avec succès",
+    "updated": "Événement modifié avec succès",
+    "deleteFailed": "Échec de la suppression de l'événement",
+    "loadFailed": "Impossible de charger le calendrier",
+    "teamsLoadFailed": "Impossible de charger vos équipes",
+    "empty": "Aucun événement à afficher"
+  },
   "objectives": {
     "filtersTitle": "Filtres",
     "statusFilter": "Statut",
@@ -428,6 +459,10 @@
     },
     "TEAMS": {
       "NOT_FOUND": "Équipe introuvable"
+    },
+    "EVENTS": {
+      "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
+      "NOT_FOUND": "Événement introuvable"
     }
   }
 }

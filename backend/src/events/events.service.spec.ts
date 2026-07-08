@@ -207,7 +207,7 @@ describe('EventsService', () => {
       can.mockResolvedValue(null);
       eventFindMany.mockResolvedValue([trainingEvent]);
 
-      const result = await service.findMineInClub(1, 7, { type: 'MATCH' });
+      const result = await service.findMineInClub(1, 7, { types: ['MATCH'] });
 
       expect(result).toEqual([trainingEvent]);
       expect(eventFindMany).toHaveBeenCalledWith({
@@ -218,7 +218,25 @@ describe('EventsService', () => {
               some: { memberId: 42, teamId: { not: null } },
             },
           },
-          type: 'MATCH',
+          type: { in: ['MATCH'] },
+          startAt: { gte: undefined, lte: undefined },
+        },
+        include: { team: { select: { id: true, name: true } } },
+        orderBy: { startAt: 'asc' },
+      });
+    });
+
+    it('filtre `teamIds` (case à cocher équipe) : restreint encore les équipes accessibles', async () => {
+      findByUserAndClub.mockResolvedValue(member);
+      can.mockResolvedValue('CLUB');
+      eventFindMany.mockResolvedValue([trainingEvent]);
+
+      await service.findMineInClub(1, 7, { teamIds: [5, 8] });
+
+      expect(eventFindMany).toHaveBeenCalledWith({
+        where: {
+          team: { clubId: 1, id: { in: [5, 8] } },
+          type: undefined,
           startAt: { gte: undefined, lte: undefined },
         },
         include: { team: { select: { id: true, name: true } } },

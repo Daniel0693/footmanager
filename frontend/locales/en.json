@@ -231,6 +231,37 @@
     "loadFailed": "Failed to load notes",
     "empty": "No notes recorded yet"
   },
+  "calendar": {
+    "title": "Calendar",
+    "filtersTitle": "Filters",
+    "typeFilter": "Event type",
+    "teamFilter": "Team",
+    "typeTRAINING": "Training",
+    "typeMATCH": "Match",
+    "typeOTHER": "Other",
+    "add": "Add an event",
+    "edit": "Edit",
+    "delete": "Delete",
+    "createTitle": "New event",
+    "editTitle": "Edit event",
+    "team": "Team",
+    "type": "Type",
+    "titleLabel": "Title",
+    "titleRequired": "Title is required",
+    "startAt": "Start",
+    "startAtRequired": "Start date is required",
+    "endAt": "End",
+    "location": "Location",
+    "description": "Description",
+    "submitCreate": "Add",
+    "submitEdit": "Save",
+    "created": "Event added successfully",
+    "updated": "Event updated successfully",
+    "deleteFailed": "Failed to delete the event",
+    "loadFailed": "Failed to load the calendar",
+    "teamsLoadFailed": "Failed to load your teams",
+    "empty": "No events to display"
+  },
   "objectives": {
     "filtersTitle": "Filters",
     "statusFilter": "Status",
@@ -428,6 +459,10 @@
     },
     "TEAMS": {
       "NOT_FOUND": "Team not found"
+    },
+    "EVENTS": {
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "NOT_FOUND": "Event not found"
     }
   }
 }
