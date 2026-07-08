@@ -78,6 +78,21 @@ depuis les cartons. À concevoir et documenter en phase post-MVP.
 - **Messagerie interne**
 - **Fil d'actualité / partage de moments d'équipe**
 - **Notifications** (email, push, in-app)
+- **Calendriers externes (abonnement ICS)** — reporté explicitement le 2026-07-08 : pas
+  nécessaire au MVP. Décision déjà prise si repris un jour : abonnement par URL ICS (Google
+  Calendar, iCloud, flux de jours fériés), lecture seule, cache backend (nouvelles tables
+  `ExternalCalendarSubscription`/`ExternalCalendarEvent`) rafraîchi périodiquement plutôt qu'un
+  fetch live à chaque affichage — pas d'intégration OAuth. Gestion des abonnements réservée à
+  AdminClub/SuperAdmin ; lecture des événements fusionnés ouverte à qui a déjà `event READ`.
+
+### 4bis. Anniversaires — port de scope non couvert
+
+`MembersService.findBirthdaysInClub` (2026-07-08) restreint le scope TEAM aux membres rattachés
+via `MemberRole` (staff) ou `PlayerTeam` actif (joueurs). Un `Parent` n'a aujourd'hui aucun lien
+direct à une équipe autre que via son propre `MemberRole` — cohérent avec la décision ouverte
+§5 ci-dessous (pas de table `ParentChild`) : un Parent voit les anniversaires de sa propre
+équipe assignée, pas nécessairement ceux de l'équipe de son enfant si elles diffèrent. À
+revisiter si/quand la liaison Parent↔Enfant est conçue.
 
 ### 5. Liaison Parent ↔ Joueur (Member enfant)
 
