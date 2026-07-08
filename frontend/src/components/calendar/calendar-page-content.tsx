@@ -41,6 +41,7 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
   // null tant que "mes équipes" n'a pas encore répondu : le calendrier ne
   // doit pas se charger avant d'avoir un premier jeu d'équipes accessibles.
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<number> | null>(null);
+  const [showBirthdays, setShowBirthdays] = useState(true);
 
   const [view, setView] = useState<"list" | "month" | "week">("list");
   const [month, setMonth] = useState(() => new Date());
@@ -130,7 +131,7 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
     setGridDialog({ open: true, mode: "edit", event });
   };
 
-  const filters = { types: selectedTypes, teamIds: selectedTeamIds };
+  const filters = { types: selectedTypes, teamIds: selectedTeamIds, showBirthdays };
 
   return (
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row">
@@ -173,6 +174,16 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
               ))}
             </div>
           )}
+          <div className="flex flex-col gap-2">
+            <Label className="text-xs text-muted-foreground">{t("otherFilter")}</Label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={showBirthdays}
+                onCheckedChange={() => setShowBirthdays((value) => !value)}
+              />
+              {t("birthdays")}
+            </label>
+          </div>
         </CardContent>
       </Card>
 

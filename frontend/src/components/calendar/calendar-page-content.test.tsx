@@ -138,7 +138,16 @@ describe("CalendarPageContent", () => {
     renderWithIntl(<CalendarPageContent clubId="1" />);
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
     mockApiFetch.mockClear();
-    mockApiFetch.mockResolvedValue(jsonResponse({ id: 99 }));
+    // Route par URL même pendant la saisie du formulaire : un mockResolvedValue
+    // global écraserait aussi les réponses des anniversaires/événements
+    // encore en vol (voir l'effet dédié de CalendarListView), pas seulement
+    // le POST de création visé ici.
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/teams/mine")) return Promise.resolve(jsonResponse(twoTeams));
+      if (url.includes("/events/mine")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("/members/birthdays")) return Promise.resolve(jsonResponse([]));
+      return Promise.resolve(jsonResponse({ id: 99 }));
+    });
 
     await user.click(screen.getByRole("button", { name: "Ajouter un événement" }));
     await user.type(screen.getByLabelText("Titre"), "Entraînement technique");
@@ -235,6 +244,26 @@ describe("CalendarPageContent", () => {
     expect(screen.getByLabelText<HTMLInputElement>("Début")).toHaveValue(
       `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}T08:00`,
     );
+  });
+
+  it("le filtre Anniversaires est actif par défaut, décoché il arrête l'appel réseau correspondant", async () => {
+    mockRoutes(twoTeams, []);
+    const user = userEvent.setup();
+
+    renderWithIntl(<CalendarPageContent clubId="1" />);
+    await waitFor(() =>
+      expect(
+        mockApiFetch.mock.calls.some(([url]) => (url as string).includes("/members/birthdays")),
+      ).toBe(true),
+    );
+
+    mockApiFetch.mockClear();
+    await user.click(screen.getByRole("checkbox", { name: "Anniversaires" }));
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+    expect(
+      mockApiFetch.mock.calls.some(([url]) => (url as string).includes("/members/birthdays")),
+    ).toBe(false);
   });
 
   it("le bouton Aujourd'hui recentre la vue Mois après une navigation", async () => {

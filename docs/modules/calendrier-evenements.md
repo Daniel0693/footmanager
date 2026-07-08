@@ -21,6 +21,22 @@ certains types d'événements ou certaines équipes selon le contexte.
 - **Sélection par glisser (drag-to-select)** pour créer un événement s'étalant sur plusieurs
   jours en une seule action.
 
+## Anniversaires (2026-07-08)
+
+Les anniversaires des membres (`Member.birthDate`, commun à tous les rôles — voir
+`docs/schema/fondations.md`) apparaissent comme éléments **non éditables, non cliquables** dans
+les trois vues (Liste/Mois/Semaine), avec une icône, le prénom/nom du membre et son âge calculé.
+Filtre dédié ("Anniversaires") dans la barre latérale, actif par défaut, indépendant des filtres
+`typeFilter`/`teamFilter` — un anniversaire n'est **jamais** un `EventType` ni fusionné dans
+`ExistingEvent` (voir `event-form-dialog.tsx`), pour ne jamais devenir accidentellement éditable
+via le formulaire d'événement.
+
+Backend : `GET /clubs/:clubId/members/birthdays` (`MembersService.findBirthdaysInClub`), même
+principe de scope que le reste du calendrier (voir `events/mine`) — club entier pour
+AdminClub/SuperAdmin, sinon union de deux chemins d'appartenance équipe : staff via `MemberRole`
+et joueurs via `PlayerTeam` actif (`leaveDate: null`). Ne renvoie jamais `birthDate` brut, jamais
+les occurrences passées par rapport à la fenêtre demandée.
+
 ## Lien avec les autres modules
 
 - Un événement de type "entraînement" est étendu en relation 1–1 par l'entité

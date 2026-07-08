@@ -28,7 +28,7 @@ const teams = [
   { id: 8, name: "Seniors" },
 ];
 
-const allTypesFilters = { types: new Set(EVENT_TYPES), teamIds: new Set([5, 8]) };
+const allTypesFilters = { types: new Set(EVENT_TYPES), teamIds: new Set([5, 8]), showBirthdays: false };
 
 function event(overrides: Partial<ExistingEvent> = {}): ExistingEvent {
   return {
@@ -213,5 +213,36 @@ describe("CalendarMonthView", () => {
     expect(screen.getByTestId("calendar-week-block-0")).toHaveTextContent(
       String(firstWeekNumber),
     );
+  });
+
+  it("affiche un anniversaire dans la cellule de son jour, sans déclencher l'édition au clic", async () => {
+    const onEditEvent = jest.fn();
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/members/birthdays")) {
+        return Promise.resolve(
+          jsonResponse([
+            { memberId: 9, firstName: "Léa", lastName: "Martin", date: "2026-07-10T00:00:00.000Z", age: 14 },
+          ]),
+        );
+      }
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    renderMonthView({ filters: { ...allTypesFilters, showBirthdays: true }, onEditEvent });
+
+    const cell = await waitFor(() => screen.getByTestId(dayKey(new Date(2026, 6, 10))));
+    expect(within(cell).getByText("Léa Martin — 14 ans")).toBeInTheDocument();
+
+    fireEvent.click(within(cell).getByText("Léa Martin — 14 ans"));
+    expect(onEditEvent).not.toHaveBeenCalled();
+  });
+
+  it("ne charge pas les anniversaires quand le filtre est désactivé", async () => {
+    renderMonthView({ filters: { ...allTypesFilters, showBirthdays: false } });
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+    expect(
+      mockApiFetch.mock.calls.some(([url]) => (url as string).includes("/members/birthdays")),
+    ).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, Pencil, Trash2 } from "lucide-react";
+import { Cake, MapPin, Pencil, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -17,13 +17,23 @@ import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { addDays, endOfDay } from "@/lib/calendar-grid";
 import {
+  fetchBirthdayEvents,
   fetchCalendarEvents,
   isEmptyFilterSelection,
   isFiltersReady,
+  type Birthday,
   type EventFilters,
 } from "@/lib/calendar-events-api";
 
 type CalendarEvent = ExistingEvent;
+
+// Fusion chronologique événements + anniversaires (docs/modules/calendrier-
+// evenements.md §Anniversaires) — un anniversaire n'est jamais un
+// ExistingEvent (voir lib/calendar-events-api.ts), donc pas cliquable/
+// éditable, juste un élément visuel distinct dans la même timeline.
+type TimelineItem =
+  | { kind: "event"; date: string; event: CalendarEvent }
+  | { kind: "birthday"; date: string; birthday: Birthday };
 
 // Fenêtre initiale centrée sur aujourd'hui, étendue par blocs de CHUNK_DAYS
 // au scroll (docs/roadmap.md étape B6, corrections post-revue) — jamais tout
@@ -54,6 +64,7 @@ export function CalendarListView({
   const { accessToken } = useAuth();
 
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
+  const [birthdays, setBirthdays] = useState<Birthday[]>([]);
   const [hasError, setHasError] = useState(false);
   const [pastBoundary, setPastBoundary] = useState<Date | null>(null);
   const [futureBoundary, setFutureBoundary] = useState<Date | null>(null);
@@ -128,6 +139,35 @@ export function CalendarListView({
       cancelled = true;
     };
   }, [clubId, accessToken, filters, refreshKey, recenterKey, t]);
+
+  // Recharge sur toute la fenêtre courante (pas de pagination séparée pour
+  // les anniversaires — requête légère, contrairement aux événements) dès
+  // que les bornes changent, quelle qu'en soit la cause (chargement initial,
+  // scroll infini, recentrage).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!filters.showBirthdays || !pastBoundary || !futureBoundary) {
+        if (!cancelled) setBirthdays([]);
+        return;
+      }
+      try {
+        const data = await fetchBirthdayEvents(
+          clubId,
+          accessToken,
+          { dateFrom: pastBoundary, dateTo: futureBoundary },
+          filters.teamIds,
+        );
+        if (!cancelled) setBirthdays(data);
+      } catch {
+        // Anniversaires optionnels : une erreur ici ne doit pas casser
+        // l'affichage des événements déjà chargés.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clubId, accessToken, filters.showBirthdays, filters.teamIds, pastBoundary, futureBoundary]);
 
   const loadOlder = useCallback(async () => {
     if (!pastBoundary || isLoadingMore) return;
@@ -241,6 +281,18 @@ export function CalendarListView({
   const formatTime = (iso: string) =>
     new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
+  const timelineItems: TimelineItem[] =
+    events === null
+      ? []
+      : [
+          ...events.map((event): TimelineItem => ({ kind: "event", date: event.startAt, event })),
+          ...birthdays.map((birthday): TimelineItem => ({
+            kind: "birthday",
+            date: birthday.date,
+            birthday,
+          })),
+        ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
   return (
     <div
       ref={scrollRef}
@@ -249,65 +301,82 @@ export function CalendarListView({
       className="flex flex-1 flex-col gap-3 lg:min-h-0 lg:overflow-y-auto"
     >
       {hasError && <p className="text-sm text-destructive">{t("loadFailed")}</p>}
-      {!hasError && events !== null && events.length === 0 && (
+      {!hasError && events !== null && timelineItems.length === 0 && (
         <Card>
           <CardContent className="py-6 text-sm text-muted-foreground">{t("empty")}</CardContent>
         </Card>
       )}
-      {!hasError && events !== null && events.length > 0 && (
+      {!hasError && events !== null && timelineItems.length > 0 && (
         <ol className="flex flex-col gap-3">
-          {events.map((event) => (
-            <li key={event.id}>
-              <Card>
-                <CardContent className="flex flex-col gap-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">{t(`type${event.type}`)}</Badge>
-                      <Badge variant="outline">{event.team.name}</Badge>
-                      <span className="font-medium">{event.title}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      <EventFormDialog
-                        clubId={clubId}
-                        teams={teams}
-                        event={event}
-                        onSuccess={() => void reloadCurrentWindow()}
-                        trigger={
-                          <Button variant="ghost" size="icon" aria-label={t("edit")}>
-                            <Pencil />
-                          </Button>
-                        }
-                      />
-                      <DeleteEventDialog
-                        event={event}
-                        onConfirm={(scope) => void handleDelete(event, scope)}
-                        trigger={
-                          <Button variant="ghost" size="icon" aria-label={t("delete")}>
-                            <Trash2 className="text-destructive" />
-                          </Button>
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {timelineItems.map((item) =>
+            item.kind === "birthday" ? (
+              <li key={`birthday-${item.birthday.memberId}-${item.date}`}>
+                <Card className="bg-muted/40">
+                  <CardContent className="flex items-center gap-2 py-3 text-sm">
+                    <Cake className="size-4 shrink-0 text-muted-foreground" />
                     <span>
-                      {formatDateTime(event.startAt)}
-                      {event.endAt && ` – ${formatTime(event.endAt)}`}
+                      {t("birthdayAge", {
+                        firstName: item.birthday.firstName,
+                        lastName: item.birthday.lastName,
+                        age: item.birthday.age,
+                      })}
                     </span>
-                    {event.location && (
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="size-3.5" />
-                        {event.location}
+                  </CardContent>
+                </Card>
+              </li>
+            ) : (
+              <li key={item.event.id}>
+                <Card>
+                  <CardContent className="flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary">{t(`type${item.event.type}`)}</Badge>
+                        <Badge variant="outline">{item.event.team.name}</Badge>
+                        <span className="font-medium">{item.event.title}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <EventFormDialog
+                          clubId={clubId}
+                          teams={teams}
+                          event={item.event}
+                          onSuccess={() => void reloadCurrentWindow()}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label={t("edit")}>
+                              <Pencil />
+                            </Button>
+                          }
+                        />
+                        <DeleteEventDialog
+                          event={item.event}
+                          onConfirm={(scope) => void handleDelete(item.event, scope)}
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label={t("delete")}>
+                              <Trash2 className="text-destructive" />
+                            </Button>
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        {formatDateTime(item.event.startAt)}
+                        {item.event.endAt && ` – ${formatTime(item.event.endAt)}`}
                       </span>
+                      {item.event.location && (
+                        <span className="flex items-center gap-1.5">
+                          <MapPin className="size-3.5" />
+                          {item.event.location}
+                        </span>
+                      )}
+                    </div>
+                    {item.event.description && (
+                      <p className="text-sm whitespace-pre-wrap">{item.event.description}</p>
                     )}
-                  </div>
-                  {event.description && (
-                    <p className="text-sm whitespace-pre-wrap">{event.description}</p>
-                  )}
-                </CardContent>
-              </Card>
-            </li>
-          ))}
+                  </CardContent>
+                </Card>
+              </li>
+            ),
+          )}
         </ol>
       )}
     </div>

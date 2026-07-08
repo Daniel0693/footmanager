@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { fireEvent } from "@testing-library/react";
-import { renderWithIntl, screen, waitFor } from "@/test-utils/render";
+import { renderWithIntl, screen, waitFor, within } from "@/test-utils/render";
 import { EVENT_TYPES } from "@/lib/event";
 import { CalendarListView } from "./calendar-list-view";
 
@@ -22,7 +22,7 @@ function jsonResponse(body: unknown, ok = true) {
 }
 
 const teams = [{ id: 5, name: "U15 A" }];
-const allTypesFilters = { types: new Set(EVENT_TYPES), teamIds: new Set([5]) };
+const allTypesFilters = { types: new Set(EVENT_TYPES), teamIds: new Set([5]), showBirthdays: false };
 
 function eventItem(overrides: Record<string, unknown> = {}) {
   return {
@@ -73,7 +73,7 @@ describe("CalendarListView", () => {
       <CalendarListView
         clubId="1"
         teams={teams}
-        filters={{ types: new Set(), teamIds: new Set([5]) }}
+        filters={{ types: new Set(), teamIds: new Set([5]), showBirthdays: false }}
         refreshKey={0}
         recenterKey={0}
       />,
@@ -222,5 +222,57 @@ describe("CalendarListView", () => {
     const today = new Date("2026-07-10T12:00:00.000Z");
     const daysBefore = Math.round((today.getTime() - dateFrom.getTime()) / 86_400_000);
     expect(daysBefore).toBe(14); // fenêtre initiale, pas la fenêtre étendue (44 jours)
+  });
+
+  describe("anniversaires", () => {
+    function mockRoutes(events: unknown[], birthdays: unknown[]) {
+      mockApiFetch.mockImplementation((url: string) => {
+        if (url.includes("/members/birthdays")) return Promise.resolve(jsonResponse(birthdays));
+        return Promise.resolve(jsonResponse(events));
+      });
+    }
+
+    it("fusionne les anniversaires avec les événements dans la timeline, sans bouton d'édition/suppression", async () => {
+      mockRoutes(
+        [eventItem({ startAt: "2026-07-12T18:00:00.000Z" })],
+        [{ memberId: 9, firstName: "Léa", lastName: "Martin", date: "2026-07-11T00:00:00.000Z", age: 14 }],
+      );
+
+      renderWithIntl(
+        <CalendarListView
+          clubId="1"
+          teams={teams}
+          filters={{ ...allTypesFilters, showBirthdays: true }}
+          refreshKey={0}
+          recenterKey={0}
+        />,
+      );
+
+      expect(await screen.findByText("Léa Martin — 14 ans")).toBeInTheDocument();
+      expect(screen.getByText("Match amical")).toBeInTheDocument();
+      const birthdayCard = screen.getByText("Léa Martin — 14 ans").closest("li")!;
+      expect(within(birthdayCard).queryByRole("button")).not.toBeInTheDocument();
+    });
+
+    it("ne charge pas les anniversaires quand le filtre est désactivé", async () => {
+      mockRoutes([eventItem()], [
+        { memberId: 9, firstName: "Léa", lastName: "Martin", date: "2026-07-11T00:00:00.000Z", age: 14 },
+      ]);
+
+      renderWithIntl(
+        <CalendarListView
+          clubId="1"
+          teams={teams}
+          filters={{ ...allTypesFilters, showBirthdays: false }}
+          refreshKey={0}
+          recenterKey={0}
+        />,
+      );
+
+      await screen.findByText("Match amical");
+      expect(
+        mockApiFetch.mock.calls.some(([url]) => (url as string).includes("/members/birthdays")),
+      ).toBe(false);
+    });
   });
 });

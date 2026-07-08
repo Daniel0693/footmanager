@@ -11,9 +11,11 @@ import type { EventFormTeam, ExistingEvent } from "@/components/calendar/event-f
 import { useAuth } from "@/lib/auth/auth-context";
 import { endOfDay } from "@/lib/calendar-grid";
 import {
+  fetchBirthdayEvents,
   fetchCalendarEvents,
   isEmptyFilterSelection,
   isFiltersReady,
+  type Birthday,
   type EventFilters,
 } from "@/lib/calendar-events-api";
 
@@ -70,6 +72,7 @@ export function CalendarMonthView({
   const gridEnd = days[days.length - 1];
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [birthdays, setBirthdays] = useState<Birthday[]>([]);
   const [hasError, setHasError] = useState(false);
 
   // Ne charge que les événements de la grille affichée (docs/roadmap.md
@@ -107,6 +110,32 @@ export function CalendarMonthView({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clubId, accessToken, filters, refreshKey, month.getFullYear(), month.getMonth(), t]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!filters.showBirthdays || !isFiltersReady(filters)) {
+        if (!cancelled) setBirthdays([]);
+        return;
+      }
+      try {
+        const data = await fetchBirthdayEvents(
+          clubId,
+          accessToken,
+          { dateFrom: gridStart, dateTo: endOfDay(gridEnd) },
+          filters.teamIds,
+        );
+        if (!cancelled) setBirthdays(data);
+      } catch {
+        // Anniversaires optionnels : une erreur ici ne doit pas casser
+        // l'affichage des événements déjà chargés.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clubId, accessToken, filters.showBirthdays, filters.teamIds, refreshKey, month.getFullYear(), month.getMonth()]);
 
   const monthLabel = month.toLocaleDateString(locale, { month: "long", year: "numeric" });
   const weekdayLabels = days
@@ -155,6 +184,7 @@ export function CalendarMonthView({
         <CalendarGridDays
           days={days}
           events={events}
+          birthdays={birthdays}
           teams={teams}
           colorMode={colorMode}
           onSelectRange={onSelectRange}

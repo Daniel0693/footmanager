@@ -1,9 +1,11 @@
 "use client";
 
-import { useLocale } from "next-intl";
+import { Cake } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { ExistingEvent } from "@/components/calendar/event-form-dialog";
 import { eventTypeColorClass, teamColorClass } from "@/lib/calendar-color";
+import type { Birthday } from "@/lib/calendar-events-api";
 import {
   getIsoWeekNumber,
   isMultiDay,
@@ -94,6 +96,7 @@ function assignBannerLanes(weekEvents: CalendarEvent[], weekStart: Date): Map<nu
 export function CalendarGridDays({
   days,
   events,
+  birthdays = [],
   teams,
   colorMode,
   onSelectRange,
@@ -102,6 +105,7 @@ export function CalendarGridDays({
 }: {
   days: Date[];
   events: CalendarEvent[];
+  birthdays?: Birthday[];
   teams: { id: number; name: string }[];
   colorMode: "type" | "team";
   onSelectRange: (start: Date, end: Date) => void;
@@ -110,6 +114,7 @@ export function CalendarGridDays({
   referenceMonth?: Date;
 }) {
   const locale = useLocale();
+  const t = useTranslations("calendar");
   const [dragStart, setDragStart] = useState<Date | null>(null);
   const [dragEnd, setDragEnd] = useState<Date | null>(null);
 
@@ -137,6 +142,14 @@ export function CalendarGridDays({
     const list = singleDayEventsByDay.get(key) ?? [];
     list.push(event);
     singleDayEventsByDay.set(key, list);
+  }
+
+  const birthdaysByDay = new Map<string, Birthday[]>();
+  for (const birthday of birthdays) {
+    const key = toDayKey(new Date(birthday.date));
+    const list = birthdaysByDay.get(key) ?? [];
+    list.push(birthday);
+    birthdaysByDay.set(key, list);
   }
 
   const teamIndexById = new Map(teams.map((team, index) => [team.id, index]));
@@ -184,6 +197,7 @@ export function CalendarGridDays({
                 {week.map((day) => {
                   const key = toDayKey(day);
                   const dayEvents = singleDayEventsByDay.get(key) ?? [];
+                  const dayBirthdays = birthdaysByDay.get(key) ?? [];
                   const isDimmed = referenceMonth
                     ? day.getMonth() !== referenceMonth.getMonth()
                     : false;
@@ -242,6 +256,21 @@ export function CalendarGridDays({
                             </span>
                             <span className="truncate">{event.title}</span>
                           </button>
+                        ))}
+                        {dayBirthdays.map((birthday) => (
+                          <div
+                            key={`birthday-${birthday.memberId}`}
+                            className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-muted-foreground"
+                          >
+                            <Cake className="size-3 shrink-0" />
+                            <span className="truncate">
+                              {t("birthdayAge", {
+                                firstName: birthday.firstName,
+                                lastName: birthday.lastName,
+                                age: birthday.age,
+                              })}
+                            </span>
+                          </div>
                         ))}
                       </div>
                     </div>

@@ -6,6 +6,18 @@ export interface EventFilters {
   types: Set<EventType>;
   // null tant que "mes équipes" n'a pas encore répondu (voir CalendarPageContent).
   teamIds: Set<number> | null;
+  // Indépendant de `types` : un anniversaire n'est pas un EventType Prisma
+  // (docs/modules/calendrier-evenements.md §Anniversaires) — jamais fusionné
+  // dans ExistingEvent/EventType, voir event-form-dialog.tsx.
+  showBirthdays: boolean;
+}
+
+export interface Birthday {
+  memberId: number;
+  firstName: string;
+  lastName: string;
+  date: string;
+  age: number;
 }
 
 // teamIds reste `null` tant que "mes équipes" n'a pas répondu : aucune vue
@@ -46,6 +58,28 @@ export async function fetchCalendarEvents(
     sortOrder: range.sortOrder ?? "asc",
   });
   const response = await apiFetch(`/clubs/${clubId}/events/mine?${query}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw new Error();
+  return response.json();
+}
+
+// Même fenêtre de dates que fetchCalendarEvents, appelée en parallèle par
+// chaque vue (voir CalendarListView/MonthView/WeekView) — scope backend
+// identique au reste du calendrier (club entier ou équipes accessibles),
+// voir MembersService.findBirthdaysInClub.
+export async function fetchBirthdayEvents(
+  clubId: string,
+  accessToken: string | null | undefined,
+  range: { dateFrom: Date; dateTo: Date },
+  teamIds: Set<number> | null,
+): Promise<Birthday[]> {
+  const query = toQueryString({
+    teamIds: teamIds ? [...teamIds].join(",") : undefined,
+    dateFrom: range.dateFrom.toISOString(),
+    dateTo: range.dateTo.toISOString(),
+  });
+  const response = await apiFetch(`/clubs/${clubId}/members/birthdays?${query}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!response.ok) throw new Error();

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Cake, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -18,9 +18,11 @@ import {
   toDayKey,
 } from "@/lib/calendar-grid";
 import {
+  fetchBirthdayEvents,
   fetchCalendarEvents,
   isEmptyFilterSelection,
   isFiltersReady,
+  type Birthday,
   type EventFilters,
 } from "@/lib/calendar-events-api";
 import { cn } from "@/lib/utils";
@@ -110,6 +112,7 @@ export function CalendarWeekView({
   const weekEnd = days[6];
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [birthdays, setBirthdays] = useState<Birthday[]>([]);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
@@ -146,6 +149,32 @@ export function CalendarWeekView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clubId, accessToken, filters, refreshKey, toDayKey(weekStart), t]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!filters.showBirthdays || !isFiltersReady(filters)) {
+        if (!cancelled) setBirthdays([]);
+        return;
+      }
+      try {
+        const data = await fetchBirthdayEvents(
+          clubId,
+          accessToken,
+          { dateFrom: weekStart, dateTo: endOfDay(weekEnd) },
+          filters.teamIds,
+        );
+        if (!cancelled) setBirthdays(data);
+      } catch {
+        // Anniversaires optionnels : une erreur ici ne doit pas casser
+        // l'affichage des événements déjà chargés.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clubId, accessToken, filters.showBirthdays, filters.teamIds, refreshKey, toDayKey(weekStart)]);
+
   const multiDayEvents = events.filter(isMultiDay);
   const timedEventsByDay = new Map<string, CalendarEvent[]>();
   for (const event of events) {
@@ -154,6 +183,14 @@ export function CalendarWeekView({
     const list = timedEventsByDay.get(key) ?? [];
     list.push(event);
     timedEventsByDay.set(key, list);
+  }
+
+  const birthdaysByDay = new Map<string, Birthday[]>();
+  for (const birthday of birthdays) {
+    const key = toDayKey(new Date(birthday.date));
+    const list = birthdaysByDay.get(key) ?? [];
+    list.push(birthday);
+    birthdaysByDay.set(key, list);
   }
 
   const colorClassForEvent = (event: CalendarEvent) => {
@@ -250,6 +287,36 @@ export function CalendarWeekView({
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Bandeau des anniversaires — non cliquable, non éditable (voir
+              docs/modules/calendrier-evenements.md §Anniversaires) */}
+          {birthdays.length > 0 && (
+            <div className="grid shrink-0 grid-cols-[3.5rem_repeat(7,1fr)] gap-px border-b bg-border">
+              <div className="bg-card" />
+              {days.map((day) => {
+                const dayBirthdays = birthdaysByDay.get(toDayKey(day)) ?? [];
+                return (
+                  <div key={toDayKey(day)} className="flex flex-col gap-0.5 bg-card p-1">
+                    {dayBirthdays.map((birthday) => (
+                      <div
+                        key={birthday.memberId}
+                        className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-[10px] text-muted-foreground"
+                      >
+                        <Cake className="size-3 shrink-0" />
+                        <span className="truncate">
+                          {t("birthdayAge", {
+                            firstName: birthday.firstName,
+                            lastName: birthday.lastName,
+                            age: birthday.age,
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           )}
 
