@@ -29,6 +29,7 @@ function jsonResponse(body: unknown, ok = true) {
 function mockApiFetchDefault(playerBody: unknown, playerOk = true) {
   mockApiFetch.mockImplementation((url: string) => {
     if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
+    if (url.includes("/absences")) return Promise.resolve(jsonResponse([]));
     return Promise.resolve(jsonResponse(playerBody, playerOk));
   });
 }
@@ -122,7 +123,7 @@ describe("PlayerDetailPageContent", () => {
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
-  it("affiche les 7 onglets de la fiche joueur ; Mesures est actif par défaut, les autres restent \"bientôt disponible\"", async () => {
+  it("affiche les 7 onglets de la fiche joueur ; Mesures est actif par défaut, Dashboard/Blessure restent \"bientôt disponible\"", async () => {
     mockApiFetchDefault(playerDetail());
     const user = userEvent.setup();
 
@@ -147,6 +148,21 @@ describe("PlayerDetailPageContent", () => {
     expect(
       screen.getByText("Cette section arrivera dans une prochaine phase."),
     ).toBeInTheDocument();
+  });
+
+  it("l'onglet Absence (B8) affiche AbsenceTab, plus le placeholder \"bientôt disponible\"", async () => {
+    mockApiFetchDefault(playerDetail());
+    const user = userEvent.setup();
+
+    renderPage();
+    await screen.findByText("Tom Joueur");
+
+    await user.click(screen.getByRole("tab", { name: "Absence" }));
+
+    expect(await screen.findByRole("button", { name: "Ajouter une absence" })).toBeInTheDocument();
+    expect(
+      screen.queryByText("Cette section arrivera dans une prochaine phase."),
+    ).not.toBeInTheDocument();
   });
 
   it("affiche un message d'erreur visible si le chargement échoue", async () => {

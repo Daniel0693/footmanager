@@ -1,0 +1,201 @@
+import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { renderWithIntl, screen, waitFor } from "@/test-utils/render";
+import { AbsenceFormDialog, ExistingAbsence } from "./absence-form-dialog";
+
+jest.mock("sonner", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
+
+const mockUseAuth = jest.fn();
+jest.mock("@/lib/auth/auth-context", () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
+const mockApiFetch = jest.fn();
+jest.mock("@/lib/api", () => ({
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  parseErrorCode: jest.fn().mockResolvedValue("AUTH.UNKNOWN"),
+}));
+
+function jsonResponse(body: unknown, ok = true) {
+  return { ok, json: () => Promise.resolve(body) };
+}
+
+const existingAbsence: ExistingAbsence = {
+  id: 1,
+  reason: "Blessure au genou",
+  startDate: "2026-07-10T00:00:00.000Z",
+  endDate: "2026-07-20T00:00:00.000Z",
+  isExcused: true,
+};
+
+describe("AbsenceFormDialog", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({ accessToken: "token" });
+  });
+
+  it("mode création : motif/dates requis, isExcused non renseigné par défaut", async () => {
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <AbsenceFormDialog
+        clubId="1"
+        teamId="5"
+        playerId="10"
+        onSuccess={jest.fn()}
+        trigger={<Button>Ajouter une absence</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ajouter une absence" }));
+    expect(screen.getByRole("combobox")).toHaveTextContent("Non renseigné");
+
+    await user.click(screen.getByRole("button", { name: "Ajouter" }));
+    expect(await screen.findByText("Le motif est requis")).toBeInTheDocument();
+    expect(screen.getByText("La date de début est requise")).toBeInTheDocument();
+    expect(screen.getByText("La date de fin est requise")).toBeInTheDocument();
+    expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+
+  it("mode création : POST avec teamId en query, isExcused omis si non renseigné", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse({ id: 1 }));
+    const onSuccess = jest.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <AbsenceFormDialog
+        clubId="1"
+        teamId="5"
+        playerId="10"
+        onSuccess={onSuccess}
+        trigger={<Button>Ajouter une absence</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ajouter une absence" }));
+    await user.type(screen.getByLabelText("Motif"), "Blessure au genou");
+    await user.type(screen.getByLabelText("Date de début"), "2026-07-10");
+    await user.type(screen.getByLabelText("Date de fin"), "2026-07-20");
+    await user.click(screen.getByRole("button", { name: "Ajouter" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/clubs/1/players/10/absences?teamId=5",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          reason: "Blessure au genou",
+          startDate: "2026-07-10",
+          endDate: "2026-07-20",
+          isExcused: undefined,
+        }),
+      }),
+    );
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it("mode édition : pré-remplit le formulaire et envoie un PATCH avec teamId en query", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse({ id: 1 }));
+    const onSuccess = jest.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <AbsenceFormDialog
+        clubId="1"
+        teamId="5"
+        playerId="10"
+        absence={existingAbsence}
+        onSuccess={onSuccess}
+        trigger={<Button>Modifier</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Motif")).toHaveValue(
+      "Blessure au genou",
+    );
+    expect(screen.getByLabelText<HTMLInputElement>("Date de début")).toHaveValue("2026-07-10");
+    expect(screen.getByLabelText<HTMLInputElement>("Date de fin")).toHaveValue("2026-07-20");
+    expect(screen.getByRole("combobox")).toHaveTextContent("Excusée");
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/clubs/1/players/10/absences/1?teamId=5",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          reason: "Blessure au genou",
+          startDate: "2026-07-10",
+          endDate: "2026-07-20",
+          isExcused: true,
+        }),
+      }),
+    );
+  });
+
+  it("permet de choisir \"Non excusée\"", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse({ id: 1 }));
+    const onSuccess = jest.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <AbsenceFormDialog
+        clubId="1"
+        teamId="5"
+        playerId="10"
+        absence={existingAbsence}
+        onSuccess={onSuccess}
+        trigger={<Button>Modifier</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "Non excusée" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/clubs/1/players/10/absences/1?teamId=5",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          reason: "Blessure au genou",
+          startDate: "2026-07-10",
+          endDate: "2026-07-20",
+          isExcused: false,
+        }),
+      }),
+    );
+  });
+
+  it("affiche l'erreur traduite renvoyée par le backend en cas d'échec", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse(null, false));
+    const parseErrorCode = jest.requireMock("@/lib/api").parseErrorCode as jest.Mock;
+    parseErrorCode.mockResolvedValueOnce("PLAYER_ABSENCES.PLAYER_NOT_IN_CLUB");
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <AbsenceFormDialog
+        clubId="1"
+        teamId="5"
+        playerId="10"
+        onSuccess={jest.fn()}
+        trigger={<Button>Ajouter une absence</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ajouter une absence" }));
+    await user.type(screen.getByLabelText("Motif"), "Résumé");
+    await user.type(screen.getByLabelText("Date de début"), "2026-07-10");
+    await user.type(screen.getByLabelText("Date de fin"), "2026-07-20");
+    await user.click(screen.getByRole("button", { name: "Ajouter" }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Ce joueur n'appartient pas à ce club"),
+    );
+  });
+});

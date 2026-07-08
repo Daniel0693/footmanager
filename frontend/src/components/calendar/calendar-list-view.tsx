@@ -27,10 +27,10 @@ import {
 
 type CalendarEvent = ExistingEvent;
 
-// Fusion chronologique événements + anniversaires (docs/modules/calendrier-
-// evenements.md §Anniversaires) — un anniversaire n'est jamais un
-// ExistingEvent (voir lib/calendar-events-api.ts), donc pas cliquable/
-// éditable, juste un élément visuel distinct dans la même timeline.
+// Fusion chronologique événements + anniversaires (docs/modules/
+// calendrier-evenements.md) — un anniversaire n'est jamais un ExistingEvent
+// (voir lib/calendar-events-api.ts), donc pas cliquable/éditable, juste un
+// élément visuel distinct dans la même timeline.
 type TimelineItem =
   | { kind: "event"; date: string; event: CalendarEvent }
   | { kind: "birthday"; date: string; birthday: Birthday };

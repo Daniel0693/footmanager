@@ -1,19 +1,8 @@
 import { HttpStatus } from '@nestjs/common';
 import type { PlayerAbsence, PlayerProfile } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
-import { MembersService } from '../members/members.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { PermissionsService } from '../roles/permissions.service';
 import { PlayerAbsencesService } from './player-absences.service';
-
-// Stubs par défaut : seule findMineInClub appelle findByUserAndClub()/can(),
-// les autres tests n'ont pas besoin d'un comportement spécifique ici.
-const membersServiceStub = {
-  findByUserAndClub: jest.fn(),
-} as unknown as MembersService;
-const permissionsServiceStub = {
-  can: jest.fn(),
-} as unknown as PermissionsService;
 
 const player: PlayerProfile = {
   id: 100,
@@ -71,11 +60,7 @@ describe('PlayerAbsencesService', () => {
       playerTeam: { findFirst: playerTeamFindFirst },
     } as unknown as PrismaService;
 
-    service = new PlayerAbsencesService(
-      prismaStub,
-      membersServiceStub,
-      permissionsServiceStub,
-    );
+    service = new PlayerAbsencesService(prismaStub);
   });
 
   describe('create', () => {
@@ -348,150 +333,6 @@ describe('PlayerAbsencesService', () => {
         service.remove(1, 100, 1, { memberId: 43, scope: 'TEAM', teamId: 8 }),
       ).rejects.toBeInstanceOf(AppException);
       expect(absenceDelete).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('findMineInClub', () => {
-    const caller = { id: 42, userId: 7 };
-
-    function absenceWithMember(overrides: Partial<PlayerAbsence> = {}) {
-      return {
-        ...absence(overrides),
-        player: {
-          ...player,
-          member: { firstName: 'Tom', lastName: 'Joueur' },
-        },
-      };
-    }
-
-    it("renvoie 403 si l'appelant n'a pas de fiche membre dans ce club", async () => {
-      const findByUserAndClub = jest.fn().mockResolvedValue(null);
-      const membersStub = { findByUserAndClub } as unknown as MembersService;
-      const svc = new PlayerAbsencesService(
-        {} as PrismaService,
-        membersStub,
-        permissionsServiceStub,
-      );
-
-      await expect(
-        svc.findMineInClub(1, 999, {
-          dateFrom: new Date(2026, 0, 1),
-          dateTo: new Date(2026, 11, 31),
-        }),
-      ).rejects.toBeInstanceOf(AppException);
-    });
-
-    it('scope CLUB/ALL : toutes les absences du club dont la période chevauche la fenêtre demandée', async () => {
-      const findByUserAndClub = jest.fn().mockResolvedValue(caller);
-      const membersStub = { findByUserAndClub } as unknown as MembersService;
-      const can = jest.fn().mockResolvedValue('CLUB');
-      const permissionsStub = { can } as unknown as PermissionsService;
-      const found = absenceWithMember();
-      absenceFindMany.mockResolvedValue([found]);
-      const prismaStub = {
-        playerAbsence: { findMany: absenceFindMany },
-      } as unknown as PrismaService;
-      const svc = new PlayerAbsencesService(
-        prismaStub,
-        membersStub,
-        permissionsStub,
-      );
-
-      const dateFrom = new Date(2026, 0, 1);
-      const dateTo = new Date(2026, 11, 31);
-      const result = await svc.findMineInClub(1, 7, { dateFrom, dateTo });
-
-      expect(can).toHaveBeenCalledWith(42, 'READ', 'player_absence', {
-        clubId: 1,
-      });
-      expect(absenceFindMany).toHaveBeenCalledWith({
-        where: {
-          player: { member: { clubId: 1 } },
-          startDate: { lte: dateTo },
-          endDate: { gte: dateFrom },
-        },
-        include: { player: { include: { member: true } } },
-        orderBy: { startDate: 'asc' },
-      });
-      expect(result).toEqual([
-        {
-          id: found.id,
-          playerId: found.playerId,
-          firstName: 'Tom',
-          lastName: 'Joueur',
-          reason: found.reason,
-          startDate: found.startDate,
-          endDate: found.endDate,
-          isExcused: found.isExcused,
-        },
-      ]);
-    });
-
-    it('scope TEAM : restreint aux joueurs ayant un PlayerTeam actif sur une équipe accessible', async () => {
-      const findByUserAndClub = jest.fn().mockResolvedValue(caller);
-      const membersStub = { findByUserAndClub } as unknown as MembersService;
-      const can = jest.fn().mockResolvedValue(null);
-      const permissionsStub = { can } as unknown as PermissionsService;
-      const teamFindMany = jest.fn().mockResolvedValue([{ id: 5 }]);
-      absenceFindMany.mockResolvedValue([]);
-      const prismaStub = {
-        playerAbsence: { findMany: absenceFindMany },
-        team: { findMany: teamFindMany },
-      } as unknown as PrismaService;
-      const svc = new PlayerAbsencesService(
-        prismaStub,
-        membersStub,
-        permissionsStub,
-      );
-
-      const dateFrom = new Date(2026, 0, 1);
-      const dateTo = new Date(2026, 11, 31);
-      await svc.findMineInClub(1, 7, { dateFrom, dateTo });
-
-      expect(teamFindMany).toHaveBeenCalledWith({
-        where: {
-          clubId: 1,
-          memberRoles: { some: { memberId: 42, teamId: { not: null } } },
-        },
-        select: { id: true },
-      });
-      expect(absenceFindMany).toHaveBeenCalledWith({
-        where: {
-          player: {
-            member: { clubId: 1 },
-            playerTeams: { some: { teamId: { in: [5] }, leaveDate: null } },
-          },
-          startDate: { lte: dateTo },
-          endDate: { gte: dateFrom },
-        },
-        include: { player: { include: { member: true } } },
-        orderBy: { startDate: 'asc' },
-      });
-    });
-
-    it('scope TEAM sans équipe accessible : liste vide, aucune requête sur PlayerAbsence', async () => {
-      const findByUserAndClub = jest.fn().mockResolvedValue(caller);
-      const membersStub = { findByUserAndClub } as unknown as MembersService;
-      const can = jest.fn().mockResolvedValue(null);
-      const permissionsStub = { can } as unknown as PermissionsService;
-      const teamFindMany = jest.fn().mockResolvedValue([]);
-      const prismaStub = {
-        playerAbsence: { findMany: absenceFindMany },
-        team: { findMany: teamFindMany },
-      } as unknown as PrismaService;
-      const svc = new PlayerAbsencesService(
-        prismaStub,
-        membersStub,
-        permissionsStub,
-      );
-
-      const result = await svc.findMineInClub(1, 7, {
-        dateFrom: new Date(2026, 0, 1),
-        dateTo: new Date(2026, 11, 31),
-      });
-
-      expect(result).toEqual([]);
-      expect(absenceFindMany).not.toHaveBeenCalled();
     });
   });
 });

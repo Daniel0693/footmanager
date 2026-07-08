@@ -2,9 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertPlayerInTeam } from '../common/player-team-membership';
-import { MembersService } from '../members/members.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { PermissionsService } from '../roles/permissions.service';
 import { CreatePlayerAbsenceDto } from './dto/create-player-absence.dto';
 import { FindPlayerAbsencesQueryDto } from './dto/find-player-absences-query.dto';
 import { UpdatePlayerAbsenceDto } from './dto/update-player-absence.dto';
@@ -15,17 +13,6 @@ export interface PlayerAbsenceRequestContext {
   // Résolu depuis la query `?teamId=` (voir controller) — requis uniquement
   // quand `scope === 'TEAM'` (voir assertPlayerInTeam).
   teamId?: number;
-}
-
-export interface MyAbsence {
-  id: number;
-  playerId: number;
-  firstName: string;
-  lastName: string;
-  reason: string;
-  startDate: Date;
-  endDate: Date;
-  isExcused: boolean | null;
 }
 
 /**
@@ -43,11 +30,7 @@ export interface MyAbsence {
  */
 @Injectable()
 export class PlayerAbsencesService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly membersService: MembersService,
-    private readonly permissionsService: PermissionsService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(
     clubId: number,
@@ -162,95 +145,5 @@ export class PlayerAbsencesService {
       );
     }
     return player;
-  }
-
-  /**
-   * Absences visibles par l'appelant dans la fenêtre [dateFrom, dateTo]
-   * (docs/modules/calendrier-evenements.md §Absences), affichées comme
-   * période bloquée dans le calendrier. Contourne volontairement
-   * PermissionsGuard — même raison que MembersService.findBirthdaysInClub :
-   * un Coach peut avoir plusieurs équipes, une route sans teamId dans l'URL
-   * ne pourrait jamais matcher un scope TEAM via le moteur RBAC générique.
-   *
-   * Scope CLUB/ALL (AdminClub/SuperAdmin) : toutes les absences du club.
-   * Scope TEAM (Coach/Player) : absences des joueurs ayant un `PlayerTeam`
-   * actif (`leaveDate: null`) sur une équipe accessible — contrairement aux
-   * anniversaires, pas de chemin "staff" ici (une absence ne concerne que
-   * des joueurs, `PlayerAbsence.playerId` référence toujours PlayerProfile).
-   *
-   * Chevauchement de plage (pas une correspondance exacte) : une absence est
-   * incluse dès que sa période croise [dateFrom, dateTo], même si elle a
-   * commencé avant ou se termine après la fenêtre affichée.
-   */
-  async findMineInClub(
-    clubId: number,
-    userId: number,
-    range: { dateFrom: Date; dateTo: Date },
-    teamIds?: number[],
-  ): Promise<MyAbsence[]> {
-    const member = await this.membersService.findByUserAndClub(userId, clubId);
-    if (!member) {
-      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
-    }
-
-    const clubWideScope = await this.permissionsService.can(
-      member.id,
-      'READ',
-      'player_absence',
-      { clubId },
-    );
-
-    const playerFilter = clubWideScope
-      ? { member: { clubId } }
-      : await this.buildTeamScopedPlayerFilter(clubId, member.id, teamIds);
-    if (!playerFilter) return [];
-
-    const absences = await this.prisma.playerAbsence.findMany({
-      where: {
-        player: playerFilter,
-        startDate: { lte: range.dateTo },
-        endDate: { gte: range.dateFrom },
-      },
-      include: { player: { include: { member: true } } },
-      orderBy: { startDate: 'asc' },
-    });
-
-    return absences.map((a) => ({
-      id: a.id,
-      playerId: a.playerId,
-      firstName: a.player.member.firstName,
-      lastName: a.player.member.lastName,
-      reason: a.reason,
-      startDate: a.startDate,
-      endDate: a.endDate,
-      isExcused: a.isExcused,
-    }));
-  }
-
-  private async buildTeamScopedPlayerFilter(
-    clubId: number,
-    callerMemberId: number,
-    teamIds?: number[],
-  ) {
-    const accessibleTeams = await this.prisma.team.findMany({
-      where: {
-        clubId,
-        memberRoles: {
-          some: { memberId: callerMemberId, teamId: { not: null } },
-        },
-      },
-      select: { id: true },
-    });
-    const accessibleTeamIds = teamIds?.length
-      ? accessibleTeams.map((t) => t.id).filter((id) => teamIds.includes(id))
-      : accessibleTeams.map((t) => t.id);
-    if (!accessibleTeamIds.length) return null;
-
-    return {
-      member: { clubId },
-      playerTeams: {
-        some: { teamId: { in: accessibleTeamIds }, leaveDate: null },
-      },
-    };
   }
 }

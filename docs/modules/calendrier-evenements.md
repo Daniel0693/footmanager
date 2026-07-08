@@ -43,15 +43,21 @@ les occurrences passées par rapport à la fenêtre demandée.
 l'équipe. CRUD scopé joueur (`POST/GET/PATCH/DELETE clubs/:clubId/players/:playerId/absences`,
 permission `player_absence`), même conventions que `player_objective` (assignation automatique
 de `reportedById` au membre appelant, `assertPlayerInTeam` pour le scope Coach) mais sans modèle
-de visibilité — une absence n'a rien à cacher entre Privé/Semi-privé/Public.
+de visibilité — une absence n'a rien à cacher entre Privé/Semi-privé/Public. Seule interface :
+l'onglet Absence de la fiche joueur (`AbsenceTab`, liste/création/édition/suppression avec
+confirmation obligatoire).
 
-Backend agrégé calendrier : `GET /clubs/:clubId/absences/mine`
-(`PlayerAbsencesService.findMineInClub`), même principe de scope que `events/mine` et
-`members/birthdays` — club entier pour AdminClub/SuperAdmin, sinon joueurs ayant un `PlayerTeam`
-actif sur une équipe accessible (pas de chemin "staff" ici, contrairement aux anniversaires : une
-absence ne concerne que des joueurs). Chevauchement de plage (pas une correspondance exacte) :
-une absence est incluse dès que sa période croise la fenêtre demandée, même commencée avant ou
-terminée après.
+**Décision — pas d'affichage dans le calendrier (2026-07-08)** : une première itération affichait
+les absences comme bandeau/entrée par-joueur dans les 3 vues (Mois/Semaine/Liste), avec un endpoint
+d'agrégation dédié (`GET /clubs/:clubId/absences/mine`, même principe que `events/mine`/
+`members/birthdays`). Retirée après retour utilisateur : un bandeau par absence grandit
+linéairement (une ligne par joueur absent, par semaine) — invivable en période de vacances avec
+7-10 absents simultanés dans une équipe. L'endpoint d'agrégation a été retiré avec l'affichage
+(pas de consommateur restant) plutôt que gardé inutilisé. Si un affichage calendrier est repris un
+jour, privilégier un indicateur agrégé par jour (ex. "N absents", hauteur fixe) plutôt qu'un
+bandeau par personne — voir aussi le futur compteur de participants aux événements
+(entraînement/match), qui répond à un besoin proche mais est un calcul par événement, pas une
+agrégation par club/équipe.
 
 ## Lien avec les autres modules
 

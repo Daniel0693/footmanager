@@ -293,11 +293,7 @@ describe('Module Calendrier — scénario multi-rôles (PlayerAbsencesController
       },
       playerTeam: { findFirst: playerTeamFindFirst },
     } as unknown as PrismaService;
-    absencesService = new PlayerAbsencesService(
-      prismaStub,
-      membersService,
-      permissionsService,
-    );
+    absencesService = new PlayerAbsencesService(prismaStub);
   });
 
   it('AdminClub consulte les absences de n’importe quel joueur de son club', async () => {

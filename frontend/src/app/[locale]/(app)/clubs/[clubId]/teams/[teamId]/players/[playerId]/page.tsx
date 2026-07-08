@@ -23,6 +23,7 @@ import {
   ExistingPlayer,
   PlayerFormDialog,
 } from "@/components/players/player-form-dialog";
+import { AbsenceTab } from "@/components/players/absence-tab";
 import { EvaluationTab } from "@/components/players/evaluation-tab";
 import { InterviewsTab } from "@/components/players/interviews-tab";
 import { MeasurementsTab } from "@/components/players/measurements-tab";
@@ -364,13 +365,17 @@ export function PlayerDetailPageContent({
           <TabsContent value="evaluation" className="lg:flex lg:min-h-0 lg:flex-col">
             <EvaluationTab clubId={clubId} teamId={teamId} playerId={playerId} />
           </TabsContent>
+          <TabsContent value="absence" className="lg:flex lg:min-h-0 lg:flex-col">
+            <AbsenceTab clubId={clubId} teamId={teamId} playerId={playerId} />
+          </TabsContent>
           {DETAIL_TABS.filter(
             (tab) =>
               tab !== "measurements" &&
               tab !== "interview" &&
               tab !== "notes" &&
               tab !== "objectives" &&
-              tab !== "evaluation",
+              tab !== "evaluation" &&
+              tab !== "absence",
           ).map((tab) => (
             <TabsContent key={tab} value={tab}>
               <Card>
