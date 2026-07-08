@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -13,6 +14,7 @@ import { RequirePermission } from '../auth/decorators/require-permission.decorat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CreateMemberDto } from './dto/create-member.dto';
+import { FindBirthdaysQueryDto } from './dto/find-birthdays-query.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { UpdateMyMemberDto } from './dto/update-my-member.dto';
 import { MembersService } from './members.service';
@@ -51,6 +53,25 @@ export class MembersController {
     @Body() dto: UpdateMyMemberDto,
   ) {
     return this.membersService.updateMe(clubId, user.userId, dto);
+  }
+
+  // Anniversaires visibles par l'appelant (docs/modules/calendrier-evenements.md
+  // §Anniversaires) : même raison de contournement que 'me' ci-dessus — un
+  // Coach peut couvrir plusieurs équipes, cette route sans teamId ne pourrait
+  // jamais matcher un scope TEAM via PermissionsGuard. Le scope club/équipe
+  // est résolu manuellement dans MembersService.findBirthdaysInClub.
+  @Get('birthdays')
+  findBirthdays(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @CurrentUser() user: { userId: number },
+    @Query() query: FindBirthdaysQueryDto,
+  ) {
+    return this.membersService.findBirthdaysInClub(
+      clubId,
+      user.userId,
+      { dateFrom: query.dateFrom, dateTo: query.dateTo },
+      query.teamIds,
+    );
   }
 
   // Cette route ne porte pas de teamId dans l'URL : un Coach (rôle scopé
