@@ -13,8 +13,8 @@ export default function CalendarPage({
   const t = useTranslations("calendar");
 
   return (
-    <div className="flex w-full flex-col gap-6 p-4">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+    <div className="flex w-full flex-col gap-4 p-4 lg:h-full lg:min-h-0">
+      <h1 className="shrink-0 text-2xl font-semibold">{t("title")}</h1>
       <CalendarPageContent clubId={clubId} />
     </div>
   );

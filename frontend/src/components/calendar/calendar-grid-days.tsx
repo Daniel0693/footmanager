@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import { useEffect, useState } from "react";
 import type { ExistingEvent } from "@/components/calendar/event-form-dialog";
 import { eventTypeColorClass, teamColorClass } from "@/lib/calendar-color";
@@ -9,9 +10,11 @@ import { cn } from "@/lib/utils";
 type CalendarEvent = ExistingEvent;
 
 /**
- * Grille de jours réutilisée par les vues Mensuelle (B5, 42 jours) et
- * Hebdomadaire (B6, 7 jours) — mêmes briques de code couleur et
- * d'interaction (docs/roadmap.md §B6 "réutilise les briques de B5").
+ * Grille de jours de la vue Mensuelle (42 jours, docs/roadmap.md §B5/B6) —
+ * remplit toute la hauteur disponible (grid-template-rows en fr, pas de
+ * hauteur minimale fixe) : chaque cellule défile individuellement
+ * (overflow-y-auto) si elle contient plus d'événements que sa hauteur ne
+ * peut en montrer, plutôt que de faire défiler toute la page.
  *
  * Sélection par glisser (docs/modules/calendrier-evenements.md §Création) :
  * mousedown pose le début, mouseenter pendant le drag étend la sélection,
@@ -27,7 +30,6 @@ export function CalendarGridDays({
   onSelectRange,
   onEditEvent,
   referenceMonth,
-  cellMinHeightClass = "min-h-24",
 }: {
   days: Date[];
   events: CalendarEvent[];
@@ -35,11 +37,10 @@ export function CalendarGridDays({
   colorMode: "type" | "team";
   onSelectRange: (start: Date, end: Date) => void;
   onEditEvent: (event: CalendarEvent) => void;
-  // Si fourni, grise les jours hors de ce mois (vue Mensuelle uniquement —
-  // la vue Hebdomadaire n'en a pas besoin, ses 7 jours sont tous "courants").
+  // Si fourni, grise les jours hors de ce mois.
   referenceMonth?: Date;
-  cellMinHeightClass?: string;
 }) {
+  const locale = useLocale();
   const [dragStart, setDragStart] = useState<Date | null>(null);
   const [dragEnd, setDragEnd] = useState<Date | null>(null);
 
@@ -80,10 +81,17 @@ export function CalendarGridDays({
     return day >= start && day <= end;
   };
 
+  const formatTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+
   const today = new Date();
+  const rowCount = days.length / 7;
 
   return (
-    <div className="grid select-none grid-cols-7 gap-px overflow-hidden rounded-md border bg-border">
+    <div
+      className="grid min-h-0 flex-1 select-none grid-cols-7 gap-px overflow-hidden rounded-md border bg-border"
+      style={{ gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))` }}
+    >
       {days.map((day) => {
         const key = toDayKey(day);
         const dayEvents = eventsByDay.get(key) ?? [];
@@ -100,22 +108,21 @@ export function CalendarGridDays({
               if (dragStart) setDragEnd(day);
             }}
             className={cn(
-              "flex flex-col gap-1 bg-card p-1 text-xs",
-              cellMinHeightClass,
+              "flex min-h-0 flex-col gap-1 bg-card p-1 text-xs",
               isDimmed && "bg-muted/40 text-muted-foreground",
               inDragRange(day) && "bg-accent",
             )}
           >
             <span
               className={cn(
-                "self-end",
+                "shrink-0 self-end",
                 isSameDay(day, today) &&
                   "flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground",
               )}
             >
               {day.getDate()}
             </span>
-            <div className="flex flex-col gap-0.5">
+            <div className="flex min-h-0 flex-col gap-0.5 overflow-y-auto">
               {dayEvents.map((event) => (
                 <button
                   key={event.id}
@@ -128,6 +135,9 @@ export function CalendarGridDays({
                   className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-left hover:bg-accent"
                 >
                   <span className={cn("size-2 shrink-0 rounded-full", colorClassFor(event))} />
+                  <span className="shrink-0 text-muted-foreground">
+                    {formatTime(event.startAt)}
+                  </span>
                   <span className="truncate">{event.title}</span>
                 </button>
               ))}

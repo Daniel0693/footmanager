@@ -157,7 +157,7 @@ l'Effectif) ; `TrainingSession`/`Match` (extensions 1–1 de `Event`, Phases 4/5
 | B4 — Frontend fondation calendrier + vue Liste | ✅ | Page `/clubs/:clubId/calendar`, filtres sidebar (cases à cocher type/équipe, résolus côté backend via `?types=`/`?teamIds=` — sélection vide affichée sans aller-retour réseau), vue **Liste** (timeline, même famille que Notes/Objectifs), dialogue création/édition (`EventFormDialog`, sélecteur d'équipe en création uniquement — équipe non modifiable en édition). Backend étendu : `FindMyEventsQueryDto` (CSV `types`/`teamIds`, distinct du `type` singulier de `findAllByTeam`). Nouveau composant `ui/checkbox.tsx` (Base UI) + polyfill `PointerEvent` dans `jest.setup.ts` (jsdom, nécessaire aux tests d'interaction Base UI). 12 tests frontend (dialogue + page) + 2 tests backend supplémentaires (filtre `teamIds`) |
 | B5 — Vue Mensuelle | ✅ | `CalendarMonthView` : grille de 6 semaines, création au clic (mousedown+mouseup même jour) et par glisser (mousedown+mouseenter+mouseup, écouté sur `window` pour capter un relâchement hors grille) → `EventFormDialog` piloté en externe (nouveaux props `open`/`onOpenChange`/`defaultDate`/`defaultEndDate`, `trigger` devenu optionnel), clic sur un événement → édition. Palette catégorielle validée ajoutée aux tokens `--chart-1..8` (globals.css, jusque-là un placeholder gris inutilisé — skill dataviz, `references/palette.md`, ΔE 24.2 clair/10.3 sombre) ; `lib/calendar-color.ts` assigne type→3 premiers slots (Coach/Player) ou équipe→slot par position (AdminClub), repli neutre au-delà de 8. **Simplification documentée** : le mode de couleur (`type` vs `équipe`) est dérivé de `teams.length > 1` (proxy sur le nombre d'équipes accessibles), pas d'une détection de rôle réelle — non exposée côté frontend actuellement ; à revisiter si un futur cas (ex. Coach multi-équipes) s'avère mal servi par ce proxy. **Écart au découpage initial** : un sélecteur Liste/Mois (`Tabs`) a été ajouté dès B5 (prévu pour B7) — sans lui, la vue Mensuelle aurait été inatteignable et invérifiable en navigateur ; B7 l'étendra avec Hebdomadaire + persistance du choix. 9 tests frontend ajoutés (`calendar-month-view.test.tsx`, 6 + extensions `calendar-page-content.test.tsx`, 3) — 168 tests frontend au total |
 | B6 — Vue Hebdomadaire | ✅ | `CalendarWeekView` : 7 jours (lundi-dimanche), mêmes briques que B5 — grille de jours extraite dans `CalendarGridDays` (partagée Mois/Semaine, plus de duplication du drag-to-select ni du code couleur), cellules plus hautes (une seule rangée). Aides de date communes dans `lib/calendar-grid.ts`. Troisième onglet ajouté au sélecteur Liste/Mois de B5. 7 tests ajoutés (5 `calendar-week-view.test.tsx` + 2 `calendar-page-content.test.tsx`) — 175 tests frontend au total. **Le sélecteur de vue à 3 voies existe donc déjà** ; B7 se limite désormais à la persistance du choix (pas de nouveau switcher à construire) |
-| B7 — Sélecteur de vue | ⬜ | Bascule Mensuel / Hebdomadaire / Liste, persistance du choix |
+| B7 — Sélecteur de vue | ⬜ | Bascule Mensuel/Hebdomadaire/Liste déjà en place depuis B5/B6 (`Tabs`) — reste à faire : persistance du choix (view/mois/semaine sélectionnés, ex. query params) entre navigations |
 | B8 — `PlayerAbsence` | ⬜ | Schéma + migration, CRUD backend, affichage minimal dans le calendrier, réactivation de l'onglet Absence sur la fiche joueur |
 | B9 — Tests multi-rôles bout-en-bout | ⬜ | Scénario "Marc" (Coach/Player/Parent, voir `docs/modules/auth-roles.md` §Multi-rôles) appliqué au Calendrier + smoke test Docker + revue de cohérence doc ↔ code |
 
@@ -166,6 +166,40 @@ conditionne toute vue calendrier (B3), puis le frontend en commençant par la vu
 (Liste, B4) avant la grille (Mensuelle B5, dont Hebdomadaire B6 est une variante), sélecteur de
 vue en B7, `PlayerAbsence` greffé en avant-dernier comme une entité annexe (même position que
 les onglets A7.x), tests multi-rôles en dernier (B9, miroir d'A8).
+
+**Corrections post-revue visuelle (2026-07-08, sur B5/B6)** : premier retour en conditions
+réelles (capture d'écran) de l'Entraîneur Daniel après B5/B6, quatre correctifs appliqués avant
+de poursuivre :
+- **Hauteur pleine page, sans scroll de page** : chaîne flexbox `lg:min-h-0`/`lg:flex-1` de
+  `page.tsx` jusqu'aux vues (déjà le pattern des onglets Mesures/Évaluation en Effectif) — seules
+  les zones internes défilent désormais (liste, cellule de grille mensuelle, grille horaire
+  hebdomadaire).
+- **Chaque vue borne désormais sa propre requête à sa plage affichée** (`lib/calendar-events-api.ts`,
+  `fetchCalendarEvents`) — jusque-là `CalendarPageContent` chargeait tous les événements
+  correspondant aux filtres sans borne de dates, quelle que soit la vue active. Mois/Semaine
+  rechargent au changement de mois/semaine (ou de filtres, via `refreshKey`) ; toute mutation
+  (création/édition/suppression) déclenche un rechargement via ce même `refreshKey`, plus de
+  `load()` centralisé dans `CalendarPageContent`.
+- **Vue Liste → scroll infini** (`CalendarListView`, nouveau composant) : fenêtre initiale de
+  J-14 à J+60 autour d'aujourd'hui, extension par blocs de 30 jours au scroll (vers le haut =
+  passé, vers le bas = futur), compensation du saut visuel au prepend (ajustement de `scrollTop`
+  après ajout de contenu en haut).
+- **Vue Hebdomadaire → grille horaire** (reconstruite, remplace l'ancienne grille de type Mensuel
+  zoomée) : créneaux positionnés par heure (06h-23h, scroll interne), répartition côte-à-côte des
+  événements qui se chevauchent (algorithme de voies glouton, pas un compactage optimal), bandeau
+  dédié pour les événements multi-jours au-dessus de la grille. Simplification documentée : plus
+  de glisser multi-jours dans cette vue (clic simple → un point précis dans le temps) — le glisser
+  multi-jours reste disponible en vue Mensuelle.
+- **Vue Mensuelle** : heure de chaque événement désormais affichée à côté du titre dans la cellule
+  (`CalendarGridDays`).
+- Correctif associé : `EventFormDialog.atDefaultHour` ne forçait pas la bonne heure — une date
+  pré-remplie portant déjà une heure précise (clic dans la grille horaire Semaine) était écrasée
+  à 9h ; ne s'applique désormais qu'aux dates à minuit (clic sur une cellule de jour, vue
+  Mensuelle).
+- `calendar-list-view.test.tsx` nouveau (6 tests) ; `calendar-month-view.test.tsx`,
+  `calendar-week-view.test.tsx` et `calendar-page-content.test.tsx` largement réécrits pour le
+  nouveau modèle de chargement par vue (chaque test mocke désormais `apiFetch` avec sa propre
+  fenêtre de dates plutôt que de recevoir des `events` en prop) — 184 tests frontend au total.
 
 ---
 

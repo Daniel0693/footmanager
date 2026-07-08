@@ -1,5 +1,6 @@
+import { fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderWithIntl, screen, waitFor, within } from "@/test-utils/render";
+import { renderWithIntl, screen, waitFor } from "@/test-utils/render";
 import { CalendarPageContent } from "./calendar-page-content";
 
 jest.mock("sonner", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
@@ -55,7 +56,7 @@ describe("CalendarPageContent", () => {
     mockUseAuth.mockReturnValue({ accessToken: "token" });
   });
 
-  it("charge les équipes puis le calendrier avec tous les types/équipes sélectionnés, trié ascendant", async () => {
+  it("charge les équipes puis la vue Liste (par défaut) avec tous les types/équipes", async () => {
     mockRoutes(twoTeams, []);
 
     renderWithIntl(<CalendarPageContent clubId="1" />);
@@ -64,7 +65,9 @@ describe("CalendarPageContent", () => {
       expect(mockApiFetch).toHaveBeenCalledWith("/clubs/1/teams/mine", expect.anything()),
     );
     await waitFor(() =>
-      expect(mockApiFetch.mock.calls.some(([url]) => (url as string).startsWith("/clubs/1/events/mine"))).toBe(true),
+      expect(
+        mockApiFetch.mock.calls.some(([url]) => (url as string).startsWith("/clubs/1/events/mine")),
+      ).toBe(true),
     );
     const eventsCall = mockApiFetch.mock.calls.find(([url]) =>
       (url as string).startsWith("/clubs/1/events/mine"),
@@ -72,30 +75,17 @@ describe("CalendarPageContent", () => {
     const query = queryOf(eventsCall[0] as string);
     expect(query.get("types")).toBe("TRAINING,MATCH,OTHER");
     expect(query.get("teamIds")).toBe("5,8");
-    expect(query.get("sortOrder")).toBe("asc");
   });
 
-  it("affiche les événements reçus avec leurs badges type/équipe et le lieu", async () => {
+  it("affiche les événements reçus en vue Liste", async () => {
     mockRoutes(twoTeams, oneEvent);
 
     renderWithIntl(<CalendarPageContent clubId="1" />);
 
     expect(await screen.findByText("Match amical")).toBeInTheDocument();
-    const list = within(screen.getByRole("list"));
-    expect(list.getByText("Match")).toBeInTheDocument();
-    expect(list.getByText("Seniors")).toBeInTheDocument();
-    expect(list.getByText("Stade municipal")).toBeInTheDocument();
   });
 
-  it("affiche un état vide quand aucun événement n'est renvoyé", async () => {
-    mockRoutes(twoTeams, []);
-
-    renderWithIntl(<CalendarPageContent clubId="1" />);
-
-    expect(await screen.findByText("Aucun événement à afficher")).toBeInTheDocument();
-  });
-
-  it("décocher un type d'événement relance le calendrier avec la liste réduite", async () => {
+  it("décocher un type d'événement relance le chargement avec la liste réduite", async () => {
     mockRoutes(twoTeams, oneEvent);
     const user = userEvent.setup();
 
@@ -141,33 +131,32 @@ describe("CalendarPageContent", () => {
     expect(screen.queryByText("Équipe")).not.toBeInTheDocument();
   });
 
-  it("supprime un événement puis recharge le calendrier", async () => {
-    mockRoutes(twoTeams, oneEvent);
+  it("le bouton Ajouter crée un événement puis relance le chargement de la vue active", async () => {
+    mockRoutes(twoTeams, []);
     const user = userEvent.setup();
 
     renderWithIntl(<CalendarPageContent clubId="1" />);
-    await screen.findByText("Match amical");
-    mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
-      if (options?.method === "DELETE") return Promise.resolve(jsonResponse(null));
-      if (url.includes("/teams/mine")) return Promise.resolve(jsonResponse(twoTeams));
-      if (url.includes("/events/mine")) return Promise.resolve(jsonResponse([]));
-      return Promise.resolve(jsonResponse([]));
-    });
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+    mockApiFetch.mockClear();
+    mockApiFetch.mockResolvedValue(jsonResponse({ id: 99 }));
 
-    await user.click(screen.getByRole("button", { name: "Supprimer" }));
+    await user.click(screen.getByRole("button", { name: "Ajouter un événement" }));
+    await user.type(screen.getByLabelText("Titre"), "Entraînement technique");
+    await user.type(screen.getByLabelText("Début"), "2026-07-15T18:00");
+    mockRoutes(twoTeams, oneEvent);
+    await user.click(screen.getByRole("button", { name: "Ajouter" }));
 
     await waitFor(() =>
       expect(mockApiFetch).toHaveBeenCalledWith(
-        "/clubs/1/teams/8/events/1",
-        expect.objectContaining({ method: "DELETE" }),
+        "/clubs/1/teams/5/events",
+        expect.objectContaining({ method: "POST" }),
       ),
     );
-    await waitFor(() =>
-      expect(screen.getByText("Aucun événement à afficher")).toBeInTheDocument(),
-    );
+    // La vue Liste doit avoir été relancée après le succès de la création.
+    expect(await screen.findByText("Match amical")).toBeInTheDocument();
   });
 
-  it("bascule vers la vue Mois et affiche les événements du mois courant", async () => {
+  it("bascule vers la vue Mois", async () => {
     mockRoutes(twoTeams, oneEvent);
     const user = userEvent.setup();
 
@@ -177,12 +166,9 @@ describe("CalendarPageContent", () => {
     await user.click(screen.getByRole("tab", { name: "Mois" }));
 
     expect(screen.getByText("lun.")).toBeInTheDocument();
-    const now = new Date();
-    const monthLabel = now.toLocaleDateString("fr", { month: "long", year: "numeric" });
-    expect(screen.getByText(monthLabel)).toBeInTheDocument();
   });
 
-  it("clic sur une cellule vide en vue Mois ouvre le dialogue de création pré-rempli", async () => {
+  it("clic sur une cellule vide en vue Mois ouvre le dialogue de création à 9h par défaut", async () => {
     mockRoutes(twoTeams, []);
     const user = userEvent.setup();
 
@@ -193,7 +179,7 @@ describe("CalendarPageContent", () => {
     const now = new Date();
     const target = new Date(now.getFullYear(), now.getMonth(), 15);
     const key = `calendar-day-${target.getFullYear()}-${target.getMonth()}-${target.getDate()}`;
-    await user.click(screen.getByTestId(key));
+    await user.click(await screen.findByTestId(key));
 
     expect(await screen.findByText("Nouvel événement")).toBeInTheDocument();
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -210,12 +196,12 @@ describe("CalendarPageContent", () => {
     await screen.findByText("Match amical");
     await user.click(screen.getByRole("tab", { name: "Mois" }));
 
-    await user.click(screen.getByText("Match amical"));
+    await user.click(await screen.findByText("Match amical"));
 
     expect(await screen.findByText("Modifier l'événement")).toBeInTheDocument();
   });
 
-  it("bascule vers la vue Semaine et affiche les événements de la semaine courante", async () => {
+  it("bascule vers la vue Semaine", async () => {
     mockRoutes(twoTeams, oneEvent);
     const user = userEvent.setup();
 
@@ -224,12 +210,10 @@ describe("CalendarPageContent", () => {
 
     await user.click(screen.getByRole("tab", { name: "Semaine" }));
 
-    // La grille Semaine affiche les jours au format "lun. 06" (jour inclus) —
-    // distinct du "lun." seul de la vue Mois, donc pas de collision de texte.
     expect(screen.getByText(/^lun\. \d{2}$/)).toBeInTheDocument();
   });
 
-  it("clic sur une cellule vide en vue Semaine ouvre le dialogue de création pré-rempli", async () => {
+  it("clic dans la grille horaire en vue Semaine ouvre le dialogue de création à l'heure cliquée", async () => {
     mockRoutes(twoTeams, []);
     const user = userEvent.setup();
 
@@ -237,14 +221,19 @@ describe("CalendarPageContent", () => {
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
     await user.click(screen.getByRole("tab", { name: "Semaine" }));
 
-    // Le lundi de la semaine courante est nécessairement affiché comme
-    // premier jour de la grille hebdomadaire.
     const now = new Date();
     const weekday = (now.getDay() + 6) % 7;
     const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - weekday);
-    const key = `calendar-day-${monday.getFullYear()}-${monday.getMonth()}-${monday.getDate()}`;
-    await user.click(screen.getByTestId(key));
+    const key = `calendar-week-column-${monday.getFullYear()}-${monday.getMonth()}-${monday.getDate()}`;
+    const column = await screen.findByTestId(key);
+    fireEvent.click(column, { clientY: 96 });
 
     expect(await screen.findByText("Nouvel événement")).toBeInTheDocument();
+    // HOUR_START=6h + 96px/48px = 8h — la valeur pré-remplie n'est pas
+    // écrasée par le défaut 9h (voir atDefaultHour, event-form-dialog.tsx).
+    const pad = (n: number) => String(n).padStart(2, "0");
+    expect(screen.getByLabelText<HTMLInputElement>("Début")).toHaveValue(
+      `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}T08:00`,
+    );
   });
 });

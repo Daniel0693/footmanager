@@ -20,6 +20,18 @@ export function addDays(date: Date, delta: number): Date {
   return result;
 }
 
+export function startOfDay(date: Date): Date {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+export function endOfDay(date: Date): Date {
+  const result = new Date(date);
+  result.setHours(23, 59, 59, 999);
+  return result;
+}
+
 // Lundi = début de semaine (convention française).
 export function startOfWeek(date: Date): Date {
   const weekday = (date.getDay() + 6) % 7;

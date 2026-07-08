@@ -76,8 +76,14 @@ function toOptionalText(value?: string): string | undefined {
 }
 
 // Heure par défaut pour une date posée sans heure précise (clic sur une
-// cellule de jour) : 9h locale, modifiable ensuite dans le formulaire.
+// cellule de jour en vue Mensuelle, toujours à minuit) : 9h locale,
+// modifiable ensuite dans le formulaire. Une date qui porte déjà une heure
+// précise (clic dans la grille horaire de la vue Hebdomadaire) est
+// conservée telle quelle.
 function atDefaultHour(date: Date): Date {
+  if (date.getHours() !== 0 || date.getMinutes() !== 0) {
+    return date;
+  }
   const withHour = new Date(date);
   withHour.setHours(9, 0, 0, 0);
   return withHour;
