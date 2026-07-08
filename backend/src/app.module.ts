@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { ClubsModule } from './clubs/clubs.module';
 import { EvaluationConfigModule } from './evaluation-config/evaluation-config.module';
+import { EventsModule } from './events/events.module';
 import { MembersModule } from './members/members.module';
 import { PlayerEvaluationsModule } from './player-evaluations/player-evaluations.module';
 import { PlayerInterviewsModule } from './player-interviews/player-interviews.module';
@@ -36,6 +37,7 @@ import { UsersModule } from './users/users.module';
     PlayerObjectivesModule,
     PlayerEvaluationsModule,
     EvaluationConfigModule,
+    EventsModule,
   ],
 })
 export class AppModule {}
