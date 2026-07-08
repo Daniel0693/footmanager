@@ -132,8 +132,40 @@ au total après correctif. Voir `docs/modules/auth-roles.md` §Patterns découve
 
 ### Partie B — Module Calendrier
 
-Non commencée. À la conception, statuer sur l'emplacement de `PlayerAbsence` (voir note A7
-ci-dessus).
+Non commencée. Découpage établi le 2026-07-08 (planification, aucun code encore écrit).
+
+**Décision — emplacement de `PlayerAbsence`** : construit dans cette partie (voir B8), pas
+reporté aux Phases 4/5. Version minimale : schéma + CRUD + affichage dans le calendrier comme
+période bloquée + réactivation de l'onglet Absence sur la fiche joueur (retiré en A7). Pas de
+rapprochement automatique avec les convocations (`MatchAttendance`/`TrainingAttendance`
+n'existent pas encore) — ce lien reste différé aux Phases 4/5, comme déjà documenté dans
+`docs/schema/joueurs.md` §PlayerAbsence.
+
+**Hors scope de cette partie** : logique de récurrence (`Event.isRecurring`/`recurringRuleId`
+posés en base mais inertes — `RecurringRule` reste une entité future) ; notifications/rappels
+(décision ouverte #2) ; rôle `Parent` non câblé (décision ouverte #5, même exclusion que
+l'Effectif) ; `TrainingSession`/`Match` (extensions 1–1 de `Event`, Phases 4/5).
+
+**Vues calendrier demandées** : mensuelle, hebdomadaire, liste — avec sélecteur de vue.
+
+| Étape | Statut | Contenu |
+|---|---|---|
+| B0 — Prérequis transverse | ⬜ | Permission `event` (READ/CREATE/UPDATE/DELETE, scope TEAM pour Coach, CLUB pour AdminClub, ALL pour SuperAdmin ; Player en READ seul) ajoutée au seed + entrée `Calendrier` dans `frontend/src/components/layout/nav-modules.ts` (le fichier anticipe déjà "Ajouter un futur module = une entrée de plus ici") |
+| B1 — Schéma `Event` | ⬜ | Migration + enum `EventType` (TRAINING/MATCH/OTHER), index `(teamId, startAt)`. Voir `docs/schema/evenements.md` |
+| B2 — Backend `events` CRUD | ⬜ | CRUD scopé équipe (`/clubs/:clubId/teams/:teamId/events`), réutilise le pattern `?teamId=` et les vérifications d'appartenance équipe déjà établies en Effectif (voir `docs/modules/auth-roles.md` §Patterns découverts) |
+| B3 — Backend vue agrégée multi-équipes | ⬜ | Route self-service `GET /clubs/:clubId/events/mine` (même pattern que `teams/mine`) : agrège les événements de toutes les équipes accessibles selon le scope de l'appelant — condition préalable à toute vue calendrier utilisable (notamment AdminClub multi-équipe) |
+| B4 — Frontend fondation calendrier + vue Liste | ⬜ | Page calendrier, entrée navigation active, filtres sidebar (cases à cocher type/équipe, résolus côté backend via query params), vue **Liste** livrée en premier (table triée/filtrée, même famille que les timelines Notes/Objectifs) — découple filtres/agrégation de la complexité de grille |
+| B5 — Vue Mensuelle | ⬜ | Grille calendrier, code couleur adaptatif par rôle (par type pour Coach/Player, par équipe pour AdminClub), création directe au clic sur une cellule + sélection par glisser (drag-to-select) pour un événement multi-jours |
+| B6 — Vue Hebdomadaire | ⬜ | Réutilise les briques de grille/interaction posées en B5 (variante zoomée) |
+| B7 — Sélecteur de vue | ⬜ | Bascule Mensuel / Hebdomadaire / Liste, persistance du choix |
+| B8 — `PlayerAbsence` | ⬜ | Schéma + migration, CRUD backend, affichage minimal dans le calendrier, réactivation de l'onglet Absence sur la fiche joueur |
+| B9 — Tests multi-rôles bout-en-bout | ⬜ | Scénario "Marc" (Coach/Player/Parent, voir `docs/modules/auth-roles.md` §Multi-rôles) appliqué au Calendrier + smoke test Docker + revue de cohérence doc ↔ code |
+
+Ordre choisi : fondations schéma/CRUD d'abord (B1-B2), puis l'agrégation multi-équipe qui
+conditionne toute vue calendrier (B3), puis le frontend en commençant par la vue la plus simple
+(Liste, B4) avant la grille (Mensuelle B5, dont Hebdomadaire B6 est une variante), sélecteur de
+vue en B7, `PlayerAbsence` greffé en avant-dernier comme une entité annexe (même position que
+les onglets A7.x), tests multi-rôles en dernier (B9, miroir d'A8).
 
 ---
 
