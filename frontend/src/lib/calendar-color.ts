@@ -2,18 +2,23 @@ import type { EventType } from "@/lib/event";
 
 // Palette catégorielle validée (skill dataviz, references/palette.md) :
 // ordre fixe, jamais recyclé. Classes Tailwind littérales (pas de nom
-// construit dynamiquement type `bg-chart-${n}`) pour que le JIT les
+// construit dynamiquement type `bg-palette-${n}`) pour que le JIT les
 // détecte à la compilation — voir globals.css pour les valeurs des
-// variables --chart-1..8.
+// variables --palette-1..8. Nommées "palette" et non "chart" : "chart-1..5"
+// est un espace de noms spécial pour Tailwind/Lightning CSS (convention
+// "Chart" de shadcn) qui générait un repli avec ses propres valeurs neutres
+// par défaut, écrasant silencieusement nos vraies couleurs (bug trouvé en
+// reproduisant en live — les événements Entraînement/Match/Autre
+// s'affichaient tous en gris).
 const CATEGORICAL_SLOTS = [
-  "bg-chart-1",
-  "bg-chart-2",
-  "bg-chart-3",
-  "bg-chart-4",
-  "bg-chart-5",
-  "bg-chart-6",
-  "bg-chart-7",
-  "bg-chart-8",
+  "bg-palette-1",
+  "bg-palette-2",
+  "bg-palette-3",
+  "bg-palette-4",
+  "bg-palette-5",
+  "bg-palette-6",
+  "bg-palette-7",
+  "bg-palette-8",
 ] as const;
 
 // Au-delà de 8 équipes/catégories : repli sur une teinte neutre unique,
@@ -23,16 +28,16 @@ const OTHER_SLOT = "bg-muted-foreground";
 // Variante "checked" des mêmes slots, pour les cases à cocher de la barre de
 // filtres (aide visuelle : la couleur de la case coche doit correspondre à
 // la couleur des événements qu'elle filtre). Classes littérales pour rester
-// détectables par le JIT Tailwind, mêmes jetons --chart-1..8 que ci-dessus.
+// détectables par le JIT Tailwind, mêmes jetons --palette-1..8 que ci-dessus.
 const CATEGORICAL_CHECKBOX_SLOTS = [
-  "data-[checked]:bg-chart-1 data-[checked]:border-chart-1",
-  "data-[checked]:bg-chart-2 data-[checked]:border-chart-2",
-  "data-[checked]:bg-chart-3 data-[checked]:border-chart-3",
-  "data-[checked]:bg-chart-4 data-[checked]:border-chart-4",
-  "data-[checked]:bg-chart-5 data-[checked]:border-chart-5",
-  "data-[checked]:bg-chart-6 data-[checked]:border-chart-6",
-  "data-[checked]:bg-chart-7 data-[checked]:border-chart-7",
-  "data-[checked]:bg-chart-8 data-[checked]:border-chart-8",
+  "data-[checked]:bg-palette-1 data-[checked]:border-palette-1",
+  "data-[checked]:bg-palette-2 data-[checked]:border-palette-2",
+  "data-[checked]:bg-palette-3 data-[checked]:border-palette-3",
+  "data-[checked]:bg-palette-4 data-[checked]:border-palette-4",
+  "data-[checked]:bg-palette-5 data-[checked]:border-palette-5",
+  "data-[checked]:bg-palette-6 data-[checked]:border-palette-6",
+  "data-[checked]:bg-palette-7 data-[checked]:border-palette-7",
+  "data-[checked]:bg-palette-8 data-[checked]:border-palette-8",
 ] as const;
 const OTHER_CHECKBOX_SLOT =
   "data-[checked]:bg-muted-foreground data-[checked]:border-muted-foreground";
