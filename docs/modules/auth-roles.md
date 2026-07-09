@@ -239,6 +239,25 @@ en transmettant `?teamId=` sur les deux appels de création côté frontend
 même limitation que pour l'UPDATE (voir plus haut). Tests de régression dans
 `members-permissions.integration.spec.ts` et `players-permissions.integration.spec.ts`.
 
+**Les agrégations "mine" (`TeamsService.findMineInClub`, `EventsService.findMineInClub`,
+`MembersService.findBirthdaysInClub`) utilisent l'existence d'un `MemberRole` scopé équipe comme
+proxy d'accessibilité, jamais la permission précise du rôle sur la ressource agrégée.** Trouvé en
+B9 (scénario multi-rôles Calendrier,
+`backend/src/common/calendrier-multi-role.integration.spec.ts`) : ces méthodes contournent
+volontairement `PermissionsGuard` (voir le pattern route `/mine` ci-dessus) et, faute de scope
+club-entier, retombent sur "l'appelant a-t-il UN `MemberRole` quelconque avec un `teamId` non nul
+sur cette équipe ?" — une requête relationnelle directe sur `MemberRole`, qui ne revérifie pas que
+LA permission demandée (`event READ`, `member READ`...) est bien accordée à CE rôle précis sur
+CETTE équipe. Concrètement : un rôle qui obtiendrait un jour un `MemberRole` scopé équipe sans la
+permission `event`/`member` correspondante (le rôle `Parent`, par exemple, s'il était un jour
+rattaché à l'équipe de son enfant) verrait quand même le calendrier/les anniversaires de cette
+équipe via `/mine`, uniquement parce que le `MemberRole` existe. Sans impact aujourd'hui (`Parent`
+n'est pas câblé à un `MemberRole` équipe en pratique, décision ouverte #5) et cohérent avec le
+comportement déjà établi de `TeamsService.findMineInClub` (Phase 3, antérieur au module
+Calendrier) — décision de ne pas corriger maintenant, documentée plutôt que laissée implicite.
+Si un rôle scopé équipe sans permission Calendrier apparaît un jour, revoir ce point avant de le
+déployer.
+
 ### Multi-rôles — règle de test obligatoire
 
 **Toute modification touchant aux droits doit être testée avec au moins un scénario multi-rôles
@@ -261,8 +280,11 @@ Phase 2), `backend/src/common/effectif-multi-role.integration.spec.ts` l'appliqu
 ressources réelles (Mesures/Entretien/Notes/Objectifs/Évaluation) via les vrais guards/services
 — un seul membre (Marc) cumulant Coach/Player/Parent dans des contextes distincts, à la
 différence des `*-permissions.integration.spec.ts` de chaque module qui utilisent toujours un
-utilisateur différent par rôle. Le scénario Calendrier (séances/matchs/convocations) cité
-ci-dessus reste à couvrir concrètement une fois ce module construit (Partie B).
+utilisateur différent par rôle. Pour le module Calendrier (B9, Partie B),
+`backend/src/common/calendrier-multi-role.integration.spec.ts` applique le même principe à
+`Event`/`PlayerAbsence` (CRUD réel via guards/services) et aux agrégations "mine"
+(`events/mine`, `members/birthdays`, exercées avec le vrai `PermissionsService` — voir le
+constat documenté ci-dessus sur leur proxy `MemberRole`).
 
 ### Propriétaire — mécanisme de transfert sécurisé
 

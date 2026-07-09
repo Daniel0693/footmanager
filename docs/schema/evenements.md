@@ -298,4 +298,5 @@ dénormalisées en MVP.
 @@index([matchId])                                sur MatchPeriod, MatchLineup, MatchEvent, MatchAttendance
 @@index([playerId])                               sur TrainingAttendance, TrainingFeedback, MatchPlayerRating
 @@index([teamId, startAt])                        sur Event
+@@index([recurringGroupId])                       sur Event
 ```

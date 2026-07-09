@@ -62,10 +62,11 @@ agrégation par club/équipe.
 ## Lien avec les autres modules
 
 - Un événement de type "entraînement" est étendu en relation 1–1 par l'entité
-  `TrainingSession` (voir `docs/modules/entrainement.md` et `docs/schema-bdd.md` §11).
+  `TrainingSession` (voir `docs/modules/entrainement.md` et `docs/schema/evenements.md`
+  §TrainingSession).
 - Le statut "blessé" d'un joueur (module Blessures) peut, à terme, influer sur sa disponibilité
   affichée pour les événements du calendrier — intégration légère, pas un couplage fort
   (voir `docs/modules/blessures.md`).
 - Les absences planifiées (`PlayerAbsence`) sont conceptuellement liées au calendrier mais le
   rapprochement automatique avec les événements n'est pas encore câblé — voir
-  `docs/schema-bdd.md` §9.
+  `docs/schema/joueurs.md` §PlayerAbsence.
