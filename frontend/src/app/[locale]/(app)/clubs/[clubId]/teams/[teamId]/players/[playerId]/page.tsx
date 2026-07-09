@@ -13,7 +13,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Link } from "@/i18n/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/date-format";
 import type { Foot } from "@/lib/foot";
@@ -96,7 +96,7 @@ export function PlayerDetailPageContent({
     // résout déjà clubId/teamId depuis params, body OU query.
     const response = await apiFetch(
       `/clubs/${clubId}/players/${playerId}?teamId=${teamId}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+      { headers: authHeaders(accessToken) },
     );
     if (!response.ok) throw new Error();
     return response.json();
@@ -204,7 +204,7 @@ export function PlayerDetailPageContent({
         `/clubs/${clubId}/teams/${teamId}/players/${assignment.id}`,
         {
           method: "PATCH",
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: authHeaders(accessToken),
           body: JSON.stringify(body),
         },
       );

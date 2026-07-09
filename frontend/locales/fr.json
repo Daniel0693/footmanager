@@ -1,7 +1,9 @@
 {
   "common": {
     "appName": "FootManager",
-    "comingSoon": "Cette section arrivera dans une prochaine phase."
+    "appDescription": "FootManager — plateforme de gestion de club sportif",
+    "comingSoon": "Cette section arrivera dans une prochaine phase.",
+    "close": "Fermer"
   },
   "nav": {
     "home": "Accueil",

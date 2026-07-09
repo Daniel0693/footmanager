@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { eventTypeColorClass, teamColorClass } from "@/lib/calendar-color";
 import {
   addDays,
+  assignLanes,
   endOfDay,
   isMultiDay,
   isSameDay,
@@ -53,33 +54,16 @@ function effectiveEndFraction(event: CalendarEvent): number {
   return timeToHourFraction(event.startAt) + DEFAULT_DURATION_HOURS;
 }
 
-// Répartit les événements chevauchants d'un même jour en colonnes côte à
-// côte (algorithme glouton par "voies" — pas un compactage optimal comme
-// Google Calendar, mais suffisant pour visualiser les chevauchements).
-function assignLanes(dayEvents: CalendarEvent[]): Map<number, { lane: number; laneCount: number }> {
-  const sorted = [...dayEvents].sort(
-    (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
-  );
-  const laneEnds: number[] = [];
-  const laneByEventId = new Map<number, number>();
-  for (const event of sorted) {
-    const start = timeToHourFraction(event.startAt);
-    const end = effectiveEndFraction(event);
-    let lane = laneEnds.findIndex((laneEnd) => laneEnd <= start);
-    if (lane === -1) {
-      lane = laneEnds.length;
-      laneEnds.push(end);
-    } else {
-      laneEnds[lane] = end;
-    }
-    laneByEventId.set(event.id, lane);
-  }
-  const laneCount = Math.max(laneEnds.length, 1);
-  const result = new Map<number, { lane: number; laneCount: number }>();
-  for (const [id, lane] of laneByEventId) {
-    result.set(id, { lane, laneCount });
-  }
-  return result;
+// Chevauchement horaire continu : deux événements qui se touchent
+// exactement (fin du premier = début du second) ne se chevauchent pas
+// visuellement — voie réutilisable (voir assignLanes, lib/calendar-grid.ts).
+function assignDayLanes(dayEvents: CalendarEvent[]) {
+  return assignLanes(dayEvents, {
+    id: (event) => event.id,
+    start: (event) => timeToHourFraction(event.startAt),
+    end: (event) => effectiveEndFraction(event),
+    reuseWhenTouching: true,
+  });
 }
 
 export function CalendarWeekView({
@@ -340,7 +324,7 @@ export function CalendarWeekView({
               {days.map((day) => {
                 const key = toDayKey(day);
                 const dayEvents = timedEventsByDay.get(key) ?? [];
-                const lanes = assignLanes(dayEvents);
+                const lanes = assignDayLanes(dayEvents);
                 return (
                   <div
                     key={key}

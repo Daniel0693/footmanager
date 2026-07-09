@@ -31,23 +31,16 @@ import {
   reasonLabelKey,
   type ExistingAbsence,
 } from "@/components/players/absence-form-dialog";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/date-format";
+import { toQueryString } from "@/lib/query-string";
 
 interface Absence extends ExistingAbsence {
   reportedBy: { firstName: string; lastName: string } | null;
 }
 
 type SortOrder = "asc" | "desc";
-
-function toQueryString(params: Record<string, string | undefined>) {
-  const search = new URLSearchParams();
-  for (const [key, val] of Object.entries(params)) {
-    if (val) search.set(key, val);
-  }
-  return search.toString();
-}
 
 export function AbsenceTab({
   clubId,
@@ -85,7 +78,7 @@ export function AbsenceTab({
       sortOrder,
     });
     const response = await apiFetch(`/clubs/${clubId}/players/${playerId}/absences?${query}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: authHeaders(accessToken),
     });
     if (!response.ok) throw new Error();
     return response.json();
@@ -127,7 +120,7 @@ export function AbsenceTab({
     try {
       const response = await apiFetch(
         `/clubs/${clubId}/players/${playerId}/absences/${id}?teamId=${teamId}`,
-        { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+        { method: "DELETE", headers: authHeaders(accessToken) },
       );
       if (!response.ok) throw new Error();
       await load();

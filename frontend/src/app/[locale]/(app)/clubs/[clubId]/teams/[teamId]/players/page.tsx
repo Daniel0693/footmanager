@@ -22,16 +22,16 @@ import {
 } from "@/components/ui/table";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { Link } from "@/i18n/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   LINE_POSITIONS,
-  lineForPosition,
   POSITIONS,
   POSITION_LINES,
   type Position,
   type PositionLine,
 } from "@/lib/positions";
+import { toQueryString } from "@/lib/query-string";
 
 interface PlayerTeamRow {
   id: number;
@@ -69,13 +69,28 @@ export function TeamPlayersPageContent({
   const [lineFilter, setLineFilter] = useState<PositionLine | typeof ALL>(ALL);
   const [positionFilter, setPositionFilter] = useState<Position | typeof ALL>(ALL);
 
+  // Poste exact prioritaire sur la ligne (même priorité que l'ancien filtre
+  // JS) : sélectionner un poste précis restreint à ce seul poste, sinon la
+  // ligne restreint à tous les postes qui la composent.
+  const positionsToQuery = useMemo(
+    () =>
+      positionFilter !== ALL
+        ? [positionFilter]
+        : lineFilter !== ALL
+          ? LINE_POSITIONS[lineFilter]
+          : undefined,
+    [positionFilter, lineFilter],
+  );
+
   const fetchRoster = useCallback(async () => {
-    const response = await apiFetch(`/clubs/${clubId}/teams/${teamId}/players`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const query = toQueryString({ position: positionsToQuery });
+    const response = await apiFetch(
+      `/clubs/${clubId}/teams/${teamId}/players${query ? `?${query}` : ""}`,
+      { headers: authHeaders(accessToken) },
+    );
     if (!response.ok) throw new Error();
     return response.json();
-  }, [clubId, teamId, accessToken]);
+  }, [clubId, teamId, accessToken, positionsToQuery]);
 
   const loadRoster = useCallback(async () => {
     try {
@@ -118,17 +133,6 @@ export function TeamPlayersPageContent({
     setLineFilter(value ?? ALL);
     setPositionFilter(ALL);
   }, []);
-
-  const filteredRoster = useMemo(() => {
-    if (!roster) return [];
-    return roster.filter((row) => {
-      if (positionFilter !== ALL) return row.mainPosition === positionFilter;
-      if (lineFilter !== ALL) {
-        return row.mainPosition !== null && lineForPosition(row.mainPosition) === lineFilter;
-      }
-      return true;
-    });
-  }, [roster, lineFilter, positionFilter]);
 
   return (
     <div className="flex w-full flex-col gap-4 p-4">
@@ -194,7 +198,7 @@ export function TeamPlayersPageContent({
 
       {hasError ? (
         <p className="text-sm text-destructive">{t("loadFailed")}</p>
-      ) : roster !== null && filteredRoster.length === 0 ? (
+      ) : roster !== null && roster.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         <Table>
@@ -207,7 +211,7 @@ export function TeamPlayersPageContent({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRoster.map((row) => (
+            {(roster ?? []).map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{row.jerseyNumber ?? t("emptyValue")}</TableCell>
                 <TableCell>

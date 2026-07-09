@@ -83,7 +83,7 @@ describe('PlayerObjectivesService', () => {
           },
           { memberId: 99, scope: 'CLUB' },
         ),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(objectiveCreate).not.toHaveBeenCalled();
     });
 
@@ -145,7 +145,7 @@ describe('PlayerObjectivesService', () => {
 
       await expect(
         service.findAllByPlayer(1, 100, { memberId: 99, scope: 'CLUB' }),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
     });
 
     it('trie par date de début décroissante par défaut (nulls en dernier), sans filtre', async () => {

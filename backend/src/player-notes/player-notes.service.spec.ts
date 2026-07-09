@@ -74,7 +74,7 @@ describe('PlayerNotesService', () => {
           { visibility: 'SEMI_PRIVE', content: 'Résumé' },
           { memberId: 99, scope: 'CLUB' },
         ),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(noteCreate).not.toHaveBeenCalled();
     });
 
@@ -131,7 +131,7 @@ describe('PlayerNotesService', () => {
 
       await expect(
         service.findAllByPlayer(1, 100, { memberId: 99, scope: 'CLUB' }),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
     });
 
     it('trie par date de création décroissante par défaut', async () => {

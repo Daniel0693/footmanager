@@ -56,3 +56,54 @@ export function getIsoWeekNumber(date: Date): number {
   firstThursday.setUTCDate(firstThursday.getUTCDate() - firstWeekday + 3);
   return 1 + Math.round((thursday.getTime() - firstThursday.getTime()) / (7 * 86_400_000));
 }
+
+export interface LanePlacement {
+  lane: number;
+  laneCount: number;
+}
+
+/**
+ * Répartit des éléments qui se chevauchent sur des voies empilées côte à
+ * côte (algorithme glouton par "voies" — pas un compactage optimal comme
+ * Google Calendar, mais suffisant pour visualiser les chevauchements).
+ * Partagé entre :
+ * - la vue Hebdomadaire (chevauchement horaire continu — deux événements
+ *   qui se touchent exactement à la même minute ne se chevauchent pas
+ *   visuellement, la voie est donc réutilisable : `reuseWhenTouching: true`) ;
+ * - les bandeaux multi-jours des vues Mois/Semaine (colonnes de jours
+ *   discrètes — deux bandeaux sur le même jour de bordure se chevauchent
+ *   visuellement, la voie n'est PAS réutilisable : `reuseWhenTouching: false`).
+ */
+export function assignLanes<T>(
+  items: T[],
+  options: {
+    id: (item: T) => number;
+    start: (item: T) => number;
+    end: (item: T) => number;
+    reuseWhenTouching: boolean;
+  },
+): Map<number, LanePlacement> {
+  const sorted = [...items].sort((a, b) => options.start(a) - options.start(b));
+  const laneEnds: number[] = [];
+  const laneById = new Map<number, number>();
+  for (const item of sorted) {
+    const start = options.start(item);
+    const end = options.end(item);
+    const reusableLane = laneEnds.findIndex((laneEnd) =>
+      options.reuseWhenTouching ? laneEnd <= start : laneEnd < start,
+    );
+    const lane = reusableLane === -1 ? laneEnds.length : reusableLane;
+    if (reusableLane === -1) {
+      laneEnds.push(end);
+    } else {
+      laneEnds[reusableLane] = end;
+    }
+    laneById.set(options.id(item), lane);
+  }
+  const laneCount = Math.max(laneEnds.length, 1);
+  const result = new Map<number, LanePlacement>();
+  for (const [id, lane] of laneById) {
+    result.set(id, { lane, laneCount });
+  }
+  return result;
+}

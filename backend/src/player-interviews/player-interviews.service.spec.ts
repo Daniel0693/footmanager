@@ -89,7 +89,7 @@ describe('PlayerInterviewsService', () => {
           { date: new Date('2026-01-15'), subject: 'Bilan', summary: 'Résumé' },
           { memberId: 99, scope: 'CLUB' },
         ),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(interviewCreate).not.toHaveBeenCalled();
     });
 
@@ -183,7 +183,7 @@ describe('PlayerInterviewsService', () => {
 
       await expect(
         service.findAllByPlayer(1, 100, { memberId: 42, scope: 'CLUB' }),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
     });
 
     it('trie par date décroissante par défaut', async () => {

@@ -127,7 +127,7 @@ describe('EventsService', () => {
           title: 'Entraînement',
           startAt: new Date('2026-07-10T18:00:00Z'),
         }),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(eventCreate).not.toHaveBeenCalled();
     });
 
@@ -170,7 +170,7 @@ describe('EventsService', () => {
             startAt: new Date('2026-07-06T17:30:00Z'),
           },
         ]),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(eventCreateMany).not.toHaveBeenCalled();
     });
 
@@ -225,7 +225,7 @@ describe('EventsService', () => {
       teamFindFirst.mockResolvedValue(null);
 
       await expect(service.findAllByTeam(1, 5)).rejects.toMatchObject({
-        status: HttpStatus.BAD_REQUEST,
+        status: HttpStatus.NOT_FOUND,
       });
       expect(eventFindMany).not.toHaveBeenCalled();
     });

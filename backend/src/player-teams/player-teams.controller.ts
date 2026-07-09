@@ -7,12 +7,14 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CreatePlayerTeamDto } from './dto/create-player-team.dto';
+import { FindPlayerTeamsQueryDto } from './dto/find-player-teams-query.dto';
 import { UpdatePlayerTeamDto } from './dto/update-player-team.dto';
 import { PlayerTeamsService } from './player-teams.service';
 
@@ -36,8 +38,9 @@ export class PlayerTeamsController {
   findAll(
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('teamId', ParseIntPipe) teamId: number,
+    @Query() query: FindPlayerTeamsQueryDto,
   ) {
-    return this.playerTeamsService.findAllByTeam(clubId, teamId);
+    return this.playerTeamsService.findAllByTeam(clubId, teamId, query);
   }
 
   @RequirePermission('player_team', 'UPDATE')

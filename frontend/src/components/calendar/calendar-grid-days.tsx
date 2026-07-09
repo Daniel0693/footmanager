@@ -7,6 +7,7 @@ import type { ExistingEvent } from "@/components/calendar/event-form-dialog";
 import { eventTypeColorClass, teamColorClass } from "@/lib/calendar-color";
 import type { Birthday } from "@/lib/calendar-events-api";
 import {
+  assignLanes,
   getIsoWeekNumber,
   isMultiDay,
   isSameDay,
@@ -49,28 +50,17 @@ function weekOverlapsEvent(event: CalendarEvent, weekStart: Date, weekEnd: Date)
   return eventStart <= weekEnd && eventEnd >= weekStart;
 }
 
-// Répartit les bandeaux multi-jours qui se chevauchent dans une même
-// semaine sur des voies empilées — même algorithme glouton que le
-// chevauchement horaire de la vue Hebdomadaire, appliqué ici à des jours.
-function assignBannerLanes(weekEvents: CalendarEvent[], weekStart: Date): Map<number, number> {
-  const sorted = [...weekEvents].sort(
-    (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
-  );
-  const laneEndCols: number[] = [];
-  const laneByEventId = new Map<number, number>();
-  for (const event of sorted) {
-    const startCol = dayIndexInWeek(new Date(event.startAt), weekStart);
-    const endCol = dayIndexInWeek(new Date(event.endAt!), weekStart);
-    let lane = laneEndCols.findIndex((laneEndCol) => laneEndCol < startCol);
-    if (lane === -1) {
-      lane = laneEndCols.length;
-      laneEndCols.push(endCol);
-    } else {
-      laneEndCols[lane] = endCol;
-    }
-    laneByEventId.set(event.id, lane);
-  }
-  return laneByEventId;
+// Colonnes de jours discrètes : deux bandeaux qui se touchent sur le même
+// jour de bordure se chevauchent visuellement — voie non réutilisable (voir
+// assignLanes, lib/calendar-grid.ts), à la différence du chevauchement
+// horaire continu de la vue Hebdomadaire.
+function assignBannerLanes(weekEvents: CalendarEvent[], weekStart: Date) {
+  return assignLanes(weekEvents, {
+    id: (event) => event.id,
+    start: (event) => dayIndexInWeek(new Date(event.startAt), weekStart),
+    end: (event) => dayIndexInWeek(new Date(event.endAt!), weekStart),
+    reuseWhenTouching: false,
+  });
 }
 
 /**
@@ -181,7 +171,7 @@ export function CalendarGridDays({
         );
         const lanesById = assignBannerLanes(weekMultiDayEvents, weekStart);
         const laneCount = weekMultiDayEvents.length
-          ? Math.max(...lanesById.values()) + 1
+          ? [...lanesById.values()][0].laneCount
           : 0;
         return (
           <div
@@ -285,7 +275,7 @@ export function CalendarGridDays({
                   {weekMultiDayEvents.map((event) => {
                     const startCol = dayIndexInWeek(new Date(event.startAt), weekStart) + 1;
                     const endCol = dayIndexInWeek(new Date(event.endAt!), weekStart) + 2;
-                    const lane = lanesById.get(event.id) ?? 0;
+                    const lane = lanesById.get(event.id)?.lane ?? 0;
                     return (
                       <button
                         key={event.id}

@@ -88,7 +88,7 @@ describe('TeamStaffService', () => {
 
       await expect(
         service.create(1, 5, { memberId: 42, staffRole: 'ADJOINT' }),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(tsCreate).not.toHaveBeenCalled();
     });
 

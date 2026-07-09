@@ -13,7 +13,7 @@ import {
   type ExistingEvent,
 } from "@/components/calendar/event-form-dialog";
 import { DeleteEventDialog } from "@/components/calendar/delete-event-dialog";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { addDays, endOfDay } from "@/lib/calendar-grid";
 import { formatDate } from "@/lib/date-format";
@@ -343,7 +343,7 @@ export function CalendarListView({
     try {
       const response = await apiFetch(
         `/clubs/${clubId}/teams/${item.team.id}/events/${item.id}?scope=${scope}`,
-        { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+        { method: "DELETE", headers: authHeaders(accessToken) },
       );
       if (!response.ok) throw new Error();
       if (scope === "future") {

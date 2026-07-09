@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { apiFetch, parseErrorCode } from "@/lib/api";
+import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   OBJECTIVE_HORIZONS,
@@ -123,7 +123,7 @@ export function ObjectiveFormDialog({
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
-    const headers = { Authorization: `Bearer ${accessToken}` };
+    const headers = authHeaders(accessToken);
     const body = JSON.stringify({
       theme: values.theme,
       description: values.description,

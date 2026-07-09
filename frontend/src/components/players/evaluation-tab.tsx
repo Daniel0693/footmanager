@@ -31,9 +31,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { EvaluationFormDialog } from "@/components/players/evaluation-form-dialog";
+import { toQueryString } from "@/lib/query-string";
 
 export interface EvaluationCriterionOption {
   id: number;
@@ -72,14 +73,6 @@ type SortOrder = "asc" | "desc";
 const chartConfig: ChartConfig = {
   score: { label: "", theme: { light: "#2a78d6", dark: "#3987e5" } },
 };
-
-function toQueryString(params: Record<string, string | undefined>) {
-  const search = new URLSearchParams();
-  for (const [key, val] of Object.entries(params)) {
-    if (val) search.set(key, val);
-  }
-  return search.toString();
-}
 
 // Moyenne, pour une session donnée, des scores appartenant à la catégorie de
 // cet axe — `undefined` si la session ne contient aucun score de cette
@@ -140,7 +133,7 @@ export function EvaluationTab({
       const query = toQueryString({ teamId, ...params });
       const response = await apiFetch(
         `/clubs/${clubId}/players/${playerId}/evaluations?${query}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
+        { headers: authHeaders(accessToken) },
       );
       if (!response.ok) throw new Error();
       return response.json();
@@ -169,7 +162,7 @@ export function EvaluationTab({
       try {
         const response = await apiFetch(
           `/clubs/${clubId}/evaluation-config?teamId=${teamId}`,
-          { headers: { Authorization: `Bearer ${accessToken}` } },
+          { headers: authHeaders(accessToken) },
         );
         if (!response.ok) throw new Error();
         const data = await response.json();
@@ -218,7 +211,7 @@ export function EvaluationTab({
     try {
       const response = await apiFetch(
         `/clubs/${clubId}/players/${playerId}/evaluations/${id}?teamId=${teamId}`,
-        { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+        { method: "DELETE", headers: authHeaders(accessToken) },
       );
       if (!response.ok) throw new Error();
       await load();

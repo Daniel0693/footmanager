@@ -1,5 +1,13 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
+// Construction du header d'authentification, mutualisée : reprise à
+// l'identique dans une vingtaine de fichiers avant cette factorisation —
+// un seul endroit à corriger si le schéma d'auth évolue (ex. renouvellement
+// silencieux du token).
+export function authHeaders(accessToken: string | null | undefined): HeadersInit {
+  return { Authorization: `Bearer ${accessToken}` };
+}
+
 export function apiFetch(path: string, options: RequestInit = {}) {
   return fetch(`${API_URL}${path}`, {
     ...options,

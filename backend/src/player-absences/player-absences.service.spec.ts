@@ -80,7 +80,7 @@ describe('PlayerAbsencesService', () => {
           },
           { memberId: 99, scope: 'CLUB' },
         ),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(absenceCreate).not.toHaveBeenCalled();
     });
 
@@ -194,7 +194,7 @@ describe('PlayerAbsencesService', () => {
 
       await expect(
         service.findAllByPlayer(1, 100, { memberId: 99, scope: 'CLUB' }),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
     });
 
     it('trie par date de début décroissante par défaut, sans filtre', async () => {

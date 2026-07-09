@@ -90,7 +90,7 @@ describe('PlayerEvaluationsService', () => {
           },
           { memberId: 99, scope: 'CLUB' },
         ),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(evaluationCreate).not.toHaveBeenCalled();
     });
 
@@ -189,7 +189,7 @@ describe('PlayerEvaluationsService', () => {
 
       await expect(
         service.findAllByPlayer(1, 100, { memberId: 99, scope: 'CLUB' }),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
     });
 
     it('trie par date décroissante par défaut, sans filtre', async () => {

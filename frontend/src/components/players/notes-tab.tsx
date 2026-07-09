@@ -16,10 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { NoteVisibility } from "@/lib/note-visibility";
 import { NoteFormDialog } from "@/components/players/note-form-dialog";
+import { toQueryString } from "@/lib/query-string";
 
 interface Note {
   id: number;
@@ -37,14 +38,6 @@ const VISIBILITY_BADGE_VARIANT: Record<NoteVisibility, "outline" | "secondary" |
   SEMI_PRIVE: "secondary",
   PUBLIC: "default",
 };
-
-function toQueryString(params: Record<string, string | undefined>) {
-  const search = new URLSearchParams();
-  for (const [key, val] of Object.entries(params)) {
-    if (val) search.set(key, val);
-  }
-  return search.toString();
-}
 
 export function NotesTab({
   clubId,
@@ -83,7 +76,7 @@ export function NotesTab({
     });
     const response = await apiFetch(
       `/clubs/${clubId}/players/${playerId}/notes?${query}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+      { headers: authHeaders(accessToken) },
     );
     if (!response.ok) throw new Error();
     return response.json();
@@ -125,7 +118,7 @@ export function NotesTab({
     try {
       const response = await apiFetch(
         `/clubs/${clubId}/players/${playerId}/notes/${id}?teamId=${teamId}`,
-        { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+        { method: "DELETE", headers: authHeaders(accessToken) },
       );
       if (!response.ok) throw new Error();
       await load();

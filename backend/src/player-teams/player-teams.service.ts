@@ -1,7 +1,10 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertPlayerInClub } from '../common/player-club-membership';
+import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerTeamDto } from './dto/create-player-team.dto';
+import { FindPlayerTeamsQueryDto } from './dto/find-player-teams-query.dto';
 import { UpdatePlayerTeamDto } from './dto/update-player-team.dto';
 
 /**
@@ -16,8 +19,18 @@ export class PlayerTeamsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(clubId: number, teamId: number, dto: CreatePlayerTeamDto) {
-    await this.assertTeamInClub(clubId, teamId);
-    await this.assertPlayerInClub(clubId, dto.playerId);
+    await assertTeamInClub(
+      this.prisma,
+      clubId,
+      teamId,
+      'PLAYER_TEAMS.TEAM_NOT_IN_CLUB',
+    );
+    await assertPlayerInClub(
+      this.prisma,
+      clubId,
+      dto.playerId,
+      'PLAYER_TEAMS.PLAYER_NOT_IN_CLUB',
+    );
 
     const activeAssignment = await this.prisma.playerTeam.findFirst({
       where: { playerId: dto.playerId, teamId, leaveDate: null },
@@ -45,13 +58,26 @@ export class PlayerTeamsService {
     });
   }
 
-  async findAllByTeam(clubId: number, teamId: number) {
-    await this.assertTeamInClub(clubId, teamId);
+  async findAllByTeam(
+    clubId: number,
+    teamId: number,
+    query: FindPlayerTeamsQueryDto = {},
+  ) {
+    await assertTeamInClub(
+      this.prisma,
+      clubId,
+      teamId,
+      'PLAYER_TEAMS.TEAM_NOT_IN_CLUB',
+    );
 
     // include player+member : la liste effectif (frontend) affiche le nom
     // du joueur, pas seulement son id.
     return this.prisma.playerTeam.findMany({
-      where: { teamId, leaveDate: null },
+      where: {
+        teamId,
+        leaveDate: null,
+        mainPosition: query.position ? { in: query.position } : undefined,
+      },
       include: { player: { include: { member: true } } },
       orderBy: { jerseyNumber: 'asc' },
     });
@@ -101,30 +127,6 @@ export class PlayerTeamsService {
       throw new AppException('PLAYER_TEAMS.NOT_FOUND', HttpStatus.NOT_FOUND);
     }
     return assignment;
-  }
-
-  private async assertTeamInClub(clubId: number, teamId: number) {
-    const team = await this.prisma.team.findFirst({
-      where: { id: teamId, clubId },
-    });
-    if (!team) {
-      throw new AppException(
-        'PLAYER_TEAMS.TEAM_NOT_IN_CLUB',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
-
-  private async assertPlayerInClub(clubId: number, playerId: number) {
-    const player = await this.prisma.playerProfile.findFirst({
-      where: { id: playerId, member: { clubId } },
-    });
-    if (!player) {
-      throw new AppException(
-        'PLAYER_TEAMS.PLAYER_NOT_IN_CLUB',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
   }
 
   /**

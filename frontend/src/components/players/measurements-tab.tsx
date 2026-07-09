@@ -33,9 +33,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { MEASUREMENT_TYPES, type MeasurementType } from "@/lib/measurement-type";
+import { toQueryString } from "@/lib/query-string";
 
 interface Measurement {
   id: number;
@@ -61,14 +62,6 @@ const chartConfig: ChartConfig = {
   HEIGHT: { theme: { light: "#2a78d6", dark: "#3987e5" } },
   WEIGHT: { theme: { light: "#eb6834", dark: "#d95926" } },
 };
-
-function toQueryString(params: Record<string, string | undefined>) {
-  const search = new URLSearchParams();
-  for (const [key, val] of Object.entries(params)) {
-    if (val) search.set(key, val);
-  }
-  return search.toString();
-}
 
 function mergeForChart(measurements: Measurement[]): ChartPoint[] {
   const byDate = new Map<string, ChartPoint>();
@@ -127,7 +120,7 @@ export function MeasurementsTab({
       const query = toQueryString({ teamId, ...params });
       const response = await apiFetch(
         `/clubs/${clubId}/players/${playerId}/measurements?${query}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
+        { headers: authHeaders(accessToken) },
       );
       if (!response.ok) throw new Error();
       return response.json();
@@ -275,7 +268,7 @@ export function MeasurementsTab({
         `/clubs/${clubId}/players/${playerId}/measurements?teamId=${teamId}`,
         {
           method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: authHeaders(accessToken),
           body: JSON.stringify({ type, value: Number(value), date }),
         },
       );
@@ -295,7 +288,7 @@ export function MeasurementsTab({
     try {
       const response = await apiFetch(
         `/clubs/${clubId}/players/${playerId}/measurements/${id}?teamId=${teamId}`,
-        { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+        { method: "DELETE", headers: authHeaders(accessToken) },
       );
       if (!response.ok) throw new Error();
       await Promise.all([loadChart(), loadTable()]);

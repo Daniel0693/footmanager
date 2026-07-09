@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { apiFetch, parseErrorCode } from "@/lib/api";
+import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 
 // Liste fermée (plutôt que texte libre) pour permettre des statistiques par
@@ -129,7 +129,7 @@ export function AbsenceFormDialog({
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
-    const headers = { Authorization: `Bearer ${accessToken}` };
+    const headers = authHeaders(accessToken);
     const body = JSON.stringify({
       reason: values.reason,
       description: values.description || undefined,

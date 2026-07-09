@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerAbsenceDto } from './dto/create-player-absence.dto';
@@ -39,7 +40,12 @@ export class PlayerAbsencesService {
     dto: CreatePlayerAbsenceDto,
     requester: PlayerAbsenceRequestContext,
   ) {
-    const player = await this.assertPlayerInClub(clubId, playerId);
+    const player = await assertPlayerInClub(
+      this.prisma,
+      clubId,
+      playerId,
+      'PLAYER_ABSENCES.PLAYER_NOT_IN_CLUB',
+    );
     if (requester.scope === 'OWN' && player.memberId !== requester.memberId) {
       throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
     }
@@ -71,7 +77,12 @@ export class PlayerAbsencesService {
     requester: PlayerAbsenceRequestContext,
     query: FindPlayerAbsencesQueryDto = {},
   ) {
-    const player = await this.assertPlayerInClub(clubId, playerId);
+    const player = await assertPlayerInClub(
+      this.prisma,
+      clubId,
+      playerId,
+      'PLAYER_ABSENCES.PLAYER_NOT_IN_CLUB',
+    );
     if (requester.scope === 'OWN' && player.memberId !== requester.memberId) {
       throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
     }
@@ -129,7 +140,12 @@ export class PlayerAbsencesService {
     id: number,
     requester: PlayerAbsenceRequestContext,
   ) {
-    await this.assertPlayerInClub(clubId, playerId);
+    await assertPlayerInClub(
+      this.prisma,
+      clubId,
+      playerId,
+      'PLAYER_ABSENCES.PLAYER_NOT_IN_CLUB',
+    );
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
@@ -141,18 +157,5 @@ export class PlayerAbsencesService {
       throw new AppException('PLAYER_ABSENCES.NOT_FOUND', HttpStatus.NOT_FOUND);
     }
     return absence;
-  }
-
-  private async assertPlayerInClub(clubId: number, playerId: number) {
-    const player = await this.prisma.playerProfile.findFirst({
-      where: { id: playerId, member: { clubId } },
-    });
-    if (!player) {
-      throw new AppException(
-        'PLAYER_ABSENCES.PLAYER_NOT_IN_CLUB',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    return player;
   }
 }

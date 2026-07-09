@@ -19,7 +19,7 @@ import {
   type ExistingEvent,
 } from "@/components/calendar/event-form-dialog";
 import { usePathname, useRouter } from "@/i18n/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { eventTypeCheckboxColorClass, teamCheckboxColorClass } from "@/lib/calendar-color";
 import { isSameDay } from "@/lib/calendar-grid";
@@ -123,7 +123,7 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
   const loadTeams = useCallback(async () => {
     try {
       const response = await apiFetch(`/clubs/${clubId}/teams/mine`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: authHeaders(accessToken),
       });
       if (!response.ok) throw new Error();
       const data: EventFormTeam[] = await response.json();

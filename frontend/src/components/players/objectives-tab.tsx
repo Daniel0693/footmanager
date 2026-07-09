@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   OBJECTIVE_STATUSES,
@@ -27,6 +27,7 @@ import {
 } from "@/lib/objective";
 import type { NoteVisibility } from "@/lib/note-visibility";
 import { ObjectiveFormDialog } from "@/components/players/objective-form-dialog";
+import { toQueryString } from "@/lib/query-string";
 
 interface Objective {
   id: number;
@@ -51,14 +52,6 @@ const STATUS_BADGE_VARIANT: Record<ObjectiveStatus, "outline" | "secondary" | "d
   ACHIEVED: "default",
   FAILED: "destructive",
 };
-
-function toQueryString(params: Record<string, string | undefined>) {
-  const search = new URLSearchParams();
-  for (const [key, val] of Object.entries(params)) {
-    if (val) search.set(key, val);
-  }
-  return search.toString();
-}
 
 export function ObjectivesTab({
   clubId,
@@ -101,7 +94,7 @@ export function ObjectivesTab({
     });
     const response = await apiFetch(
       `/clubs/${clubId}/players/${playerId}/objectives?${query}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+      { headers: authHeaders(accessToken) },
     );
     if (!response.ok) throw new Error();
     return response.json();
@@ -153,7 +146,7 @@ export function ObjectivesTab({
     try {
       const response = await apiFetch(
         `/clubs/${clubId}/players/${playerId}/objectives/${id}?teamId=${teamId}`,
-        { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+        { method: "DELETE", headers: authHeaders(accessToken) },
       );
       if (!response.ok) throw new Error();
       await load();

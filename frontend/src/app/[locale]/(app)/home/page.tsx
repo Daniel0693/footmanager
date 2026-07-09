@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 
 interface MyClub {
@@ -23,7 +23,7 @@ export default function HomePage() {
   const loadMyClubs = useCallback(async () => {
     try {
       const response = await apiFetch("/clubs", {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: authHeaders(accessToken),
       });
       if (!response.ok) throw new Error();
       setMyClubs(await response.json());
@@ -45,7 +45,7 @@ export default function HomePage() {
     try {
       const response = await apiFetch("/clubs", {
         method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: authHeaders(accessToken),
         body: JSON.stringify({
           name: t("demoClubName"),
           country: "France",

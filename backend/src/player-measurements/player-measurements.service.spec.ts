@@ -66,7 +66,7 @@ describe('PlayerMeasurementsService', () => {
           { type: 'HEIGHT', value: 178.5, date: new Date() },
           { memberId: 99, scope: 'CLUB' },
         ),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(measurementCreate).not.toHaveBeenCalled();
     });
 
@@ -110,7 +110,7 @@ describe('PlayerMeasurementsService', () => {
 
       await expect(
         service.findAllByPlayer(1, 100, { memberId: 42, scope: 'CLUB' }),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
     });
 
     it('scope CLUB : autorise la lecture même si ce n’est pas son propre profil', async () => {
@@ -238,7 +238,7 @@ describe('PlayerMeasurementsService', () => {
       await expect(
         service.remove(1, 100, 1, { memberId: 99, scope: 'CLUB' }),
       ).rejects.toMatchObject({
-        status: HttpStatus.BAD_REQUEST,
+        status: HttpStatus.NOT_FOUND,
       });
       expect(measurementDelete).not.toHaveBeenCalled();
     });
