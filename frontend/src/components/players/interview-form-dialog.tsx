@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { apiFetch, parseErrorCode } from "@/lib/api";
+import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 
 export interface ExistingInterview {
@@ -102,7 +102,7 @@ export function InterviewFormDialog({
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
-    const headers = { Authorization: `Bearer ${accessToken}` };
+    const headers = authHeaders(accessToken);
     const body = JSON.stringify({
       date: values.date,
       subject: values.subject,

@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { apiFetch, parseErrorCode } from "@/lib/api";
+import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { NOTE_VISIBILITIES, type NoteVisibility } from "@/lib/note-visibility";
 
@@ -99,7 +99,7 @@ export function NoteFormDialog({
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
-    const headers = { Authorization: `Bearer ${accessToken}` };
+    const headers = authHeaders(accessToken);
     const body = JSON.stringify({
       visibility: values.visibility,
       title: toOptionalText(values.title),

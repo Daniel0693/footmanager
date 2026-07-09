@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiFetch, parseErrorCode } from "@/lib/api";
+import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 
 interface MyClub {
@@ -48,7 +48,7 @@ export default function SettingsPage() {
   const loadClubs = useCallback(async () => {
     try {
       const response = await apiFetch("/clubs", {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: authHeaders(accessToken),
       });
       if (!response.ok) throw new Error();
       const data: MyClub[] = await response.json();
@@ -72,7 +72,7 @@ export default function SettingsPage() {
       setIsLoadingProfile(true);
       try {
         const response = await apiFetch(`/clubs/${clubId}/members/me`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: authHeaders(accessToken),
         });
         if (!response.ok) throw new Error();
         const member: { birthDate: string | null } = await response.json();
@@ -102,7 +102,7 @@ export default function SettingsPage() {
     try {
       const response = await apiFetch(`/clubs/${selectedClubId}/members/me`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: authHeaders(accessToken),
         body: JSON.stringify({ birthDate: birthDate || undefined }),
       });
       if (!response.ok) throw new Error(await parseErrorCode(response));

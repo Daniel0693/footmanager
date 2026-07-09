@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { apiFetch, parseErrorCode } from "@/lib/api";
+import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { EVENT_TYPES, type EventType } from "@/lib/event";
 import { cn } from "@/lib/utils";
@@ -386,7 +386,7 @@ export function EventFormDialog({
   // seul point d'entrée jusqu'ici était la vue Liste (DeleteEventDialog déjà
   // utilisé là-bas, même flux de confirmation réutilisé ici).
   const handleDelete = async (scope: "single" | "future") => {
-    const headers = { Authorization: `Bearer ${accessToken}` };
+    const headers = authHeaders(accessToken);
     try {
       const response = await apiFetch(
         `/clubs/${clubId}/teams/${event!.team.id}/events/${event!.id}?scope=${scope}`,
@@ -411,7 +411,7 @@ export function EventFormDialog({
 
   const performSubmit = async (values: FormValues, scope: "single" | "future" = "single") => {
     setIsSubmitting(true);
-    const headers = { Authorization: `Bearer ${accessToken}` };
+    const headers = authHeaders(accessToken);
 
     if (values.isRecurring) {
       const rule = buildRuleFromForm(values);

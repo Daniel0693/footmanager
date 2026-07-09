@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link } from "@/i18n/navigation";
-import { apiFetch, parseErrorCode } from "@/lib/api";
+import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 
 interface Team {
@@ -49,7 +49,7 @@ export function TeamsPageContent({ clubId }: { clubId: string }) {
   const loadTeams = useCallback(async () => {
     try {
       const response = await apiFetch(`/clubs/${clubId}/teams/mine`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: authHeaders(accessToken),
       });
       if (!response.ok) throw new Error();
       setTeams(await response.json());
@@ -72,7 +72,7 @@ export function TeamsPageContent({ clubId }: { clubId: string }) {
     try {
       const response = await apiFetch(`/clubs/${clubId}/teams`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: authHeaders(accessToken),
         body: JSON.stringify(values),
       });
       if (!response.ok) throw new Error(await parseErrorCode(response));

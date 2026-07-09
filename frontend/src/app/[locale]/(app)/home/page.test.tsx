@@ -14,6 +14,7 @@ jest.mock("@/lib/auth/auth-context", () => ({
 const mockApiFetch = jest.fn();
 jest.mock("@/lib/api", () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  authHeaders: (token: string | null) => ({ Authorization: `Bearer ${token}` }),
 }));
 
 function jsonResponse(body: unknown, ok = true) {

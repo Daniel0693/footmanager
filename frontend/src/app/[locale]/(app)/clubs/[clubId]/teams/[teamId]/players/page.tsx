@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { Link } from "@/i18n/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   LINE_POSITIONS,
@@ -31,6 +31,7 @@ import {
   type Position,
   type PositionLine,
 } from "@/lib/positions";
+import { toQueryString } from "@/lib/query-string";
 
 interface PlayerTeamRow {
   id: number;
@@ -47,24 +48,6 @@ interface PlayerTeamRow {
 }
 
 const ALL = "ALL";
-
-// Filtres résolus côté backend (voir docs/modules/effectif-joueurs.md
-// §Mesures, réappliqué ici) : le frontend traduit ligne/poste sélectionnés
-// en query params `position` avant de fetcher, il ne filtre plus jamais le
-// roster déjà chargé en JS. Version locale minimale de `toQueryString`,
-// mutualisée avec le reste du frontend dans un chantier séparé.
-function toQueryString(params: Record<string, string | string[] | undefined>) {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined) continue;
-    if (Array.isArray(value)) {
-      for (const v of value) search.append(key, v);
-    } else {
-      search.set(key, value);
-    }
-  }
-  return search.toString();
-}
 
 // Composant nommé séparé du default export de page.tsx : voir la même note
 // dans ../page.tsx (TeamsPageContent) — `use(params)` ne se résout pas de
@@ -103,7 +86,7 @@ export function TeamPlayersPageContent({
     const query = toQueryString({ position: positionsToQuery });
     const response = await apiFetch(
       `/clubs/${clubId}/teams/${teamId}/players${query ? `?${query}` : ""}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+      { headers: authHeaders(accessToken) },
     );
     if (!response.ok) throw new Error();
     return response.json();

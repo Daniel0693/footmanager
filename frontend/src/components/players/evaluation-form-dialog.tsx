@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StarRatingInput } from "@/components/ui/star-rating-input";
 import { Textarea } from "@/components/ui/textarea";
-import { apiFetch, parseErrorCode } from "@/lib/api";
+import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { EvaluationAxis } from "@/components/players/evaluation-tab";
 
@@ -107,7 +107,7 @@ export function EvaluationFormDialog({
     if (nextErrors.date || nextErrors.scores) return;
 
     setIsSubmitting(true);
-    const headers = { Authorization: `Bearer ${accessToken}` };
+    const headers = authHeaders(accessToken);
     const body = JSON.stringify({
       date,
       comments: comments.trim() === "" ? undefined : comments,

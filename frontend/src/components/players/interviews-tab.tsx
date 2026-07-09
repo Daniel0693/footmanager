@@ -24,9 +24,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { InterviewFormDialog } from "@/components/players/interview-form-dialog";
+import { toQueryString } from "@/lib/query-string";
 
 interface Interview {
   id: number;
@@ -42,14 +43,6 @@ interface Interview {
 }
 
 type SortOrder = "asc" | "desc";
-
-function toQueryString(params: Record<string, string | undefined>) {
-  const search = new URLSearchParams();
-  for (const [key, val] of Object.entries(params)) {
-    if (val) search.set(key, val);
-  }
-  return search.toString();
-}
 
 export function InterviewsTab({
   clubId,
@@ -88,7 +81,7 @@ export function InterviewsTab({
     });
     const response = await apiFetch(
       `/clubs/${clubId}/players/${playerId}/interviews?${query}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+      { headers: authHeaders(accessToken) },
     );
     if (!response.ok) throw new Error();
     return response.json();
@@ -130,7 +123,7 @@ export function InterviewsTab({
     try {
       const response = await apiFetch(
         `/clubs/${clubId}/players/${playerId}/interviews/${id}?teamId=${teamId}`,
-        { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+        { method: "DELETE", headers: authHeaders(accessToken) },
       );
       if (!response.ok) throw new Error();
       await load();

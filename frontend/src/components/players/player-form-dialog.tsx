@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiFetch, parseErrorCode } from "@/lib/api";
+import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { FEET, type Foot } from "@/lib/foot";
 import { GENDERS, type Gender } from "@/lib/gender";
@@ -144,9 +144,7 @@ export function PlayerFormDialog({
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-    };
+    const headers = authHeaders(accessToken);
     try {
       const memberPayload = {
         firstName: values.firstName,
