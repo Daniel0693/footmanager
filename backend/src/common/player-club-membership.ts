@@ -12,6 +12,12 @@ import { PrismaService } from '../prisma/prisma.service';
  * seul le code d'erreur différait, conservé par module en paramètre pour
  * garder des messages distincts côté frontend (chaque module a sa propre
  * clé i18n, voir docs/schema/index.md §i18n).
+ *
+ * `404 NOT_FOUND` (pas `400 BAD_REQUEST`) : la requête est bien formée, elle
+ * référence simplement un joueur qui n'existe pas dans ce club — cohérent
+ * avec le reste du codebase, qui utilise déjà `NOT_FOUND` pour toute
+ * ressource introuvable dans le scope demandé (ex. `PLAYER_TEAMS.NOT_FOUND`,
+ * `TEAM_STAFF.NOT_FOUND`).
  */
 export async function assertPlayerInClub(
   prisma: PrismaService,
@@ -23,7 +29,7 @@ export async function assertPlayerInClub(
     where: { id: playerId, member: { clubId } },
   });
   if (!player) {
-    throw new AppException(notFoundErrorCode, HttpStatus.BAD_REQUEST);
+    throw new AppException(notFoundErrorCode, HttpStatus.NOT_FOUND);
   }
   return player;
 }

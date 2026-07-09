@@ -8,6 +8,11 @@ import { PrismaService } from '../prisma/prisma.service';
  * (staff d'équipe, appartenances joueur↔équipe, événements) — seul le code
  * d'erreur différait, conservé par module en paramètre pour garder des
  * messages distincts côté frontend.
+ *
+ * `404 NOT_FOUND` (pas `400 BAD_REQUEST`) : la requête est bien formée, elle
+ * référence simplement une équipe qui n'existe pas dans ce club — même
+ * convention que le reste du codebase pour une ressource introuvable dans
+ * le scope demandé.
  */
 export async function assertTeamInClub(
   prisma: PrismaService,
@@ -17,6 +22,6 @@ export async function assertTeamInClub(
 ): Promise<void> {
   const team = await prisma.team.findFirst({ where: { id: teamId, clubId } });
   if (!team) {
-    throw new AppException(notFoundErrorCode, HttpStatus.BAD_REQUEST);
+    throw new AppException(notFoundErrorCode, HttpStatus.NOT_FOUND);
   }
 }

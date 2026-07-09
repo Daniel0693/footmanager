@@ -74,7 +74,7 @@ describe('PlayerTeamsService', () => {
 
       await expect(
         service.create(1, 5, { playerId: 100 }),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(ptCreate).not.toHaveBeenCalled();
     });
 
@@ -84,7 +84,7 @@ describe('PlayerTeamsService', () => {
 
       await expect(
         service.create(1, 5, { playerId: 100 }),
-      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(ptCreate).not.toHaveBeenCalled();
     });
 
@@ -170,7 +170,7 @@ describe('PlayerTeamsService', () => {
       teamFindFirst.mockResolvedValue(null);
 
       await expect(service.findAllByTeam(1, 5)).rejects.toMatchObject({
-        status: HttpStatus.BAD_REQUEST,
+        status: HttpStatus.NOT_FOUND,
       });
     });
 
