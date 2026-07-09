@@ -55,10 +55,16 @@ export function InterviewsTab({
   clubId,
   teamId,
   playerId,
+  isOwnProfile,
 }: {
   clubId: string;
   teamId: string;
   playerId: string;
+  // Un joueur consultant sa propre fiche n'a que READ/OWN sur les entretiens
+  // (voir backend/prisma/seed.ts, rôle Player) — jamais CREATE/UPDATE/
+  // DELETE : masque l'ajout et les actions par ligne plutôt que de les
+  // laisser mener à un 403 au clic.
+  isOwnProfile: boolean;
 }) {
   const t = useTranslations("interviews");
   const locale = useLocale();
@@ -193,20 +199,22 @@ export function InterviewsTab({
               </Select>
             </div>
           </div>
-          <div className="flex justify-end">
-            <InterviewFormDialog
-              clubId={clubId}
-              teamId={teamId}
-              playerId={playerId}
-              onSuccess={load}
-              trigger={
-                <Button>
-                  <Plus />
-                  {t("add")}
-                </Button>
-              }
-            />
-          </div>
+          {!isOwnProfile && (
+            <div className="flex justify-end">
+              <InterviewFormDialog
+                clubId={clubId}
+                teamId={teamId}
+                playerId={playerId}
+                onSuccess={load}
+                trigger={
+                  <Button>
+                    <Plus />
+                    {t("add")}
+                  </Button>
+                }
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -241,28 +249,30 @@ export function InterviewsTab({
                           )}
                         </h3>
                       </div>
-                      <div className="flex gap-1">
-                        <InterviewFormDialog
-                          clubId={clubId}
-                          teamId={teamId}
-                          playerId={playerId}
-                          interview={interview}
-                          onSuccess={load}
-                          trigger={
-                            <Button variant="ghost" size="icon" aria-label={t("edit")}>
-                              <Pencil />
-                            </Button>
-                          }
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={t("delete")}
-                          onClick={() => handleDelete(interview.id)}
-                        >
-                          <Trash2 className="text-destructive" />
-                        </Button>
-                      </div>
+                      {!isOwnProfile && (
+                        <div className="flex gap-1">
+                          <InterviewFormDialog
+                            clubId={clubId}
+                            teamId={teamId}
+                            playerId={playerId}
+                            interview={interview}
+                            onSuccess={load}
+                            trigger={
+                              <Button variant="ghost" size="icon" aria-label={t("edit")}>
+                                <Pencil />
+                              </Button>
+                            }
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={t("delete")}
+                            onClick={() => handleDelete(interview.id)}
+                          >
+                            <Trash2 className="text-destructive" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
                     <p className="text-sm whitespace-pre-wrap">{interview.summary}</p>

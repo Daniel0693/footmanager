@@ -64,10 +64,16 @@ export function ObjectivesTab({
   clubId,
   teamId,
   playerId,
+  isOwnProfile,
 }: {
   clubId: string;
   teamId: string;
   playerId: string;
+  // Un joueur consultant sa propre fiche n'a que READ/OWN sur les objectifs
+  // (voir backend/prisma/seed.ts, rôle Player) — jamais CREATE/UPDATE/
+  // DELETE : masque l'ajout et les actions par ligne plutôt que de les
+  // laisser mener à un 403 au clic.
+  isOwnProfile: boolean;
 }) {
   const t = useTranslations("objectives");
   const locale = useLocale();
@@ -252,20 +258,22 @@ export function ObjectivesTab({
               </div>
             </div>
           </div>
-          <div className="flex justify-end">
-            <ObjectiveFormDialog
-              clubId={clubId}
-              teamId={teamId}
-              playerId={playerId}
-              onSuccess={load}
-              trigger={
-                <Button>
-                  <Plus />
-                  {t("add")}
-                </Button>
-              }
-            />
-          </div>
+          {!isOwnProfile && (
+            <div className="flex justify-end">
+              <ObjectiveFormDialog
+                clubId={clubId}
+                teamId={teamId}
+                playerId={playerId}
+                onSuccess={load}
+                trigger={
+                  <Button>
+                    <Plus />
+                    {t("add")}
+                  </Button>
+                }
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -303,28 +311,30 @@ export function ObjectivesTab({
                           </Badge>
                         )}
                       </div>
-                      <div className="flex gap-1">
-                        <ObjectiveFormDialog
-                          clubId={clubId}
-                          teamId={teamId}
-                          playerId={playerId}
-                          objective={objective}
-                          onSuccess={load}
-                          trigger={
-                            <Button variant="ghost" size="icon" aria-label={t("edit")}>
-                              <Pencil />
-                            </Button>
-                          }
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={t("delete")}
-                          onClick={() => handleDelete(objective.id)}
-                        >
-                          <Trash2 className="text-destructive" />
-                        </Button>
-                      </div>
+                      {!isOwnProfile && (
+                        <div className="flex gap-1">
+                          <ObjectiveFormDialog
+                            clubId={clubId}
+                            teamId={teamId}
+                            playerId={playerId}
+                            objective={objective}
+                            onSuccess={load}
+                            trigger={
+                              <Button variant="ghost" size="icon" aria-label={t("edit")}>
+                                <Pencil />
+                              </Button>
+                            }
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={t("delete")}
+                            onClick={() => handleDelete(objective.id)}
+                          >
+                            <Trash2 className="text-destructive" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
                     <p className="text-sm whitespace-pre-wrap">{objective.description}</p>

@@ -39,7 +39,10 @@ export class PlayerAbsencesService {
     dto: CreatePlayerAbsenceDto,
     requester: PlayerAbsenceRequestContext,
   ) {
-    await this.assertPlayerInClub(clubId, playerId);
+    const player = await this.assertPlayerInClub(clubId, playerId);
+    if (requester.scope === 'OWN' && player.memberId !== requester.memberId) {
+      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
+    }
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
@@ -49,9 +52,14 @@ export class PlayerAbsencesService {
         playerId,
         reportedById: reportedByMemberId,
         reason: dto.reason,
+        description: dto.description,
         startDate: dto.startDate,
         endDate: dto.endDate,
-        isExcused: dto.isExcused,
+        // Scope OWN (un joueur qui déclare sa propre absence) : seul
+        // l'entraîneur décide si elle est justifiée, jamais le joueur
+        // lui-même — ignoré même si transmis explicitement dans le corps
+        // de la requête.
+        isExcused: requester.scope === 'OWN' ? null : dto.isExcused,
       },
       include: { reportedBy: true },
     });
@@ -96,6 +104,7 @@ export class PlayerAbsencesService {
       where: { id },
       data: {
         reason: dto.reason,
+        description: dto.description,
         startDate: dto.startDate,
         endDate: dto.endDate,
         isExcused: dto.isExcused,

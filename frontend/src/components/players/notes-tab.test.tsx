@@ -31,8 +31,15 @@ function note(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderTab(clubId = "1", teamId = "5", playerId = "1") {
-  return renderWithIntl(<NotesTab clubId={clubId} teamId={teamId} playerId={playerId} />);
+function renderTab(clubId = "1", teamId = "5", playerId = "1", isOwnProfile = false) {
+  return renderWithIntl(
+    <NotesTab
+      clubId={clubId}
+      teamId={teamId}
+      playerId={playerId}
+      isOwnProfile={isOwnProfile}
+    />,
+  );
 }
 
 function queryOf(url: string) {
@@ -182,5 +189,16 @@ describe("NotesTab", () => {
 
     const contentInput = await screen.findByLabelText<HTMLTextAreaElement>("Contenu");
     expect(contentInput).toHaveValue("Bonne progression sur les contrôles orientés");
+  });
+
+  it("isOwnProfile masque le bouton Ajouter et les actions Modifier/Supprimer par ligne (Player n'a que READ/OWN)", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse([note()]));
+
+    renderTab("1", "5", "10", true);
+
+    await screen.findByText("Bilan technique");
+    expect(screen.queryByRole("button", { name: "Ajouter une note" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Modifier" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Supprimer" })).not.toBeInTheDocument();
   });
 });

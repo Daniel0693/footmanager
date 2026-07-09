@@ -106,7 +106,7 @@ export class PlayersService {
     const profile = await this.prisma.playerProfile.findFirst({
       where: { id, member: { clubId } },
       include: {
-        member: { include: { user: { select: { email: true } } } },
+        member: { include: { user: { select: { id: true, email: true } } } },
         playerTeams: {
           where: { leaveDate: null },
           include: { team: true },

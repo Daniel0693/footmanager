@@ -306,11 +306,28 @@ encore) — différé aux Phases 4/5.
 |---|---|---|
 | `id` | PK | |
 | `playerId` | FK → PlayerProfile | |
-| `reason` | String | texte libre |
+| `reason` | enum `AbsenceReason` | liste fermée (statistiques par motif) — voir §Enums |
+| `description` | Text, nullable | précision libre du motif sélectionné |
 | `startDate` | Date | |
 | `endDate` | Date | |
-| `isExcused` | Boolean, nullable | |
+| `isExcused` | Boolean, nullable | jamais renseigné par le joueur lui-même — voir ci-dessous |
 | `reportedById` | FK → Member, nullable | |
+
+**`reason` en liste fermée (correctif post-B9, 2026-07-09)** : à l'origine texte libre, remplacé
+par l'enum `AbsenceReason` (`INJURY`/`ILLNESS`/`VACATION`/`OTHER`) pour permettre des statistiques
+par motif (ex. nombre d'entraînements manqués pour blessure, caractère récurrent ou non). Le champ
+`description` reste un texte libre optionnel pour préciser le contexte (ex. motif `ILLNESS`,
+description "Testé positif au COVID, isolement en cours"). Migration `20260709070000_player_absence_reason_enum` :
+le texte déjà saisi est préservé dans `description`, `reason` retombe sur `OTHER` pour les lignes
+existantes (aucun moyen fiable de déduire le motif depuis du texte libre).
+
+**Un joueur peut désormais déclarer sa propre absence** (permission `player_absence CREATE OWN`,
+correctif post-B9) — pour anticiper une indisponibilité connue à l'avance. `isExcused` est
+toujours forcé à `null` côté service quand l'appelant est en scope `OWN`, même si transmis dans
+la requête : seul l'entraîneur (scope `TEAM`) ou un admin (scope `CLUB`/`ALL`) décide si une
+absence est justifiée. Un joueur ne peut ni modifier ni supprimer une absence après création (pas
+de permission `UPDATE`/`DELETE` en scope `OWN`). Notification à l'entraîneur lors d'une
+déclaration par un joueur : différé au système de notifications (décision ouverte #2).
 
 ---
 
@@ -347,6 +364,13 @@ enum ObjectiveStatus {
   IN_PROGRESS
   ACHIEVED
   FAILED
+}
+
+enum AbsenceReason {
+  INJURY
+  ILLNESS
+  VACATION
+  OTHER
 }
 ```
 

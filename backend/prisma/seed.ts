@@ -197,6 +197,12 @@ async function seedRoles() {
       ],
       ['player_absence', READ, OWN, 'Consulter ses propres absences'],
       [
+        'player_absence',
+        CREATE,
+        OWN,
+        'Déclarer une absence à venir pour soi-même',
+      ],
+      [
         'evaluation_config',
         READ,
         TEAM,

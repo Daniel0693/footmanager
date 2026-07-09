@@ -19,7 +19,8 @@ function absence(overrides: Partial<PlayerAbsence> = {}): PlayerAbsence {
     id: 1,
     playerId: 100,
     reportedById: 99,
-    reason: 'Blessure au genou',
+    reason: 'INJURY',
+    description: 'Douleur au genou droit',
     startDate: new Date('2026-07-10'),
     endDate: new Date('2026-07-20'),
     isExcused: null,
@@ -73,7 +74,7 @@ describe('PlayerAbsencesService', () => {
           100,
           99,
           {
-            reason: 'Blessure',
+            reason: 'INJURY',
             startDate: new Date('2026-07-10'),
             endDate: new Date('2026-07-20'),
           },
@@ -93,7 +94,8 @@ describe('PlayerAbsencesService', () => {
         100,
         99,
         {
-          reason: 'Blessure au genou',
+          reason: 'INJURY',
+          description: 'Douleur au genou droit',
           startDate: new Date('2026-07-10'),
           endDate: new Date('2026-07-20'),
         },
@@ -105,7 +107,8 @@ describe('PlayerAbsencesService', () => {
         data: {
           playerId: 100,
           reportedById: 99,
-          reason: 'Blessure au genou',
+          reason: 'INJURY',
+          description: 'Douleur au genou droit',
           startDate: new Date('2026-07-10'),
           endDate: new Date('2026-07-20'),
           isExcused: undefined,
@@ -124,11 +127,61 @@ describe('PlayerAbsencesService', () => {
           100,
           43,
           {
-            reason: 'Blessure',
+            reason: 'INJURY',
             startDate: new Date('2026-07-10'),
             endDate: new Date('2026-07-20'),
           },
           { memberId: 43, scope: 'TEAM', teamId: 8 },
+        ),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(absenceCreate).not.toHaveBeenCalled();
+    });
+
+    it('scope OWN : un joueur peut déclarer sa propre absence, isExcused forcé à null même si transmis', async () => {
+      playerFindFirst.mockResolvedValue(player);
+      absenceCreate.mockResolvedValue(absence());
+
+      await service.create(
+        1,
+        100,
+        42,
+        {
+          reason: 'VACATION',
+          startDate: new Date('2026-07-10'),
+          endDate: new Date('2026-07-20'),
+          isExcused: true,
+        },
+        { memberId: 42, scope: 'OWN' },
+      );
+
+      expect(absenceCreate).toHaveBeenCalledWith({
+        data: {
+          playerId: 100,
+          reportedById: 42,
+          reason: 'VACATION',
+          description: undefined,
+          startDate: new Date('2026-07-10'),
+          endDate: new Date('2026-07-20'),
+          isExcused: null,
+        },
+        include: { reportedBy: true },
+      });
+    });
+
+    it('scope OWN : refuse de déclarer une absence pour un autre joueur', async () => {
+      playerFindFirst.mockResolvedValue(player);
+
+      await expect(
+        service.create(
+          1,
+          100,
+          999,
+          {
+            reason: 'INJURY',
+            startDate: new Date('2026-07-10'),
+            endDate: new Date('2026-07-20'),
+          },
+          { memberId: 999, scope: 'OWN' },
         ),
       ).rejects.toBeInstanceOf(AppException);
       expect(absenceCreate).not.toHaveBeenCalled();
@@ -280,6 +333,7 @@ describe('PlayerAbsencesService', () => {
         where: { id: 1 },
         data: {
           reason: undefined,
+          description: undefined,
           startDate: undefined,
           endDate: undefined,
           isExcused: true,

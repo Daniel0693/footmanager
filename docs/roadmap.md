@@ -294,6 +294,78 @@ entité `RecurringRule` dédiée (décision initiale du 2026-07-08 ci-dessus inc
   manquait). 4 tests ajoutés (3 `event-form-dialog.test.tsx`, 1 `calendar-list-view.test.tsx`, plus
   fixtures existantes mises à jour) — 208 tests frontend au total.
 
+**Correctifs post-B9 (2026-07-09, retours utilisateur en conditions réelles)** :
+- **Bug — vue Liste, anniversaires invisibles sans aucun type d'événement coché** :
+  `CalendarListView` ne calculait la fenêtre de dates (`pastBoundary`/`futureBoundary`, dont
+  dépend l'effet anniversaires) que lorsque `types`/`teamIds` contenait au moins une sélection —
+  sélection de types vide (ex. seul le filtre "Anniversaires" actif) mettait ces bornes à `null`,
+  coupant silencieusement l'effet anniversaires même si son propre filtre restait coché. Corrigé :
+  la fenêtre est désormais calculée indépendamment de `isEmptyFilterSelection`, qui ne contrôle
+  plus que l'appel réseau des événements eux-mêmes.
+- **Bug #2 — même zone, anniversaires hors fenêtre initiale introuvables (retour utilisateur
+  immédiat sur le correctif précédent)** : une fois le bug ci-dessus corrigé, un anniversaire
+  situé au-delà de la fenêtre initiale (14 jours avant/60 jours après aujourd'hui) restait quand
+  même invisible et impossible à découvrir — avec aussi peu de contenu, la liste ne déborde pas
+  assez pour déclencher le scroll infini existant. `CalendarListView` étend désormais
+  automatiquement la fenêtre (alterné passé/futur, blocs de 30 jours) tant qu'elle contient moins
+  de 8 anniversaires, plafonné à 6 itérations. Portée volontairement restreinte à la sélection de
+  types/équipes vide (voir `docs/modules/calendrier-evenements.md` §Anniversaires pour la
+  justification détaillée du choix de ne pas généraliser). 2 tests de régression ajoutés.
+- **`PlayerAbsence` — un joueur peut désormais déclarer sa propre absence à l'avance** :
+  permission `player_absence CREATE OWN` ajoutée au rôle `Player` (seed). Le champ `isExcused`
+  reste exclusivement la décision de l'entraîneur/admin — masqué du formulaire côté frontend
+  (`AbsenceFormDialog canSetExcused={false}`) et forcé à `null` côté backend
+  (`PlayerAbsencesService.create`) même si transmis. Un joueur n'a ni `UPDATE` ni `DELETE` sur ses
+  absences : actions masquées dans `AbsenceTab` (`isOwnProfile`, dérivé de
+  `player.member.user.id === utilisateur connecté`, exposé via `PlayersService.findOne`) plutôt
+  que menant à un 403 au clic. Notification à l'entraîneur : différée au système de notifications
+  (décision ouverte #2).
+- **`PlayerAbsence.reason` — texte libre remplacé par une liste fermée** : nouvel enum
+  `AbsenceReason` (`INJURY`/`ILLNESS`/`VACATION`/`OTHER`), qui permettra des statistiques par motif
+  d'absence (ex. entraînements manqués pour blessure, caractère récurrent). Nouveau champ
+  `description` (texte libre optionnel) pour préciser le motif sélectionné. Migration
+  `20260709070000_player_absence_reason_enum` : texte déjà saisi préservé dans `description`,
+  `reason` retombe sur `OTHER` pour les lignes existantes. Voir `docs/schema/joueurs.md`
+  §PlayerAbsence pour le détail.
+- **Bug #3 — vue Liste, doublons d'anniversaire après plusieurs clics rapprochés sur
+  "Aujourd'hui"** : `loadOlder`/`loadNewer` (invoquées de façon impérative, sans le nettoyage
+  automatique d'un effet React) n'avaient aucun garde-fou contre un appel encore en vol au moment
+  d'un recentrage — son résultat s'appliquait alors sur un état déjà périmé, rouvrant une fenêtre
+  censée avoir été réinitialisée (symptôme : la même personne affichée deux fois, avec deux âges
+  différents). Corrigé par un compteur de génération (`generationRef`) invalidant tout résultat
+  d'un cycle précédent. Anniversaires en vue Liste affichés avec leur date exacte
+  (`birthdayAgeWithDate`, JJ/MM/AAAA) en plus de l'âge — les distingue en cas d'occurrences
+  multiples et répond au besoin de connaître la date, pas seulement l'âge. Voir
+  `docs/modules/calendrier-evenements.md` §Anniversaires. 2 tests de régression ajoutés.
+- **Boutons d'action affichés à un joueur sans les droits de les utiliser** (Mesures, Évaluation,
+  Objectifs, Entretien, Notes) : `isOwnProfile` (déjà introduit pour `AbsenceTab`) propagé à ces 5
+  onglets ainsi qu'au bouton "Modifier" du profil joueur — chaque action masquée reflète
+  exactement les permissions réelles du rôle `Player` (READ/OWN seul sur ces 5 ressources). Voir
+  `docs/modules/effectif-joueurs.md` §Boutons d'action masqués pour la simplification documentée
+  (suppose qu'un Player n'est jamais aussi Coach/AdminClub sur cette page précise). 5 tests
+  ajoutés (un par onglet) + 1 test d'intégration sur la fiche joueur.
+- **Bug — graphique Mesures écrasé quand le formulaire d'ajout est masqué** : effet de bord du
+  correctif précédent — la carte du graphique (`h-full`, étirée par `items-stretch` à la hauteur
+  de la colonne Filtres + Formulaire) s'écrasait avec cette colonne une fois le formulaire masqué
+  (`isOwnProfile`). Corrigé par `min-h-96` sur la carte, indépendant de la présence du formulaire.
+  Voir `docs/modules/effectif-joueurs.md` §Mesures.
+- **Bugs #2 — retour immédiat sur le correctif ci-dessus** : les champs de plage de dates
+  débordaient de la carte Filtres (20rem) — `w-36` fixes remplacés par `w-0 min-w-0 flex-1`
+  (incohérence avec l'onglet Évaluation, qui avait déjà ce correctif). Carte Filtres étirée
+  jusqu'au bas de la colonne uniquement quand le formulaire est masqué, dimensions inchangées
+  sinon.
+- **Bugs #3 — retour immédiat, le passage en `flex-1` casse le passage à la ligne** : `flex-wrap`
+  ne déclenche plus de retour à la ligne entre Type et Date avec des champs `flex-1` (ils se
+  réduisaient à une largeur illisible sur une même ligne). Corrigé en empilant Type et Date
+  verticalement dans la carte Filtres (100% de largeur chacun) plutôt qu'un flex-wrap horizontal
+  — spécifique à cette carte étroite (20rem), les barres de filtres pleine largeur des autres
+  onglets gardent leur flex-wrap existant. Voir `docs/modules/effectif-joueurs.md` §Mesures.
+- 8 tests backend ajoutés/adaptés (`player-absences.service.spec.ts`,
+  `player-absences-permissions.integration.spec.ts`, `calendrier-multi-role.integration.spec.ts`)
+  — 340 tests backend au total ; tests frontend adaptés/ajoutés sur `AbsenceFormDialog`,
+  `AbsenceTab`, la fiche joueur, les 5 onglets Effectif et `calendar-list-view.test.tsx`
+  (extension automatique + garde-fou de génération inclus) — 259 tests frontend au total.
+
 ---
 
 ## Phase 3 — Saisons & Championnats ⬜

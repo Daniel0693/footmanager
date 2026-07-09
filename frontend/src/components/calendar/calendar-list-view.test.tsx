@@ -248,9 +248,9 @@ describe("CalendarListView", () => {
         />,
       );
 
-      expect(await screen.findByText("Léa Martin — 14 ans")).toBeInTheDocument();
+      expect(await screen.findByText("Léa Martin — 11/07/2026 — 14 ans")).toBeInTheDocument();
       expect(screen.getByText("Match amical")).toBeInTheDocument();
-      const birthdayCard = screen.getByText("Léa Martin — 14 ans").closest("li")!;
+      const birthdayCard = screen.getByText("Léa Martin — 11/07/2026 — 14 ans").closest("li")!;
       expect(within(birthdayCard).queryByRole("button")).not.toBeInTheDocument();
     });
 
@@ -273,6 +273,117 @@ describe("CalendarListView", () => {
       expect(
         mockApiFetch.mock.calls.some(([url]) => (url as string).includes("/members/birthdays")),
       ).toBe(false);
+    });
+
+    it("affiche les anniversaires même sans aucun type d'événement coché (sélection de types vide)", async () => {
+      mockRoutes(
+        [eventItem()],
+        [{ memberId: 9, firstName: "Léa", lastName: "Martin", date: "2026-07-11T00:00:00.000Z", age: 14 }],
+      );
+
+      renderWithIntl(
+        <CalendarListView
+          clubId="1"
+          teams={teams}
+          filters={{ types: new Set(), teamIds: new Set([5]), showBirthdays: true }}
+          refreshKey={0}
+          recenterKey={0}
+        />,
+      );
+
+      expect(await screen.findByText("Léa Martin — 11/07/2026 — 14 ans")).toBeInTheDocument();
+      expect(screen.queryByText("Match amical")).not.toBeInTheDocument();
+    });
+
+    it("étend automatiquement la fenêtre (passé et futur) pour révéler des anniversaires hors de la fenêtre initiale, sélection de types vide", async () => {
+      // Mock réaliste (filtré par dateFrom/dateTo, contrairement à
+      // mockRoutes ci-dessus) : reproduit le bug signalé — 3 anniversaires
+      // en base (1er avril, 8 juillet, 21 novembre), seul celui du 8 juillet
+      // tombe dans la fenêtre initiale (26 juin – 8 septembre, aujourd'hui
+      // étant le 10 juillet dans ce fichier de test).
+      const allBirthdays = [
+        { memberId: 1, firstName: "Avril", lastName: "Test", date: "2026-04-01T00:00:00.000Z", age: 10 },
+        { memberId: 9, firstName: "Léa", lastName: "Martin", date: "2026-07-08T00:00:00.000Z", age: 14 },
+        { memberId: 2, firstName: "Novembre", lastName: "Test", date: "2026-11-21T00:00:00.000Z", age: 33 },
+      ];
+      mockApiFetch.mockImplementation((url: string) => {
+        if (!url.includes("/members/birthdays")) return Promise.resolve(jsonResponse([]));
+        const query = new URL(url, "http://localhost").searchParams;
+        const dateFrom = new Date(query.get("dateFrom")!);
+        const dateTo = new Date(query.get("dateTo")!);
+        return Promise.resolve(
+          jsonResponse(
+            allBirthdays.filter((b) => {
+              const d = new Date(b.date);
+              return d >= dateFrom && d <= dateTo;
+            }),
+          ),
+        );
+      });
+
+      renderWithIntl(
+        <CalendarListView
+          clubId="1"
+          teams={teams}
+          filters={{ types: new Set(), teamIds: new Set([5]), showBirthdays: true }}
+          refreshKey={0}
+          recenterKey={0}
+        />,
+      );
+
+      expect(await screen.findByText("Léa Martin — 08/07/2026 — 14 ans")).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByText("Avril Test — 01/04/2026 — 10 ans")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Novembre Test — 21/11/2026 — 33 ans")).toBeInTheDocument());
+    });
+
+    it("plusieurs clics rapprochés sur Aujourd'hui pendant l'extension automatique ne dédoublent pas les anniversaires", async () => {
+      // Reproduit le bug signalé : un appel loadOlder/loadNewer du cycle
+      // précédent, encore en vol au moment d'un nouveau clic "Aujourd'hui",
+      // ne doit jamais réappliquer une fenêtre/donnée périmée (garde-fou
+      // generationRef).
+      const allBirthdays = [
+        { memberId: 1, firstName: "Avril", lastName: "Test", date: "2026-04-01T00:00:00.000Z", age: 10 },
+        { memberId: 9, firstName: "Léa", lastName: "Martin", date: "2026-07-08T00:00:00.000Z", age: 14 },
+        { memberId: 2, firstName: "Novembre", lastName: "Test", date: "2026-11-21T00:00:00.000Z", age: 33 },
+      ];
+      mockApiFetch.mockImplementation((url: string) => {
+        if (!url.includes("/members/birthdays")) return Promise.resolve(jsonResponse([]));
+        const query = new URL(url, "http://localhost").searchParams;
+        const dateFrom = new Date(query.get("dateFrom")!);
+        const dateTo = new Date(query.get("dateTo")!);
+        return Promise.resolve(
+          jsonResponse(
+            allBirthdays.filter((b) => {
+              const d = new Date(b.date);
+              return d >= dateFrom && d <= dateTo;
+            }),
+          ),
+        );
+      });
+
+      const filters = { types: new Set<never>(), teamIds: new Set([5]), showBirthdays: true };
+      const { rerender } = renderWithIntl(
+        <CalendarListView clubId="1" teams={teams} filters={filters} refreshKey={0} recenterKey={0} />,
+      );
+
+      // Deux "clics" rapprochés (recenterKey incrémenté) sans attendre que
+      // le cycle précédent (et son extension automatique) ait fini de
+      // converger — exactement le scénario qui provoquait le doublon.
+      rerender(
+        <CalendarListView clubId="1" teams={teams} filters={filters} refreshKey={0} recenterKey={1} />,
+      );
+      rerender(
+        <CalendarListView clubId="1" teams={teams} filters={filters} refreshKey={0} recenterKey={2} />,
+      );
+
+      await waitFor(() => expect(screen.getByText("Léa Martin — 08/07/2026 — 14 ans")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Avril Test — 01/04/2026 — 10 ans")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Novembre Test — 21/11/2026 — 33 ans")).toBeInTheDocument());
+      // Aucun doublon : chaque personne n'apparaît qu'une seule fois, avec
+      // un seul âge, malgré les cycles qui se chevauchent.
+      expect(screen.getAllByText(/Avril Test/)).toHaveLength(1);
+      expect(screen.getAllByText(/Léa Martin/)).toHaveLength(1);
+      expect(screen.getAllByText(/Novembre Test/)).toHaveLength(1);
     });
   });
 });

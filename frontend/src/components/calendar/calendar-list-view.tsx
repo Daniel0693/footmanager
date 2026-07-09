@@ -16,6 +16,7 @@ import { DeleteEventDialog } from "@/components/calendar/delete-event-dialog";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { addDays, endOfDay } from "@/lib/calendar-grid";
+import { formatDate } from "@/lib/date-format";
 import {
   fetchBirthdayEvents,
   fetchCalendarEvents,
@@ -42,6 +43,15 @@ const INITIAL_PAST_DAYS = 14;
 const INITIAL_FUTURE_DAYS = 60;
 const CHUNK_DAYS = 30;
 const SCROLL_THRESHOLD_PX = 200;
+// Corrections post-B9 (2026-07-09) : avec peu d'événements/anniversaires
+// dans la fenêtre initiale, la liste ne remplit pas la hauteur visible —
+// aucun scroll possible, donc aucun moyen de déclencher loadOlder/loadNewer
+// pour découvrir un anniversaire ou un événement juste hors fenêtre. La
+// fenêtre s'étend donc automatiquement (alterné passé/futur) tant qu'elle
+// contient moins de MIN_TIMELINE_ITEMS éléments, plafonné à
+// MAX_AUTO_EXPANSIONS itérations pour rester borné en requêtes réseau.
+const MIN_TIMELINE_ITEMS = 8;
+const MAX_AUTO_EXPANSIONS = 6;
 
 export function CalendarListView({
   clubId,
@@ -74,6 +84,19 @@ export function CalendarListView({
   // être une dépendance, pour ne pas redéclencher un chargement complet à
   // chaque extension de fenêtre pendant le scroll.
   const boundsRef = useRef<{ from: Date; to: Date } | null>(null);
+  // Compteur d'extensions automatiques de fenêtre (voir MAX_AUTO_EXPANSIONS)
+  // — remis à zéro à chaque nouvelle fenêtre initiale (montage, recentrage,
+  // changement de filtres), jamais pendant une extension manuelle au scroll.
+  const autoExpandCount = useRef(0);
+  // Génération du cycle courant (montage/filtres/refresh/recentrage) —
+  // incrémentée à chaque nouveau cycle. loadOlder/loadNewer sont invoquées
+  // de façon impérative (scroll, effet d'extension automatique), donc sans
+  // le nettoyage automatique d'un effet React : sans ce garde-fou, un appel
+  // encore en vol au moment d'un clic "Aujourd'hui" applique son résultat
+  // (bornes/événements) une fois le cycle suivant déjà démarré, ce qui
+  // rouvre une fenêtre censée avoir été réinitialisée (bug observé :
+  // doublons d'anniversaire après plusieurs clics rapprochés).
+  const generationRef = useRef(0);
 
   useEffect(() => {
     boundsRef.current =
@@ -86,28 +109,38 @@ export function CalendarListView({
   // actuellement ouverte.
   useEffect(() => {
     boundsRef.current = null;
+    autoExpandCount.current = 0;
   }, [recenterKey]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (!isFiltersReady(filters)) return;
+      // Nouveau cycle (filtres/refresh/recentrage) : redonne un budget
+      // d'extension automatique complet, indépendant des tentatives faites
+      // sous une combinaison de filtres différente, et invalide tout appel
+      // loadOlder/loadNewer du cycle précédent encore en vol.
+      autoExpandCount.current = 0;
+      generationRef.current += 1;
+      // Recharge la fenêtre déjà ouverte si elle existe (évite de recentrer
+      // sur aujourd'hui après une simple création/édition pendant que
+      // l'utilisateur est ailleurs dans le temps) ; sinon fenêtre initiale
+      // centrée sur aujourd'hui. Calculée même si la sélection de types/
+      // équipes est vide : les anniversaires (filtre indépendant, effet
+      // ci-dessous) dépendent de cette fenêtre et doivent pouvoir s'afficher
+      // seuls, sans qu'aucun type d'événement ne soit coché.
+      const existing = boundsRef.current;
+      const from = existing?.from ?? addDays(new Date(), -INITIAL_PAST_DAYS);
+      const to = existing?.to ?? endOfDay(addDays(new Date(), INITIAL_FUTURE_DAYS));
       if (isEmptyFilterSelection(filters)) {
         if (!cancelled) {
           setEvents([]);
           setHasError(false);
-          setPastBoundary(null);
-          setFutureBoundary(null);
+          setPastBoundary(from);
+          setFutureBoundary(to);
         }
         return;
       }
-      // Recharge la fenêtre déjà ouverte si elle existe (évite de recentrer
-      // sur aujourd'hui après une simple création/édition pendant que
-      // l'utilisateur est ailleurs dans le temps) ; sinon fenêtre initiale
-      // centrée sur aujourd'hui.
-      const existing = boundsRef.current;
-      const from = existing?.from ?? addDays(new Date(), -INITIAL_PAST_DAYS);
-      const to = existing?.to ?? endOfDay(addDays(new Date(), INITIAL_FUTURE_DAYS));
       try {
         const data = await fetchCalendarEvents(clubId, accessToken, filters, {
           dateFrom: from,
@@ -171,14 +204,27 @@ export function CalendarListView({
 
   const loadOlder = useCallback(async () => {
     if (!pastBoundary || isLoadingMore) return;
-    setIsLoadingMore(true);
+    // Fige la génération au moment de l'appel : si un nouveau cycle démarre
+    // (recentrage, changement de filtres) avant que cet appel ne se termine,
+    // son résultat est ignoré plutôt qu'appliqué sur un état déjà périmé.
+    const myGeneration = generationRef.current;
     const newBoundary = addDays(pastBoundary, -CHUNK_DAYS);
+    // Sélection de types/équipes vide : aucun événement ne peut jamais
+    // apparaître, inutile d'appeler le backend — élargit quand même la
+    // fenêtre pour que l'effet anniversaires (filtre indépendant) en
+    // profite.
+    if (isEmptyFilterSelection(filters)) {
+      if (generationRef.current === myGeneration) setPastBoundary(newBoundary);
+      return;
+    }
+    setIsLoadingMore(true);
     try {
       const data = await fetchCalendarEvents(clubId, accessToken, filters, {
         dateFrom: newBoundary,
         dateTo: endOfDay(addDays(pastBoundary, -1)),
         sortOrder: "asc",
       });
+      if (generationRef.current !== myGeneration) return;
       const container = scrollRef.current;
       const previousScrollHeight = container?.scrollHeight ?? 0;
       setEvents((prev) => [...data, ...(prev ?? [])]);
@@ -192,30 +238,71 @@ export function CalendarListView({
         }
       });
     } catch {
-      toast.error(t("loadFailed"));
+      if (generationRef.current === myGeneration) toast.error(t("loadFailed"));
     } finally {
+      // Toujours réinitialisé, même si le résultat a été ignoré (génération
+      // périmée) : ce flag verrouille les appels loadOlder/loadNewer du
+      // cycle ACTUEL, pas seulement de celui qui l'a posé — le laisser à
+      // `true` bloquerait indéfiniment le nouveau cycle.
       setIsLoadingMore(false);
     }
   }, [clubId, accessToken, filters, pastBoundary, isLoadingMore, t]);
 
   const loadNewer = useCallback(async () => {
     if (!futureBoundary || isLoadingMore) return;
-    setIsLoadingMore(true);
+    const myGeneration = generationRef.current;
     const newBoundary = endOfDay(addDays(futureBoundary, CHUNK_DAYS));
+    if (isEmptyFilterSelection(filters)) {
+      if (generationRef.current === myGeneration) setFutureBoundary(newBoundary);
+      return;
+    }
+    setIsLoadingMore(true);
     try {
       const data = await fetchCalendarEvents(clubId, accessToken, filters, {
         dateFrom: addDays(futureBoundary, 1),
         dateTo: newBoundary,
         sortOrder: "asc",
       });
+      if (generationRef.current !== myGeneration) return;
       setEvents((prev) => [...(prev ?? []), ...data]);
       setFutureBoundary(newBoundary);
     } catch {
-      toast.error(t("loadFailed"));
+      if (generationRef.current === myGeneration) toast.error(t("loadFailed"));
     } finally {
       setIsLoadingMore(false);
     }
   }, [clubId, accessToken, filters, futureBoundary, isLoadingMore, t]);
+
+  // Extension automatique tant que la fenêtre affiche trop peu d'éléments
+  // pour remplir la zone visible (voir MIN_TIMELINE_ITEMS ci-dessus) — sans
+  // ça, une liste trop courte pour déborder ne peut jamais déclencher
+  // handleScroll, laissant un anniversaire juste hors fenêtre introuvable.
+  // Alterne passé/futur à chaque extension plutôt que les deux à la fois,
+  // pour ne jamais chevaucher avec le flag isLoadingMore partagé.
+  //
+  // Portée volontairement restreinte à la sélection de types/équipes vide
+  // (le bug réellement signalé : seul le filtre "Anniversaires" actif, 0
+  // événement possible) plutôt que généralisée à toute fenêtre pauvre en
+  // événements réels : dans ce cas précis, loadOlder/loadNewer n'appellent
+  // jamais fetchCalendarEvents (voir plus haut), donc aucun risque de
+  // chevauchement avec un chargement au scroll déclenché par l'utilisateur
+  // (isLoadingMore n'est jamais posé sur ce chemin). Étendre au cas général
+  // impliquerait ce risque de chevauchement bien réel avec le scroll manuel
+  // — à revisiter si un besoin similaire est signalé avec de vrais
+  // événements, pas seulement des anniversaires.
+  useEffect(() => {
+    if (events === null || hasError || isLoadingMore) return;
+    if (!isFiltersReady(filters)) return;
+    if (!isEmptyFilterSelection(filters) || !filters.showBirthdays) return;
+    if (birthdays.length >= MIN_TIMELINE_ITEMS) return;
+    if (autoExpandCount.current >= MAX_AUTO_EXPANSIONS) return;
+    autoExpandCount.current += 1;
+    if (autoExpandCount.current % 2 === 1) {
+      void loadOlder();
+    } else {
+      void loadNewer();
+    }
+  }, [events, birthdays, hasError, isLoadingMore, filters, loadOlder, loadNewer]);
 
   const handleScroll = () => {
     const container = scrollRef.current;
@@ -315,9 +402,10 @@ export function CalendarListView({
                   <CardContent className="flex items-center gap-2 py-3 text-sm">
                     <Cake className="size-4 shrink-0 text-muted-foreground" />
                     <span>
-                      {t("birthdayAge", {
+                      {t("birthdayAgeWithDate", {
                         firstName: item.birthday.firstName,
                         lastName: item.birthday.lastName,
+                        date: formatDate(item.birthday.date),
                         age: item.birthday.age,
                       })}
                     </span>

@@ -63,8 +63,31 @@ la fiche joueur :
 | **Objectifs** | objectifs de développement, 4 statuts | `PlayerObjective` | Phase 2, étape A7.4 |
 | **Évaluation** | session multi-critères, radar dynamique (N catégories selon la config du club) | `EvaluationCriterion` + `PlayerEvaluation` + `PlayerEvaluationScore` | Phase 2, étape A7.5 |
 | **Dashboard** | vue d'ensemble (stats clés, dernières évaluations, objectifs en cours) | agrégation | Phase 6 — dépend des stats Matchs (Phase 4) et Entraînement (Phase 5) |
-| **Absence** | absences planifiées | `PlayerAbsence` | Retiré de la Partie A ; à construire avec le Calendrier/présences (Partie B et/ou Phases 4-5) — emplacement précis à trancher |
+| **Absence** | absences planifiées, motif en liste fermée + description libre | `PlayerAbsence` | Construit à l'étape B8 du module Calendrier (`docs/modules/calendrier-evenements.md` §Absences) |
 | **Blessure** | suivi médical | `Injury` — voir `docs/modules/blessures.md` | Phase 8 (données de santé, RGPD dédié) |
+
+### Boutons d'action masqués pour un joueur consultant sa propre fiche (correctif post-B9, 2026-07-09)
+
+Jusqu'ici, aucun onglet ne masquait ses boutons d'ajout/édition/suppression selon le rôle du
+viewer — l'autorisation reposait entièrement sur le backend (403 au clic), sans retour visuel
+préalable. Un Player consultant sa propre fiche (seul cas où un Player peut charger cette page :
+`PlayersService.findOne` refuse tout profil qui n'est pas le sien en scope `OWN`) voyait donc des
+boutons "Ajouter une mesure", "Ajouter une évaluation", "Modifier", "Supprimer"... qu'il n'avait
+jamais le droit d'utiliser.
+
+**Solution retenue** : `isOwnProfile` (page.tsx, `player.member.user.id === utilisateur
+connecté`, `!!` des deux côtés pour éviter qu'un id manquant des deux côtés ne soit faussement
+traité comme "même personne") est propagé à chaque onglet (`MeasurementsTab`, `InterviewsTab`,
+`NotesTab`, `ObjectivesTab`, `EvaluationTab`, `AbsenceTab`) et au bouton "Modifier" du profil
+joueur en haut de page. Chaque onglet masque son formulaire d'ajout et les actions
+édition/suppression par ligne quand `isOwnProfile` est vrai — reflète exactement les permissions
+réelles du rôle Player dans `backend/prisma/seed.ts` (READ/OWN seul sur toutes ces ressources,
+sauf `player_absence` qui a aussi CREATE/OWN, déjà traité différemment dans `AbsenceTab`).
+**Simplification documentée** : suppose qu'un Player n'est jamais *aussi* Coach/AdminClub sur le
+contexte de cette page précise (cas non exclu par le système de rôles multiples, mais non
+représenté dans les données de démo) — un tel double-rôle verrait ses boutons masqués à tort sur
+sa propre fiche joueur. À revisiter si ce cas se présente réellement (remplacerait le raccourci
+identité par une vérification de permission explicite par ressource).
 
 ### Mesures — filtres/tri toujours résolus côté backend
 
@@ -102,6 +125,29 @@ dans la mesure du possible, être résolu côté backend (query params sur le `G
   les query params `sortBy`/`sortOrder` côté backend — propres au tableau, le graphique reste
   toujours chronologique. Bouton Supprimer en `variant="destructive"` (rouge) pour signaler une
   action irréversible.
+- **Bug — graphique écrasé quand le formulaire d'ajout est masqué (correctif post-B9,
+  2026-07-09)** : la carte du graphique (`h-full`) est étirée (`items-stretch`) à la hauteur de
+  la colonne de gauche (Filtres + Formulaire) — masquer le formulaire pour un joueur consultant
+  sa propre fiche (`isOwnProfile`) raccourcissait cette colonne, écrasant le graphique avec elle
+  (illisible : courbes tassées, peu d'espace vertical). Corrigé par `min-h-96` sur la carte du
+  graphique, indépendant de la présence du formulaire.
+- **Bugs #2 — retour immédiat sur le correctif ci-dessus (2026-07-09)** : les deux champs de la
+  plage de dates (`w-36` fixes) débordaient de la carte Filtres (20rem de large, insuffisant pour
+  deux champs de 9rem + séparateur) — corrigé en `w-0 min-w-0 flex-1` comme le fait déjà l'onglet
+  Évaluation (même layout à deux colonnes), qui n'avait pas cette incohérence. Carte Filtres
+  étirée (`flex-1`) jusqu'au bas de la colonne **seulement quand le formulaire est masqué** —
+  évite un grand vide sous elle une fois `min-h-96` appliqué au graphique ; dimensions inchangées
+  quand le formulaire est affiché (comportement historique).
+- **Bugs #3 — le passage en `flex-1` casse le passage à la ligne Type/Date (2026-07-09)** : avec
+  des champs `flex-1` (largeur flexible), `flex flex-wrap` ne déclenche plus de retour à la ligne
+  entre les blocs Type et Date — ils se réduisaient à une largeur illisible sur une même ligne
+  plutôt que de passer à la ligne (le retour à la ligne d'un flex-wrap ne se déclenche que pour
+  des éléments à largeur fixe/naturelle, pas des `flex-1` qui se contentent de rétrécir). Corrigé
+  en empilant Type et Date verticalement dans la carte Filtres (`flex flex-col gap-3`, chaque
+  bloc sur 100% de la largeur), plutôt qu'un flex-wrap horizontal — pertinent uniquement pour
+  cette carte étroite (colonne de 20rem partagée avec le graphique), pas pour les barres de
+  filtres pleine largeur des autres onglets (Notes/Objectifs/Entretien/Absence), qui gardent leur
+  flex-wrap horizontal existant.
 
 ### Entretien — timeline, staffId auto-assigné, planification à l'avance
 

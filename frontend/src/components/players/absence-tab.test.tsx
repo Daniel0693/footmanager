@@ -22,7 +22,8 @@ function jsonResponse(body: unknown, ok = true) {
 function absence(overrides: Record<string, unknown> = {}) {
   return {
     id: 1,
-    reason: "Blessure au genou",
+    reason: "INJURY",
+    description: "Douleur au genou droit",
     startDate: "2026-07-10T00:00:00.000Z",
     endDate: "2026-07-20T00:00:00.000Z",
     isExcused: true,
@@ -31,8 +32,15 @@ function absence(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderTab(clubId = "1", teamId = "5", playerId = "1") {
-  return renderWithIntl(<AbsenceTab clubId={clubId} teamId={teamId} playerId={playerId} />);
+function renderTab(
+  clubId = "1",
+  teamId = "5",
+  playerId = "1",
+  isOwnProfile = false,
+) {
+  return renderWithIntl(
+    <AbsenceTab clubId={clubId} teamId={teamId} playerId={playerId} isOwnProfile={isOwnProfile} />,
+  );
 }
 
 function queryOf(url: string) {
@@ -75,15 +83,25 @@ describe("AbsenceTab", () => {
     expect(await screen.findByText("Impossible de charger les absences")).toBeInTheDocument();
   });
 
-  it("affiche la timeline avec dates (JJ/MM/AAAA), motif, statut d'excuse et auteur", async () => {
+  it("affiche la timeline avec dates (JJ/MM/AAAA), motif traduit, description, statut d'excuse et auteur", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse([absence()]));
 
     renderTab();
 
-    expect(await screen.findByText("Blessure au genou")).toBeInTheDocument();
+    expect(await screen.findByText("Blessure")).toBeInTheDocument();
+    expect(screen.getByText("Douleur au genou droit")).toBeInTheDocument();
     expect(screen.getByText("10/07/2026 – 20/07/2026")).toBeInTheDocument();
     expect(screen.getByText("Excusée")).toBeInTheDocument();
     expect(screen.getByText(/Signalée par Marie AdminClub/)).toBeInTheDocument();
+  });
+
+  it("n'affiche pas de description quand elle est absente", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse([absence({ description: null })]));
+
+    renderTab();
+
+    await screen.findByText("Blessure");
+    expect(screen.queryByText("Douleur au genou droit")).not.toBeInTheDocument();
   });
 
   it("affiche un badge Non excusée quand isExcused est false", async () => {
@@ -91,7 +109,7 @@ describe("AbsenceTab", () => {
 
     renderTab();
 
-    await screen.findByText("Blessure au genou");
+    await screen.findByText("Blessure");
     expect(screen.getByText("Non excusée")).toBeInTheDocument();
   });
 
@@ -100,7 +118,7 @@ describe("AbsenceTab", () => {
 
     renderTab();
 
-    await screen.findByText("Blessure au genou");
+    await screen.findByText("Blessure");
     expect(screen.queryByText("Excusée")).not.toBeInTheDocument();
     expect(screen.queryByText("Non excusée")).not.toBeInTheDocument();
   });
@@ -144,7 +162,7 @@ describe("AbsenceTab", () => {
     const user = userEvent.setup();
 
     renderTab("1", "5", "10");
-    await screen.findByText("Blessure au genou");
+    await screen.findByText("Blessure");
     mockApiFetch.mockClear();
 
     await user.click(screen.getByRole("button", { name: "Supprimer" }));
@@ -170,7 +188,7 @@ describe("AbsenceTab", () => {
     const user = userEvent.setup();
 
     renderTab("1", "5", "10");
-    await screen.findByText("Blessure au genou");
+    await screen.findByText("Blessure");
     mockApiFetch.mockClear();
 
     await user.click(screen.getByRole("button", { name: "Supprimer" }));
@@ -191,7 +209,8 @@ describe("AbsenceTab", () => {
     mockApiFetch.mockClear();
 
     await user.click(screen.getByRole("button", { name: "Ajouter une absence" }));
-    await user.type(screen.getByLabelText("Motif"), "Maladie");
+    await user.click(screen.getByRole("combobox", { name: "Motif" }));
+    await user.click(await screen.findByRole("option", { name: "Maladie" }));
     await user.type(screen.getByLabelText("Date de début"), "2026-08-01");
     await user.type(screen.getByLabelText("Date de fin"), "2026-08-05");
     await user.click(
@@ -212,11 +231,35 @@ describe("AbsenceTab", () => {
     const user = userEvent.setup();
 
     renderTab();
-    await screen.findByText("Blessure au genou");
+    await screen.findByText("Blessure");
 
     await user.click(screen.getByRole("button", { name: "Modifier" }));
 
-    const reasonInput = await screen.findByLabelText<HTMLTextAreaElement>("Motif");
-    expect(reasonInput).toHaveValue("Blessure au genou");
+    expect(screen.getByRole("combobox", { name: "Motif" })).toHaveTextContent("Blessure");
+    const descriptionInput = await screen.findByLabelText<HTMLTextAreaElement>("Description");
+    expect(descriptionInput).toHaveValue("Douleur au genou droit");
+  });
+
+  describe("isOwnProfile (joueur consultant sa propre fiche)", () => {
+    it("masque les boutons Modifier/Supprimer sur chaque absence", async () => {
+      mockApiFetch.mockResolvedValue(jsonResponse([absence()]));
+
+      renderTab("1", "5", "10", true);
+
+      await screen.findByText("Blessure");
+      expect(screen.queryByRole("button", { name: "Modifier" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Supprimer" })).not.toBeInTheDocument();
+    });
+
+    it("le formulaire d'ajout ne propose pas le champ Excusé", async () => {
+      mockApiFetch.mockResolvedValue(jsonResponse([]));
+      const user = userEvent.setup();
+
+      renderTab("1", "5", "10", true);
+      await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+
+      await user.click(screen.getByRole("button", { name: "Ajouter une absence" }));
+      expect(screen.queryByRole("combobox", { name: "Excusée" })).not.toBeInTheDocument();
+    });
   });
 });

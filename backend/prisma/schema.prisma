@@ -402,15 +402,26 @@ model PlayerObjective {
   @@index([playerId])
 }
 
+enum AbsenceReason {
+  INJURY
+  ILLNESS
+  VACATION
+  OTHER
+}
+
 // Indépendante de l'équipe : s'applique à toutes les activités du joueur sur
 // la période (docs/schema/joueurs.md §PlayerAbsence). Pas de rapprochement
 // automatique avec les convocations (MatchAttendance/TrainingAttendance
-// n'existent pas encore) — différé aux Phases 4/5.
+// n'existent pas encore) — différé aux Phases 4/5. `reason` en liste fermée
+// (plutôt que texte libre) pour permettre des statistiques par motif
+// (ex. nombre d'entraînements manqués pour blessure) ; `description` reste
+// un texte libre optionnel pour préciser le contexte.
 model PlayerAbsence {
   id           Int           @id @default(autoincrement())
   playerId     Int
   player       PlayerProfile @relation(fields: [playerId], references: [id])
-  reason       String
+  reason       AbsenceReason
+  description  String?       @db.Text
   startDate    DateTime      @db.Date
   endDate      DateTime      @db.Date
   isExcused    Boolean?

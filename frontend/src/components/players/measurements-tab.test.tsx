@@ -29,9 +29,14 @@ function measurement(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderTab(clubId = "1", teamId = "5", playerId = "1") {
+function renderTab(clubId = "1", teamId = "5", playerId = "1", isOwnProfile = false) {
   return renderWithIntl(
-    <MeasurementsTab clubId={clubId} teamId={teamId} playerId={playerId} />,
+    <MeasurementsTab
+      clubId={clubId}
+      teamId={teamId}
+      playerId={playerId}
+      isOwnProfile={isOwnProfile}
+    />,
   );
 }
 
@@ -253,5 +258,15 @@ describe("MeasurementsTab", () => {
     for (const [url] of mockApiFetch.mock.calls) {
       expect(queryOf(url).get("type")).toBeNull();
     }
+  });
+
+  it("isOwnProfile masque le formulaire d'ajout et le bouton Supprimer (Player n'a que READ/OWN)", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse([measurement()]));
+
+    renderTab("1", "5", "10", true);
+
+    await screen.findByText("Filtres");
+    expect(screen.queryByLabelText("Valeur")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Supprimer" })).not.toBeInTheDocument();
   });
 });

@@ -114,7 +114,7 @@ describe("CalendarPageContent", () => {
     );
   });
 
-  it("décocher tous les types affiche un calendrier vide sans appel réseau supplémentaire", async () => {
+  it("décocher tous les types (et les anniversaires) affiche un calendrier vide sans appel réseau supplémentaire", async () => {
     mockRoutes(twoTeams, oneEvent);
     const user = userEvent.setup();
 
@@ -123,6 +123,11 @@ describe("CalendarPageContent", () => {
 
     await user.click(screen.getByRole("checkbox", { name: "Entraînement" }));
     await user.click(screen.getByRole("checkbox", { name: "Match" }));
+    // Anniversaires aussi désactivé : sinon la fenêtre pauvre en
+    // anniversaires (0 ici) déclenche l'extension automatique de la vue
+    // Liste (correctif post-B9) — comportement voulu, mais hors du champ de
+    // ce test qui vérifie l'absence d'appel réseau côté événements.
+    await user.click(screen.getByRole("checkbox", { name: "Anniversaires" }));
     mockApiFetch.mockClear();
     await user.click(screen.getByRole("checkbox", { name: "Autre" }));
 

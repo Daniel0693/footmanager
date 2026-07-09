@@ -44,7 +44,7 @@ interface PlayerDetail {
     gender: Gender | null;
     birthDate: string | null;
     isActive: boolean;
-    user: { email: string } | null;
+    user: { id: number; email: string } | null;
   };
   playerTeams: Array<{
     id: number;
@@ -83,7 +83,7 @@ export function PlayerDetailPageContent({
   const tPlayers = useTranslations("players");
   const tGender = useTranslations("gender");
   const tFoot = useTranslations("foot");
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [hasError, setHasError] = useState(false);
   const [isSavingPosition, setIsSavingPosition] = useState(false);
@@ -151,6 +151,14 @@ export function PlayerDetailPageContent({
   if (!player) {
     return null;
   }
+
+  // Le viewer consulte-t-il sa propre fiche joueur ? Détermine si le
+  // formulaire de déclaration d'absence doit masquer le champ "Excusé" —
+  // seul l'entraîneur décide du statut d'excuse, jamais le joueur
+  // lui-même (voir AbsenceTab/AbsenceFormDialog). `!!` évite qu'un id
+  // manquant des deux côtés (ex. joueur sans compte lié) ne soit
+  // faussement traité comme "même personne".
+  const isOwnProfile = !!player.member.user?.id && player.member.user.id === user?.id;
 
   const assignment =
     player.playerTeams.find((pt) => pt.teamId === Number(teamId)) ??
@@ -234,7 +242,10 @@ export function PlayerDetailPageContent({
         >
           {t("backToRoster")}
         </Link>
-        {existingPlayer && (
+        {/* Un joueur consultant sa propre fiche n'a que READ/OWN sur son
+            profil joueur (voir backend/prisma/seed.ts, rôle Player) —
+            jamais UPDATE : masqué plutôt que menant à un 403 au clic. */}
+        {existingPlayer && !isOwnProfile && (
           <PlayerFormDialog
             clubId={clubId}
             teamId={teamId}
@@ -351,22 +362,52 @@ export function PlayerDetailPageContent({
               flex-1 overflow-y-auto) défile — pas la page entière. En
               dessous de lg, tout reste en flux normal. */}
           <TabsContent value="measurements" className="lg:flex lg:min-h-0 lg:flex-col">
-            <MeasurementsTab clubId={clubId} teamId={teamId} playerId={playerId} />
+            <MeasurementsTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
           </TabsContent>
           <TabsContent value="interview" className="lg:flex lg:min-h-0 lg:flex-col">
-            <InterviewsTab clubId={clubId} teamId={teamId} playerId={playerId} />
+            <InterviewsTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
           </TabsContent>
           <TabsContent value="notes" className="lg:flex lg:min-h-0 lg:flex-col">
-            <NotesTab clubId={clubId} teamId={teamId} playerId={playerId} />
+            <NotesTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
           </TabsContent>
           <TabsContent value="objectives" className="lg:flex lg:min-h-0 lg:flex-col">
-            <ObjectivesTab clubId={clubId} teamId={teamId} playerId={playerId} />
+            <ObjectivesTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
           </TabsContent>
           <TabsContent value="evaluation" className="lg:flex lg:min-h-0 lg:flex-col">
-            <EvaluationTab clubId={clubId} teamId={teamId} playerId={playerId} />
+            <EvaluationTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
           </TabsContent>
           <TabsContent value="absence" className="lg:flex lg:min-h-0 lg:flex-col">
-            <AbsenceTab clubId={clubId} teamId={teamId} playerId={playerId} />
+            <AbsenceTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
           </TabsContent>
           {DETAIL_TABS.filter(
             (tab) =>

@@ -386,6 +386,12 @@ describe('B9 — scénario multi-rôles (PlayerAbsencesController)', () => {
       action: 'READ',
       scope: 'OWN',
     },
+    createOwn: {
+      id: 6,
+      resource: 'player_absence',
+      action: 'CREATE',
+      scope: 'OWN',
+    },
   } as const;
   const roles: ResourceRoles = {
     coach: {
@@ -401,7 +407,10 @@ describe('B9 — scénario multi-rôles (PlayerAbsencesController)', () => {
     player: {
       id: 2,
       isSystem: true,
-      rolePermissions: [{ permission: permissions.readOwn }],
+      rolePermissions: [
+        { permission: permissions.readOwn },
+        { permission: permissions.createOwn },
+      ],
     },
     parent: { id: 3, isSystem: true, rolePermissions: [] },
   };
@@ -469,14 +478,14 @@ describe('B9 — scénario multi-rôles (PlayerAbsencesController)', () => {
       300,
       requester.memberId,
       {
-        reason: 'Blessure',
+        reason: 'INJURY',
         startDate: new Date('2026-07-10'),
         endDate: new Date('2026-07-15'),
       },
       requester,
     );
     expect(absenceCreate).toHaveBeenCalled();
-    await service.update(1, 300, 1, { reason: 'Mis à jour' }, requester);
+    await service.update(1, 300, 1, { reason: 'ILLNESS' }, requester);
     expect(absenceUpdate).toHaveBeenCalled();
     await service.remove(1, 300, 1, requester);
     expect(absenceDelete).toHaveBeenCalled();
@@ -488,7 +497,7 @@ describe('B9 — scénario multi-rôles (PlayerAbsencesController)', () => {
         400,
         requester.memberId,
         {
-          reason: 'Blessure',
+          reason: 'INJURY',
           startDate: new Date('2026-07-10'),
           endDate: new Date('2026-07-15'),
         },
@@ -497,7 +506,7 @@ describe('B9 — scénario multi-rôles (PlayerAbsencesController)', () => {
     ).rejects.toBeInstanceOf(AppException);
   });
 
-  it('Player (équipe 8, profil 100) : lit ses propres absences, création refusée par le guard', async () => {
+  it('Player (équipe 8, profil 100) : lit et déclare ses propres absences (isExcused forcé à null), écriture pour un tiers refusée par le guard', async () => {
     const readRequest = {
       params: { clubId: '1', playerId: '100' },
       query: { teamId: '8' },
@@ -511,14 +520,65 @@ describe('B9 — scénario multi-rôles (PlayerAbsencesController)', () => {
     });
     expect(absenceFindMany).toHaveBeenCalled();
 
-    const createRequest = {
+    const createOwnRequest = {
       params: { clubId: '1', playerId: '100' },
+      query: { teamId: '8' },
       user: { userId: 71 },
     } as Partial<PermissionedRequest>;
+    await guard.canActivate(buildContext(createOwnRequest, createHandler));
+    expect(createOwnRequest.permissionScope).toBe('OWN');
+    await service.create(
+      1,
+      100,
+      createOwnRequest.member!.id,
+      {
+        reason: 'VACATION',
+        startDate: new Date('2026-08-01'),
+        endDate: new Date('2026-08-10'),
+        isExcused: true,
+      },
+      { memberId: createOwnRequest.member!.id, scope: 'OWN' },
+    );
+    expect(absenceCreate).toHaveBeenCalledWith({
+      data: {
+        playerId: 100,
+        reportedById: createOwnRequest.member!.id,
+        reason: 'VACATION',
+        description: undefined,
+        startDate: new Date('2026-08-01'),
+        endDate: new Date('2026-08-10'),
+        isExcused: null,
+      },
+      include: { reportedBy: true },
+    });
+
+    // Coéquipier (profil 300) : Marc n'a que READ/CREATE en scope OWN sur
+    // cette ressource, jamais TEAM sur l'équipe 8 (il n'y est que Player) —
+    // le guard laisse passer (il vérifie seulement "Marc a-t-il un scope
+    // quelconque sur player_absence/CREATE dans ce contexte ?", pas que le
+    // joueur ciblé est bien lui-même), c'est le service qui doit refuser en
+    // comparant playerId au memberId de l'appelant (même garde-fou que
+    // findAllByPlayer/OWN).
+    const createForOtherRequest = {
+      params: { clubId: '1', playerId: '300' },
+      query: { teamId: '8' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+    await guard.canActivate(buildContext(createForOtherRequest, createHandler));
+    expect(createForOtherRequest.permissionScope).toBe('OWN');
     await expect(
-      guard.canActivate(buildContext(createRequest, createHandler)),
+      service.create(
+        1,
+        300,
+        createForOtherRequest.member!.id,
+        {
+          reason: 'VACATION',
+          startDate: new Date('2026-08-01'),
+          endDate: new Date('2026-08-10'),
+        },
+        { memberId: createForOtherRequest.member!.id, scope: 'OWN' },
+      ),
     ).rejects.toBeInstanceOf(AppException);
-    expect(absenceCreate).not.toHaveBeenCalled();
   });
 
   it('Parent (Club 2) : aucun accès, quelle que soit l’action', async () => {

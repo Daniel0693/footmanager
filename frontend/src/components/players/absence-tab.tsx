@@ -26,7 +26,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AbsenceFormDialog, type ExistingAbsence } from "@/components/players/absence-form-dialog";
+import {
+  AbsenceFormDialog,
+  reasonLabelKey,
+  type ExistingAbsence,
+} from "@/components/players/absence-form-dialog";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { formatDate } from "@/lib/date-format";
@@ -49,10 +53,17 @@ export function AbsenceTab({
   clubId,
   teamId,
   playerId,
+  isOwnProfile,
 }: {
   clubId: string;
   teamId: string;
   playerId: string;
+  // Un joueur qui consulte sa propre fiche peut déclarer une absence (scope
+  // OWN, permission CREATE uniquement) mais ne peut ni la modifier ni la
+  // supprimer ensuite (pas de UPDATE/DELETE en scope OWN) — masque les
+  // actions d'édition et le champ "Excusé" du formulaire de création,
+  // laissé à l'entraîneur.
+  isOwnProfile: boolean;
 }) {
   const t = useTranslations("absences");
   const { accessToken } = useAuth();
@@ -175,6 +186,7 @@ export function AbsenceTab({
               teamId={teamId}
               playerId={playerId}
               onSuccess={load}
+              canSetExcused={!isOwnProfile}
               trigger={
                 <Button>
                   <CalendarRange />
@@ -221,55 +233,66 @@ export function AbsenceTab({
                           </Badge>
                         )}
                       </div>
-                      <div className="flex gap-1">
-                        <AbsenceFormDialog
-                          clubId={clubId}
-                          teamId={teamId}
-                          playerId={playerId}
-                          absence={absence}
-                          onSuccess={load}
-                          trigger={
-                            <Button variant="ghost" size="icon" aria-label={t("edit")}>
-                              <Pencil />
-                            </Button>
-                          }
-                        />
-                        <AlertDialog>
-                          <AlertDialogTrigger
-                            render={
-                              <Button variant="ghost" size="icon" aria-label={t("delete")}>
-                                <Trash2 className="text-destructive" />
+                      {/* Un joueur n'a pas UPDATE/DELETE sur ses propres
+                          absences (seule la déclaration initiale, scope OWN
+                          CREATE) — actions masquées plutôt que menant à un
+                          403 au clic. */}
+                      {!isOwnProfile && (
+                        <div className="flex gap-1">
+                          <AbsenceFormDialog
+                            clubId={clubId}
+                            teamId={teamId}
+                            playerId={playerId}
+                            absence={absence}
+                            onSuccess={load}
+                            trigger={
+                              <Button variant="ghost" size="icon" aria-label={t("edit")}>
+                                <Pencil />
                               </Button>
                             }
                           />
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {t("deleteDialogDescription")}
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogClose
-                                render={<Button variant="outline">{t("cancel")}</Button>}
-                              />
-                              <AlertDialogClose
-                                render={
-                                  <Button
-                                    variant="destructive"
-                                    onClick={() => void handleDelete(absence.id)}
-                                  >
-                                    {t("deleteConfirm")}
-                                  </Button>
-                                }
-                              />
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
+                          <AlertDialog>
+                            <AlertDialogTrigger
+                              render={
+                                <Button variant="ghost" size="icon" aria-label={t("delete")}>
+                                  <Trash2 className="text-destructive" />
+                                </Button>
+                              }
+                            />
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  {t("deleteDialogDescription")}
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogClose
+                                  render={<Button variant="outline">{t("cancel")}</Button>}
+                                />
+                                <AlertDialogClose
+                                  render={
+                                    <Button
+                                      variant="destructive"
+                                      onClick={() => void handleDelete(absence.id)}
+                                    >
+                                      {t("deleteConfirm")}
+                                    </Button>
+                                  }
+                                />
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      )}
                     </div>
 
-                    <p className="text-sm whitespace-pre-wrap">{absence.reason}</p>
+                    <p className="text-sm font-medium">{t(reasonLabelKey(absence.reason))}</p>
+                    {absence.description && (
+                      <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+                        {absence.description}
+                      </p>
+                    )}
 
                     {absence.reportedBy && (
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">

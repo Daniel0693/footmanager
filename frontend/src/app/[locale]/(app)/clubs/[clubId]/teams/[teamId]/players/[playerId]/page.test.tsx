@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
-import { renderWithIntl, screen, waitFor } from "@/test-utils/render";
+import { renderWithIntl, screen, waitFor, within } from "@/test-utils/render";
 import { PlayerDetailPageContent } from "./page";
 
 // require() dans la factory jest.mock : nécessaire pour un mock fiable, voir navigation-mock.tsx.
@@ -48,7 +48,7 @@ function playerDetail(overrides: Record<string, unknown> = {}) {
       gender: "MALE",
       birthDate: "2011-10-30",
       isActive: true,
-      user: { email: "tom@footmanager.test" },
+      user: { id: 501, email: "tom@footmanager.test" },
     },
     playerTeams: [
       {
@@ -163,6 +163,50 @@ describe("PlayerDetailPageContent", () => {
     expect(
       screen.queryByText("Cette section arrivera dans une prochaine phase."),
     ).not.toBeInTheDocument();
+  });
+
+  it("un joueur consultant sa propre fiche peut déclarer une absence sans champ Excusé, sans pouvoir en modifier/supprimer", async () => {
+    mockApiFetchDefault(playerDetail(), true);
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/absences")) {
+        return Promise.resolve(
+          jsonResponse([
+            {
+              id: 1,
+              reason: "INJURY",
+              description: null,
+              startDate: "2026-07-10T00:00:00.000Z",
+              endDate: "2026-07-20T00:00:00.000Z",
+              isExcused: null,
+              reportedBy: null,
+            },
+          ]),
+        );
+      }
+      if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
+      return Promise.resolve(jsonResponse(playerDetail()));
+    });
+    // player.member.user.id (501, voir playerDetail()) === l'utilisateur
+    // connecté : Tom consulte sa propre fiche joueur.
+    mockUseAuth.mockReturnValue({ accessToken: "token", user: { id: 501 } });
+    const user = userEvent.setup();
+
+    renderPage();
+    await screen.findByText("Tom Joueur");
+    // Bouton d'édition du profil joueur (haut de page) : Player n'a que
+    // READ/OWN sur player_profile, jamais UPDATE — masqué comme le reste.
+    expect(screen.queryByRole("button", { name: "Modifier" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Absence" }));
+    // "Blessure" est aussi le libellé (français) de l'onglet Injury,
+    // toujours présent dans la barre d'onglets — cible le <p> du motif.
+    await screen.findByText("Blessure", { selector: "p" });
+    const panel = screen.getByRole("tabpanel");
+
+    expect(within(panel).queryByRole("button", { name: "Supprimer" })).not.toBeInTheDocument();
+
+    await user.click(within(panel).getByRole("button", { name: "Ajouter une absence" }));
+    expect(screen.queryByRole("combobox", { name: "Excusée" })).not.toBeInTheDocument();
   });
 
   it("affiche un message d'erreur visible si le chargement échoue", async () => {

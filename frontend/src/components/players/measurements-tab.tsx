@@ -85,10 +85,16 @@ export function MeasurementsTab({
   clubId,
   teamId,
   playerId,
+  isOwnProfile,
 }: {
   clubId: string;
   teamId: string;
   playerId: string;
+  // Un joueur consultant sa propre fiche n'a que READ/OWN sur les mesures
+  // (voir backend/prisma/seed.ts, rôle Player) — jamais CREATE/DELETE :
+  // masque le formulaire d'ajout et les boutons de suppression plutôt que
+  // de les laisser mener à un 403 au clic.
+  isOwnProfile: boolean;
 }) {
   const t = useTranslations("measurements");
   const tType = useTranslations("measurementType");
@@ -318,18 +324,31 @@ export function MeasurementsTab({
           fixe (shrink-0) : seul le tableau d'historique défile en dessous. */}
       <div className="grid shrink-0 grid-cols-1 items-stretch gap-4 lg:grid-cols-[20rem_1fr]">
         <div className="flex flex-col gap-4">
-          <Card>
+          {/* flex-1 seulement quand le formulaire est masqué (isOwnProfile)
+              : la carte Filtres seule s'étire alors jusqu'au bas de la
+              colonne (hauteur de la carte graphique, voir min-h-96
+              ci-dessous) plutôt que de laisser un grand vide sous elle.
+              Quand le formulaire est affiché, dimensions inchangées (la
+              colonne garde sa hauteur naturelle Filtres + Formulaire). */}
+          <Card className={isOwnProfile ? "flex-1" : undefined}>
             <CardHeader>
               <CardTitle>{t("chartFiltersTitle")}</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-wrap items-end gap-x-4 gap-y-3">
+            {/* Carte étroite (colonne de 20rem, partagée avec le graphique) :
+                Type et Date empilés sur toute la largeur disponible plutôt
+                qu'un flex-wrap horizontal — avec des champs flexibles
+                (flex-1, voir Date ci-dessous), deux blocs sur une même ligne
+                se réduisent à une largeur illisible au lieu de passer à la
+                ligne (le flex-wrap ne déclenche un retour à la ligne que
+                pour des largeurs fixes). */}
+            <CardContent className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label>{t("type")}</Label>
                 <Select
                   value={filterType}
                   onValueChange={(v) => setFilterType((v as MeasurementType | typeof ALL) ?? ALL)}
                 >
-                  <SelectTrigger className="w-36">
+                  <SelectTrigger className="w-full">
                     <SelectValue>
                       {(v: string | null) => (v && v !== ALL ? tType(v) : t("allTypes"))}
                     </SelectValue>
@@ -344,10 +363,6 @@ export function MeasurementsTab({
                   </SelectContent>
                 </Select>
               </div>
-              {/* Plage de dates groupée en un seul bloc : les deux champs
-                  wrappent ensemble plutôt que de se retrouver séparés sur deux
-                  lignes (retour du 2026-07-06, appliqué aux onglets
-                  Entretien/Notes/Objectifs puis ici pour garder le même gabarit). */}
               <div className="flex flex-col gap-1.5">
                 <Label>{t("dateRangeLabel")}</Label>
                 <div className="flex items-center gap-1.5">
@@ -356,7 +371,7 @@ export function MeasurementsTab({
                     aria-label={t("dateFrom")}
                     value={dateFrom}
                     onChange={(event) => setDateFrom(event.target.value)}
-                    className="w-36"
+                    className="w-0 min-w-0 flex-1"
                   />
                   <span className="text-xs text-muted-foreground">–</span>
                   <Input
@@ -364,7 +379,7 @@ export function MeasurementsTab({
                     aria-label={t("dateTo")}
                     value={dateTo}
                     onChange={(event) => setDateTo(event.target.value)}
-                    className="w-36"
+                    className="w-0 min-w-0 flex-1"
                   />
                 </div>
               </div>
@@ -372,59 +387,68 @@ export function MeasurementsTab({
           </Card>
 
           {/* Formulaire d'ajout, sous les filtres (même colonne) */}
-          <Card>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label>{t("type")}</Label>
-                  <Select
-                    value={type}
-                    onValueChange={(v) => setType((v as MeasurementType) ?? "HEIGHT")}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue>{(v: string | null) => (v ? tType(v) : "")}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MEASUREMENT_TYPES.map((measurementType) => (
-                        <SelectItem key={measurementType} value={measurementType}>
-                          {tType(measurementType)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="measurement-value">{t("value")}</Label>
-                  <Input
-                    id="measurement-value"
-                    type="number"
-                    step="0.1"
-                    value={value}
-                    onChange={(event) => setValue(event.target.value)}
-                    className="w-full"
-                  />
-                  {errors.value && <p className="text-sm text-destructive">{t("valueRequired")}</p>}
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="measurement-date">{t("date")}</Label>
-                  <Input
-                    id="measurement-date"
-                    type="date"
-                    value={date}
-                    onChange={(event) => setDate(event.target.value)}
-                    className="w-full"
-                  />
-                  {errors.date && <p className="text-sm text-destructive">{t("dateRequired")}</p>}
-                </div>
-                <Button type="submit" disabled={isSubmitting} className="w-full">
-                  {t("submit")}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+          {!isOwnProfile && (
+            <Card>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>{t("type")}</Label>
+                    <Select
+                      value={type}
+                      onValueChange={(v) => setType((v as MeasurementType) ?? "HEIGHT")}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>{(v: string | null) => (v ? tType(v) : "")}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MEASUREMENT_TYPES.map((measurementType) => (
+                          <SelectItem key={measurementType} value={measurementType}>
+                            {tType(measurementType)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="measurement-value">{t("value")}</Label>
+                    <Input
+                      id="measurement-value"
+                      type="number"
+                      step="0.1"
+                      value={value}
+                      onChange={(event) => setValue(event.target.value)}
+                      className="w-full"
+                    />
+                    {errors.value && <p className="text-sm text-destructive">{t("valueRequired")}</p>}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="measurement-date">{t("date")}</Label>
+                    <Input
+                      id="measurement-date"
+                      type="date"
+                      value={date}
+                      onChange={(event) => setDate(event.target.value)}
+                      className="w-full"
+                    />
+                    {errors.date && <p className="text-sm text-destructive">{t("dateRequired")}</p>}
+                  </div>
+                  <Button type="submit" disabled={isSubmitting} className="w-full">
+                    {t("submit")}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        <Card className="h-full">
+        {/* min-h-96 : la carte graphique est étirée (items-stretch) à la
+            hauteur de la colonne de gauche (Filtres + Formulaire) — sans
+            minimum propre, masquer le formulaire pour un joueur consultant
+            sa propre fiche (isOwnProfile) raccourcit cette colonne et
+            écrase le graphique avec elle (h-full n'a alors presque plus de
+            hauteur à remplir). Garantit une hauteur lisible dans tous les
+            cas, avec ou sans formulaire. */}
+        <Card className="h-full min-h-96">
           <CardContent className="flex h-full min-h-0 flex-1 flex-col">
             {chartHasError ? (
               <p className="text-sm text-destructive">{t("loadFailed")}</p>
@@ -510,13 +534,15 @@ export function MeasurementsTab({
                     <TableCell>{tType(measurement.type)}</TableCell>
                     <TableCell>{measurement.value}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(measurement.id)}
-                      >
-                        {t("delete")}
-                      </Button>
+                      {!isOwnProfile && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDelete(measurement.id)}
+                        >
+                          {t("delete")}
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

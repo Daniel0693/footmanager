@@ -108,10 +108,16 @@ export function EvaluationTab({
   clubId,
   teamId,
   playerId,
+  isOwnProfile,
 }: {
   clubId: string;
   teamId: string;
   playerId: string;
+  // Un joueur consultant sa propre fiche n'a que READ/OWN sur les
+  // évaluations (voir backend/prisma/seed.ts, rôle Player) — jamais
+  // CREATE/UPDATE/DELETE : masque l'ajout et les actions par ligne plutôt
+  // que de les laisser mener à un 403 au clic.
+  isOwnProfile: boolean;
 }) {
   const t = useTranslations("evaluations");
   const locale = useLocale();
@@ -293,7 +299,7 @@ export function EvaluationTab({
                 </div>
               </div>
             </div>
-            {axes && axes.length > 0 && (
+            {!isOwnProfile && axes && axes.length > 0 && (
               <div className="flex justify-end">
                 <EvaluationFormDialog
                   clubId={clubId}
@@ -394,29 +400,31 @@ export function EvaluationTab({
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <EvaluationFormDialog
-                          clubId={clubId}
-                          teamId={teamId}
-                          playerId={playerId}
-                          axes={axes}
-                          evaluation={evaluation}
-                          onSuccess={load}
-                          trigger={
-                            <Button variant="ghost" size="icon" aria-label={t("edit")}>
-                              <Pencil />
-                            </Button>
-                          }
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={t("delete")}
-                          onClick={() => handleDelete(evaluation.id)}
-                        >
-                          <Trash2 className="text-destructive" />
-                        </Button>
-                      </div>
+                      {!isOwnProfile && (
+                        <div className="flex justify-end gap-1">
+                          <EvaluationFormDialog
+                            clubId={clubId}
+                            teamId={teamId}
+                            playerId={playerId}
+                            axes={axes}
+                            evaluation={evaluation}
+                            onSuccess={load}
+                            trigger={
+                              <Button variant="ghost" size="icon" aria-label={t("edit")}>
+                                <Pencil />
+                              </Button>
+                            }
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={t("delete")}
+                            onClick={() => handleDelete(evaluation.id)}
+                          >
+                            <Trash2 className="text-destructive" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

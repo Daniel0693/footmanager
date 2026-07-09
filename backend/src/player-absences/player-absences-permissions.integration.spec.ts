@@ -16,8 +16,10 @@ import { PlayerAbsencesService } from './player-absences.service';
  * Scénario multi-rôles de référence (docs/modules/auth-roles.md) appliqué à
  * l'étape B8 (Absences) : un AdminClub gère les absences de n'importe quel
  * joueur de son club, un Coach ne peut agir que sur les absences des joueurs
- * de ses équipes (vérifié via `assertPlayerInTeam`), un Player ne peut lire
- * que ses propres absences, un membre sans rôle n'a aucun accès.
+ * de ses équipes (vérifié via `assertPlayerInTeam`), un Player peut lire et
+ * déclarer (CREATE, correctif post-B9) ses propres absences mais jamais
+ * celles d'un autre joueur ni les modifier/supprimer, un membre sans rôle
+ * n'a aucun accès.
  */
 
 const adminClubMember: Member = {
@@ -121,6 +123,12 @@ const permissions = {
     action: 'READ',
     scope: 'OWN',
   },
+  createOwn: {
+    id: 10,
+    resource: 'player_absence',
+    action: 'CREATE',
+    scope: 'OWN',
+  },
   readTeam: {
     id: 6,
     resource: 'player_absence',
@@ -161,7 +169,10 @@ const roles = {
   player: {
     id: 2,
     isSystem: true,
-    rolePermissions: [{ permission: permissions.readOwn }],
+    rolePermissions: [
+      { permission: permissions.readOwn },
+      { permission: permissions.createOwn },
+    ],
   },
   coach: {
     id: 3,
@@ -360,7 +371,7 @@ describe('Module Calendrier — scénario multi-rôles (PlayerAbsencesController
       100,
       createRequest.member!.id,
       {
-        reason: 'Blessure',
+        reason: 'INJURY',
         startDate: new Date('2026-07-10'),
         endDate: new Date('2026-07-20'),
       },
@@ -430,7 +441,7 @@ describe('Module Calendrier — scénario multi-rôles (PlayerAbsencesController
 
   it('Player (Marc, scope OWN) consulte ses propres absences', async () => {
     absenceFindMany.mockResolvedValue([
-      { id: 1, playerId: 100, reason: 'Blessure au genou' },
+      { id: 1, playerId: 100, reason: 'INJURY' },
     ]);
     const request = {
       params: { clubId: '1', playerId: '100' },
@@ -445,9 +456,7 @@ describe('Module Calendrier — scénario multi-rôles (PlayerAbsencesController
       memberId: request.member!.id,
       scope: request.permissionScope!,
     });
-    expect(result).toEqual([
-      { id: 1, playerId: 100, reason: 'Blessure au genou' },
-    ]);
+    expect(result).toEqual([{ id: 1, playerId: 100, reason: 'INJURY' }]);
   });
 
   it("Player (Marc, scope OWN) ne peut pas consulter les absences d'un autre joueur", async () => {
@@ -472,15 +481,69 @@ describe('Module Calendrier — scénario multi-rôles (PlayerAbsencesController
     ).rejects.toBeInstanceOf(AppException);
   });
 
-  it("Player (Marc, scope OWN) n'a pas le droit de créer une absence", async () => {
+  it('Player (Marc, scope OWN) peut déclarer sa propre absence, isExcused forcé à null même si transmis', async () => {
     const request = {
       params: { clubId: '1', playerId: '100' },
       query: { teamId: '8' },
       user: { userId: 7 },
     } as Partial<PermissionedRequest>;
 
+    await guard.canActivate(buildContext(request, createHandler));
+    expect(request.permissionScope).toBe('OWN');
+
+    await absencesService.create(
+      1,
+      100,
+      request.member!.id,
+      {
+        reason: 'VACATION',
+        startDate: new Date('2026-07-10'),
+        endDate: new Date('2026-07-20'),
+        isExcused: true,
+      },
+      { memberId: request.member!.id, scope: request.permissionScope! },
+    );
+    expect(absenceCreate).toHaveBeenCalledWith({
+      data: {
+        playerId: 100,
+        reportedById: request.member!.id,
+        reason: 'VACATION',
+        description: undefined,
+        startDate: new Date('2026-07-10'),
+        endDate: new Date('2026-07-20'),
+        isExcused: null,
+      },
+      include: { reportedBy: true },
+    });
+  });
+
+  it("Player (Marc, scope OWN) n'a pas le droit de créer une absence pour un autre joueur", async () => {
+    const request = {
+      params: { clubId: '1', playerId: '200' },
+      query: { teamId: '8' },
+      user: { userId: 7 },
+    } as Partial<PermissionedRequest>;
+
+    await guard.canActivate(buildContext(request, createHandler));
+    expect(request.permissionScope).toBe('OWN');
+
+    playerFindFirst.mockResolvedValue({
+      ...marcProfile,
+      id: 200,
+      memberId: 55,
+    });
     await expect(
-      guard.canActivate(buildContext(request, createHandler)),
+      absencesService.create(
+        1,
+        200,
+        request.member!.id,
+        {
+          reason: 'VACATION',
+          startDate: new Date('2026-07-10'),
+          endDate: new Date('2026-07-20'),
+        },
+        { memberId: request.member!.id, scope: request.permissionScope! },
+      ),
     ).rejects.toBeInstanceOf(AppException);
     expect(absenceCreate).not.toHaveBeenCalled();
   });

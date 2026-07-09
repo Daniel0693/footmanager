@@ -23,7 +23,8 @@ function jsonResponse(body: unknown, ok = true) {
 
 const existingAbsence: ExistingAbsence = {
   id: 1,
-  reason: "Blessure au genou",
+  reason: "INJURY",
+  description: "Douleur au genou droit",
   startDate: "2026-07-10T00:00:00.000Z",
   endDate: "2026-07-20T00:00:00.000Z",
   isExcused: true,
@@ -35,7 +36,7 @@ describe("AbsenceFormDialog", () => {
     mockUseAuth.mockReturnValue({ accessToken: "token" });
   });
 
-  it("mode création : motif/dates requis, isExcused non renseigné par défaut", async () => {
+  it("mode création : motif par défaut Blessure, dates requises, isExcused non renseigné par défaut", async () => {
     const user = userEvent.setup();
 
     renderWithIntl(
@@ -49,16 +50,16 @@ describe("AbsenceFormDialog", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Ajouter une absence" }));
-    expect(screen.getByRole("combobox")).toHaveTextContent("Non renseigné");
+    expect(screen.getByRole("combobox", { name: "Motif" })).toHaveTextContent("Blessure");
+    expect(screen.getByRole("combobox", { name: "Excusée" })).toHaveTextContent("Non renseigné");
 
     await user.click(screen.getByRole("button", { name: "Ajouter" }));
-    expect(await screen.findByText("Le motif est requis")).toBeInTheDocument();
-    expect(screen.getByText("La date de début est requise")).toBeInTheDocument();
+    expect(await screen.findByText("La date de début est requise")).toBeInTheDocument();
     expect(screen.getByText("La date de fin est requise")).toBeInTheDocument();
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
-  it("mode création : POST avec teamId en query, isExcused omis si non renseigné", async () => {
+  it("mode création : POST avec teamId en query, motif choisi, description optionnelle, isExcused omis si non renseigné", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse({ id: 1 }));
     const onSuccess = jest.fn();
     const user = userEvent.setup();
@@ -74,7 +75,9 @@ describe("AbsenceFormDialog", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Ajouter une absence" }));
-    await user.type(screen.getByLabelText("Motif"), "Blessure au genou");
+    await user.click(screen.getByRole("combobox", { name: "Motif" }));
+    await user.click(await screen.findByRole("option", { name: "Maladie" }));
+    await user.type(screen.getByLabelText("Description"), "Testé positif au COVID");
     await user.type(screen.getByLabelText("Date de début"), "2026-07-10");
     await user.type(screen.getByLabelText("Date de fin"), "2026-07-20");
     await user.click(screen.getByRole("button", { name: "Ajouter" }));
@@ -85,7 +88,8 @@ describe("AbsenceFormDialog", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
-          reason: "Blessure au genou",
+          reason: "ILLNESS",
+          description: "Testé positif au COVID",
           startDate: "2026-07-10",
           endDate: "2026-07-20",
           isExcused: undefined,
@@ -112,12 +116,13 @@ describe("AbsenceFormDialog", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Modifier" }));
-    expect(screen.getByLabelText<HTMLTextAreaElement>("Motif")).toHaveValue(
-      "Blessure au genou",
+    expect(screen.getByRole("combobox", { name: "Motif" })).toHaveTextContent("Blessure");
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Description")).toHaveValue(
+      "Douleur au genou droit",
     );
     expect(screen.getByLabelText<HTMLInputElement>("Date de début")).toHaveValue("2026-07-10");
     expect(screen.getByLabelText<HTMLInputElement>("Date de fin")).toHaveValue("2026-07-20");
-    expect(screen.getByRole("combobox")).toHaveTextContent("Excusée");
+    expect(screen.getByRole("combobox", { name: "Excusée" })).toHaveTextContent("Excusée");
 
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
@@ -127,7 +132,8 @@ describe("AbsenceFormDialog", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({
-          reason: "Blessure au genou",
+          reason: "INJURY",
+          description: "Douleur au genou droit",
           startDate: "2026-07-10",
           endDate: "2026-07-20",
           isExcused: true,
@@ -153,7 +159,7 @@ describe("AbsenceFormDialog", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Modifier" }));
-    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByRole("combobox", { name: "Excusée" }));
     await user.click(await screen.findByRole("option", { name: "Non excusée" }));
     await user.click(screen.getByRole("button", { name: "Enregistrer" }));
 
@@ -163,10 +169,49 @@ describe("AbsenceFormDialog", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({
-          reason: "Blessure au genou",
+          reason: "INJURY",
+          description: "Douleur au genou droit",
           startDate: "2026-07-10",
           endDate: "2026-07-20",
           isExcused: false,
+        }),
+      }),
+    );
+  });
+
+  it("canSetExcused=false : masque le champ Excusé et l'omet toujours de l'envoi", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse({ id: 1 }));
+    const onSuccess = jest.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <AbsenceFormDialog
+        clubId="1"
+        teamId="5"
+        playerId="10"
+        onSuccess={onSuccess}
+        canSetExcused={false}
+        trigger={<Button>Ajouter une absence</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ajouter une absence" }));
+    expect(screen.queryByRole("combobox", { name: "Excusée" })).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Date de début"), "2026-07-10");
+    await user.type(screen.getByLabelText("Date de fin"), "2026-07-20");
+    await user.click(screen.getByRole("button", { name: "Ajouter" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/clubs/1/players/10/absences?teamId=5",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          reason: "INJURY",
+          description: undefined,
+          startDate: "2026-07-10",
+          endDate: "2026-07-20",
+          isExcused: undefined,
         }),
       }),
     );
@@ -189,7 +234,6 @@ describe("AbsenceFormDialog", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Ajouter une absence" }));
-    await user.type(screen.getByLabelText("Motif"), "Résumé");
     await user.type(screen.getByLabelText("Date de début"), "2026-07-10");
     await user.type(screen.getByLabelText("Date de fin"), "2026-07-20");
     await user.click(screen.getByRole("button", { name: "Ajouter" }));
