@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTeamStaffDto } from './dto/create-team-staff.dto';
 import { UpdateTeamStaffDto } from './dto/update-team-staff.dto';
@@ -25,7 +26,12 @@ export class TeamStaffService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(clubId: number, teamId: number, dto: CreateTeamStaffDto) {
-    await this.assertTeamInClub(clubId, teamId);
+    await assertTeamInClub(
+      this.prisma,
+      clubId,
+      teamId,
+      'TEAM_STAFF.TEAM_NOT_IN_CLUB',
+    );
     await this.assertMemberInClub(clubId, dto.memberId);
 
     const activeAssignment = await this.prisma.teamStaff.findFirst({
@@ -46,7 +52,12 @@ export class TeamStaffService {
   }
 
   async findAllByTeam(clubId: number, teamId: number) {
-    await this.assertTeamInClub(clubId, teamId);
+    await assertTeamInClub(
+      this.prisma,
+      clubId,
+      teamId,
+      'TEAM_STAFF.TEAM_NOT_IN_CLUB',
+    );
 
     return this.prisma.teamStaff.findMany({
       where: { teamId, endDate: null },
@@ -115,18 +126,6 @@ export class TeamStaffService {
       throw new AppException('TEAM_STAFF.NOT_FOUND', HttpStatus.NOT_FOUND);
     }
     return assignment;
-  }
-
-  private async assertTeamInClub(clubId: number, teamId: number) {
-    const team = await this.prisma.team.findFirst({
-      where: { id: teamId, clubId },
-    });
-    if (!team) {
-      throw new AppException(
-        'TEAM_STAFF.TEAM_NOT_IN_CLUB',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
   }
 
   private async assertMemberInClub(clubId: number, memberId: number) {

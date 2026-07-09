@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerEvaluationDto } from './dto/create-player-evaluation.dto';
@@ -46,7 +47,12 @@ export class PlayerEvaluationsService {
     dto: CreatePlayerEvaluationDto,
     requester: PlayerEvaluationRequestContext,
   ) {
-    await this.assertPlayerInClub(clubId, playerId);
+    await assertPlayerInClub(
+      this.prisma,
+      clubId,
+      playerId,
+      'PLAYER_EVALUATIONS.PLAYER_NOT_IN_CLUB',
+    );
     await this.assertCriteriaInClub(
       clubId,
       dto.scores.map((s) => s.criterionId),
@@ -78,7 +84,12 @@ export class PlayerEvaluationsService {
     requester: PlayerEvaluationRequestContext,
     query: FindPlayerEvaluationsQueryDto = {},
   ) {
-    const player = await this.assertPlayerInClub(clubId, playerId);
+    const player = await assertPlayerInClub(
+      this.prisma,
+      clubId,
+      playerId,
+      'PLAYER_EVALUATIONS.PLAYER_NOT_IN_CLUB',
+    );
     if (requester.scope === 'OWN' && player.memberId !== requester.memberId) {
       throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
     }
@@ -156,7 +167,12 @@ export class PlayerEvaluationsService {
     id: number,
     requester: PlayerEvaluationRequestContext,
   ) {
-    await this.assertPlayerInClub(clubId, playerId);
+    await assertPlayerInClub(
+      this.prisma,
+      clubId,
+      playerId,
+      'PLAYER_EVALUATIONS.PLAYER_NOT_IN_CLUB',
+    );
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
@@ -171,19 +187,6 @@ export class PlayerEvaluationsService {
       );
     }
     return evaluation;
-  }
-
-  private async assertPlayerInClub(clubId: number, playerId: number) {
-    const player = await this.prisma.playerProfile.findFirst({
-      where: { id: playerId, member: { clubId } },
-    });
-    if (!player) {
-      throw new AppException(
-        'PLAYER_EVALUATIONS.PLAYER_NOT_IN_CLUB',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    return player;
   }
 
   // Un critère est utilisable pour ce club s'il est système (clubId null)

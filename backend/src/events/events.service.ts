@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import type { EventType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertTeamInClub } from '../common/team-club-membership';
 import { MembersService } from '../members/members.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsService } from '../roles/permissions.service';
@@ -24,7 +25,12 @@ export class EventsService {
   ) {}
 
   async create(clubId: number, teamId: number, dto: CreateEventDto) {
-    await this.assertTeamInClub(clubId, teamId);
+    await assertTeamInClub(
+      this.prisma,
+      clubId,
+      teamId,
+      'EVENTS.TEAM_NOT_IN_CLUB',
+    );
 
     return this.prisma.event.create({
       data: {
@@ -49,7 +55,12 @@ export class EventsService {
    * suffisant puisque l'appelant recharge la vue calendrier après succès.
    */
   async createBulk(clubId: number, teamId: number, dtos: CreateEventDto[]) {
-    await this.assertTeamInClub(clubId, teamId);
+    await assertTeamInClub(
+      this.prisma,
+      clubId,
+      teamId,
+      'EVENTS.TEAM_NOT_IN_CLUB',
+    );
 
     // Un seul identifiant pour tout le lot : permet de retrouver "cet
     // événement et les suivants" plus tard (update/remove en scope=future,
@@ -76,7 +87,12 @@ export class EventsService {
     teamId: number,
     query: FindEventsQueryDto = {},
   ) {
-    await this.assertTeamInClub(clubId, teamId);
+    await assertTeamInClub(
+      this.prisma,
+      clubId,
+      teamId,
+      'EVENTS.TEAM_NOT_IN_CLUB',
+    );
 
     return this.prisma.event.findMany({
       where: {
@@ -245,15 +261,6 @@ export class EventsService {
       throw new AppException('EVENTS.NOT_FOUND', HttpStatus.NOT_FOUND);
     }
     return event;
-  }
-
-  private async assertTeamInClub(clubId: number, teamId: number) {
-    const team = await this.prisma.team.findFirst({
-      where: { id: teamId, clubId },
-    });
-    if (!team) {
-      throw new AppException('EVENTS.TEAM_NOT_IN_CLUB', HttpStatus.BAD_REQUEST);
-    }
   }
 }
 

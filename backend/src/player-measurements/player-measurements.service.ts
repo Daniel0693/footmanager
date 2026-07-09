@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerMeasurementDto } from './dto/create-player-measurement.dto';
@@ -36,7 +37,12 @@ export class PlayerMeasurementsService {
     dto: CreatePlayerMeasurementDto,
     requester: PlayerMeasurementRequestContext,
   ) {
-    await this.assertPlayerInClub(clubId, playerId);
+    await assertPlayerInClub(
+      this.prisma,
+      clubId,
+      playerId,
+      'PLAYER_MEASUREMENTS.PLAYER_NOT_IN_CLUB',
+    );
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
@@ -57,7 +63,12 @@ export class PlayerMeasurementsService {
     requester: PlayerMeasurementRequestContext,
     query: FindPlayerMeasurementsQueryDto = {},
   ) {
-    const player = await this.assertPlayerInClub(clubId, playerId);
+    const player = await assertPlayerInClub(
+      this.prisma,
+      clubId,
+      playerId,
+      'PLAYER_MEASUREMENTS.PLAYER_NOT_IN_CLUB',
+    );
     if (requester.scope === 'OWN' && player.memberId !== requester.memberId) {
       throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
     }
@@ -81,7 +92,12 @@ export class PlayerMeasurementsService {
     id: number,
     requester: PlayerMeasurementRequestContext,
   ) {
-    await this.assertPlayerInClub(clubId, playerId);
+    await assertPlayerInClub(
+      this.prisma,
+      clubId,
+      playerId,
+      'PLAYER_MEASUREMENTS.PLAYER_NOT_IN_CLUB',
+    );
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
@@ -97,18 +113,5 @@ export class PlayerMeasurementsService {
     }
 
     await this.prisma.playerMeasurement.delete({ where: { id } });
-  }
-
-  private async assertPlayerInClub(clubId: number, playerId: number) {
-    const player = await this.prisma.playerProfile.findFirst({
-      where: { id: playerId, member: { clubId } },
-    });
-    if (!player) {
-      throw new AppException(
-        'PLAYER_MEASUREMENTS.PLAYER_NOT_IN_CLUB',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    return player;
   }
 }
