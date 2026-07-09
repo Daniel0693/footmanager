@@ -106,6 +106,64 @@ bandeau par personne — voir aussi le futur compteur de participants aux évén
 (entraînement/match), qui répond à un besoin proche mais est un calcul par événement, pas une
 agrégation par club/équipe.
 
+## Récurrence (2026-07-08)
+
+Pas d'entité `RecurringRule` (décision d'architecture, voir `docs/schema/evenements.md` §Event) :
+à la création, le frontend calcule la liste concrète des dates d'occurrence
+(`lib/recurrence.ts`, `computeOccurrenceDates(rule, rangeStart, rangeEnd)`, pur et testé
+indépendamment de l'UI) puis envoie un événement par date à `POST .../events/bulk` en une seule
+requête (`EventsService.createBulk`, `prisma.event.createMany`).
+
+- Trois types de règle : hebdomadaire (jours de semaine cochés), mensuel (jour fixe du mois OU
+  Nième/dernier jour de semaine du mois), annuel (date fixe OU Nième/dernier jour de semaine d'un
+  mois donné).
+- Garde-fou `MAX_OCCURRENCES = 200` (frontend et backend, `@ArrayMaxSize(200)`).
+- `EventFormDialog` : case "Événement récurrent", en création uniquement (éditer une occurrence
+  n'a pas de sens en tant que série) — remplace Début/Fin par une heure de début/fin commune +
+  type de récurrence + champs spécifiques + plage de dates de la récurrence. Aperçu du nombre
+  d'occurrences recalculé en direct.
+
+## Édition et suppression en masse (2026-07-08)
+
+`Event.recurringGroupId` (voir `docs/schema/evenements.md`) permet de retrouver "cet événement et
+les suivants" sans entité `RecurringRule` dédiée.
+
+- `PATCH`/`DELETE .../events/:id?scope=single|future` — `single` par défaut (comportement
+  historique inchangé). En `future`, seuls titre/type/lieu/description/heure se propagent aux
+  occurrences du même groupe à partir de l'ancre (`startAt >= ancre`), la date de chacune étant
+  préservée. Retombe silencieusement sur `single` si l'événement n'appartient à aucun groupe
+  récurrent. Ne change pas le modèle RBAC (même permission qu'une édition/suppression simple).
+- **Confirmation systématique avant suppression** : `DeleteEventDialog`, seul point d'entrée de
+  suppression, affiche une confirmation simple pour un événement isolé, ou le choix single/future
+  pour un événement récurrent (`components/ui/alert-dialog.tsx`, primitives
+  `@base-ui/react/alert-dialog` sans boutons Action/Cancel imposés — chaque appelant compose son
+  propre jeu de boutons).
+- Éditer un événement récurrent affiche le même choix (single/future) avant d'envoyer le `PATCH`.
+
+## Rendu des vues Mois/Semaine/Liste (mécanique)
+
+- **Hauteur pleine page, sans scroll de page** : chaîne flexbox jusqu'aux vues ; seules les zones
+  internes défilent (liste, grille mensuelle, grille horaire hebdomadaire) — même pattern que les
+  onglets Mesures/Évaluation de l'Effectif.
+- **Chaque vue borne sa requête à sa plage affichée** (`lib/calendar-events-api.ts`,
+  `fetchCalendarEvents`) — Mois/Semaine rechargent au changement de mois/semaine ou de filtres ;
+  toute mutation (création/édition/suppression) déclenche un rechargement.
+- **Vue Liste** (`CalendarListView`) : scroll infini, fenêtre initiale J-14/J+60 autour
+  d'aujourd'hui, extension par blocs de 30 jours au scroll (vers le haut = passé, vers le bas =
+  futur), compensation du saut visuel au prepend. Le bouton "Aujourd'hui" réinitialise la fenêtre
+  (`recenterKey`) au lieu de simplement rafraîchir son contenu.
+- **Vue Semaine** : grille horaire (06h-23h, scroll interne), répartition côte-à-côte des
+  événements qui se chevauchent (algorithme de voies glouton, pas un compactage optimal), bandeau
+  dédié au-dessus de la grille pour les événements multi-jours. Pas de glisser multi-jours dans
+  cette vue (clic simple) — réservé à la vue Mensuelle.
+- **Vue Mois** : grille de 6 semaines (`CalendarGridDays`, partagée avec la vue Semaine), bandeau
+  multi-jours superposé en `position: absolute` à l'intérieur de chaque bloc semaine (même
+  algorithme de voies que la vue Semaine, appliqué ici à des colonnes de jours), numéro de semaine
+  ISO 8601 affiché en gouttière à gauche. Heure de l'événement affichée à côté du titre dans la
+  cellule.
+- Création par clic (mousedown+mouseup même jour) ou par glisser (mousedown+mouseenter+mouseup,
+  écouté sur `window` pour capter un relâchement hors grille) en vues Mois/Semaine.
+
 ## Lien avec les autres modules
 
 - Un événement de type "entraînement" est étendu en relation 1–1 par l'entité
