@@ -292,6 +292,7 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
             filters={filters}
             refreshKey={refreshKey}
             recenterKey={recenterKey}
+            colorMode={colorMode}
           />
         )}
       </div>

@@ -54,7 +54,7 @@ describe("CalendarListView", () => {
 
   it("charge une fenêtre initiale centrée sur aujourd'hui (14 jours avant, 60 jours après)", async () => {
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
 
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
@@ -76,7 +76,7 @@ describe("CalendarListView", () => {
         teams={teams}
         filters={{ types: new Set(), teamIds: new Set([5]), showBirthdays: false }}
         refreshKey={0}
-        recenterKey={0}
+        recenterKey={0} colorMode="type"
       />,
     );
 
@@ -87,15 +87,39 @@ describe("CalendarListView", () => {
   it("affiche les événements reçus", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse([eventItem()]));
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
 
     expect(await screen.findByText("Match amical")).toBeInTheDocument();
   });
 
+  it('colorMode="type" : le badge de type reprend la couleur des filtres, le badge d\'équipe reste neutre', async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
+    );
+
+    const typeBadge = await screen.findByText("Match");
+    // MATCH = 2e slot de la palette catégorielle (voir lib/calendar-color.ts).
+    expect(typeBadge.className).toContain("bg-palette-2");
+    expect(screen.getByText("U15 A").className).not.toMatch(/bg-palette/);
+  });
+
+  it('colorMode="team" : le badge d\'équipe reprend la couleur, le badge de type reste neutre', async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="team" />,
+    );
+
+    const teamBadge = await screen.findByText("U15 A");
+    // Seule équipe de la liste `teams` → 1er slot de la palette.
+    expect(teamBadge.className).toContain("bg-palette-1");
+    expect(screen.getByText("Match").className).not.toMatch(/bg-palette/);
+  });
+
   it("affiche la plage de dates actuellement chargée", async () => {
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
 
     const range = await screen.findByTestId("calendar-list-visible-range");
@@ -108,7 +132,7 @@ describe("CalendarListView", () => {
 
   it("la plage affichée s'étend vers le passé après un scroll vers le haut", async () => {
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
     const range = await screen.findByTestId("calendar-list-visible-range");
     const initialText = range.textContent;
@@ -130,7 +154,7 @@ describe("CalendarListView", () => {
   it("scroll près du haut charge les événements plus anciens et les ajoute au début", async () => {
     mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
     await screen.findByText("Match amical");
     mockApiFetch.mockClear();
@@ -158,10 +182,46 @@ describe("CalendarListView", () => {
     expect(screen.getByText("Match amical")).toBeInTheDocument();
   });
 
+  it("un geste de scroll vers le haut alors qu'on est déjà en haut de la liste charge quand même les événements plus anciens (bug : aucun événement `scroll` ne se déclenche depuis scrollTop=0)", async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
+    );
+    await screen.findByText("Match amical");
+    mockApiFetch.mockClear();
+    mockApiFetch.mockResolvedValue(jsonResponse([eventItem({ id: 2, title: "Ancien match" })]));
+
+    const container = screen.getByTestId("calendar-list-scroll");
+    Object.defineProperty(container, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(container, "clientHeight", { value: 400, configurable: true });
+    // scrollTop reste à 0 (valeur initiale, jamais modifiée) : un simple
+    // `fireEvent.scroll` ne reproduirait pas le bug, seul un vrai geste
+    // `wheel` vers le haut (deltaY négatif) le déclenche.
+    fireEvent.wheel(container, { deltaY: -100 });
+
+    expect(await screen.findByText("Ancien match")).toBeInTheDocument();
+  });
+
+  it("un geste de scroll vers le bas (wheel) ne déclenche jamais loadOlder", async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
+    );
+    await screen.findByText("Match amical");
+    mockApiFetch.mockClear();
+
+    const container = screen.getByTestId("calendar-list-scroll");
+    Object.defineProperty(container, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(container, "clientHeight", { value: 400, configurable: true });
+    fireEvent.wheel(container, { deltaY: 100 });
+
+    expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+
   it("scroll près du bas charge les événements futurs et les ajoute à la fin", async () => {
     mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
     await screen.findByText("Match amical");
     mockApiFetch.mockClear();
@@ -187,7 +247,7 @@ describe("CalendarListView", () => {
       jsonResponse([eventItem({ id: 1, title: "Événement lointain", startAt: "2026-08-24T10:00:00.000Z" })]),
     );
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
     await screen.findByText("Événement lointain");
 
@@ -221,7 +281,7 @@ describe("CalendarListView", () => {
     mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
     await screen.findByText("Match amical");
     mockApiFetch.mockResolvedValue(jsonResponse(null));
@@ -244,7 +304,7 @@ describe("CalendarListView", () => {
     );
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
     await screen.findByText("Match amical");
     mockApiFetch.mockResolvedValue(jsonResponse(null));
@@ -269,7 +329,7 @@ describe("CalendarListView", () => {
   it("le bouton Aujourd'hui (recenterKey) abandonne la fenêtre étendue et revient à la fenêtre initiale", async () => {
     mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
     const { rerender } = renderWithIntl(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
     await screen.findByText("Match amical");
 
@@ -286,7 +346,7 @@ describe("CalendarListView", () => {
     mockApiFetch.mockClear();
     mockApiFetch.mockResolvedValue(jsonResponse([]));
     rerender(
-      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={1} />,
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={1} colorMode="type" />,
     );
 
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
@@ -318,7 +378,7 @@ describe("CalendarListView", () => {
           teams={teams}
           filters={{ ...allTypesFilters, showBirthdays: true }}
           refreshKey={0}
-          recenterKey={0}
+          recenterKey={0} colorMode="type"
         />,
       );
 
@@ -339,7 +399,7 @@ describe("CalendarListView", () => {
           teams={teams}
           filters={{ ...allTypesFilters, showBirthdays: false }}
           refreshKey={0}
-          recenterKey={0}
+          recenterKey={0} colorMode="type"
         />,
       );
 
@@ -361,7 +421,7 @@ describe("CalendarListView", () => {
           teams={teams}
           filters={{ types: new Set(), teamIds: new Set([5]), showBirthdays: true }}
           refreshKey={0}
-          recenterKey={0}
+          recenterKey={0} colorMode="type"
         />,
       );
 
@@ -401,7 +461,7 @@ describe("CalendarListView", () => {
           teams={teams}
           filters={{ types: new Set(), teamIds: new Set([5]), showBirthdays: true }}
           refreshKey={0}
-          recenterKey={0}
+          recenterKey={0} colorMode="type"
         />,
       );
 
@@ -437,17 +497,17 @@ describe("CalendarListView", () => {
 
       const filters = { types: new Set<never>(), teamIds: new Set([5]), showBirthdays: true };
       const { rerender } = renderWithIntl(
-        <CalendarListView clubId="1" teams={teams} filters={filters} refreshKey={0} recenterKey={0} />,
+        <CalendarListView clubId="1" teams={teams} filters={filters} refreshKey={0} recenterKey={0} colorMode="type" />,
       );
 
       // Deux "clics" rapprochés (recenterKey incrémenté) sans attendre que
       // le cycle précédent (et son extension automatique) ait fini de
       // converger — exactement le scénario qui provoquait le doublon.
       rerender(
-        <CalendarListView clubId="1" teams={teams} filters={filters} refreshKey={0} recenterKey={1} />,
+        <CalendarListView clubId="1" teams={teams} filters={filters} refreshKey={0} recenterKey={1} colorMode="type" />,
       );
       rerender(
-        <CalendarListView clubId="1" teams={teams} filters={filters} refreshKey={0} recenterKey={2} />,
+        <CalendarListView clubId="1" teams={teams} filters={filters} refreshKey={0} recenterKey={2} colorMode="type" />,
       );
 
       await waitFor(() => expect(screen.getByText("Léa Martin — 08/07/2026 — 14 ans")).toBeInTheDocument());

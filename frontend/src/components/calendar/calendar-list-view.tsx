@@ -15,8 +15,10 @@ import {
 import { DeleteEventDialog } from "@/components/calendar/delete-event-dialog";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
+import { eventTypeColorClass, teamColorClass } from "@/lib/calendar-color";
 import { addDays, endOfDay } from "@/lib/calendar-grid";
 import { formatDate } from "@/lib/date-format";
+import { cn } from "@/lib/utils";
 import {
   fetchBirthdayEvents,
   fetchCalendarEvents,
@@ -86,6 +88,7 @@ export function CalendarListView({
   filters,
   refreshKey,
   recenterKey,
+  colorMode,
 }: {
   clubId: string;
   teams: EventFormTeam[];
@@ -95,10 +98,16 @@ export function CalendarListView({
   // recentrage sur la fenêtre initiale plutôt que de recharger la fenêtre
   // actuellement ouverte (comportement normal de refreshKey).
   recenterKey: number;
+  // Même convention que CalendarGridDays/CalendarWeekView (docs/modules/
+  // calendrier-evenements.md §Code couleur) : "type" pour Coach/Player
+  // (badge de type coloré, comme les cases à cocher de la barre de
+  // filtres), "team" pour AdminClub (badge d'équipe coloré à la place).
+  colorMode: "type" | "team";
 }) {
   const t = useTranslations("calendar");
   const locale = useLocale();
   const { accessToken } = useAuth();
+  const teamIndexById = new Map(teams.map((team, index) => [team.id, index]));
 
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
   const [birthdays, setBirthdays] = useState<Birthday[]>([]);
@@ -361,6 +370,21 @@ export function CalendarListView({
     }
   };
 
+  // Le navigateur ne déclenche jamais d'événement `scroll` quand la position
+  // ne change pas (`scrollTop` déjà à 0, ce qui est systématiquement le cas
+  // juste après le montage ou "Aujourd'hui" — voir plus haut) : sans ce
+  // contrôle sur le geste `wheel` lui-même, remonter alors qu'on est déjà en
+  // haut de la liste ne déclenche jamais `handleScroll`, et l'utilisateur ne
+  // peut charger les événements plus anciens qu'en scrollant d'abord vers le
+  // bas puis en remontant (bug signalé). `deltaY < 0` = geste vers le haut.
+  const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    const container = scrollRef.current;
+    if (!container || event.deltaY >= 0) return;
+    if (container.scrollTop < SCROLL_THRESHOLD_PX) {
+      void loadOlder();
+    }
+  };
+
   // EventFormDialog ne renvoie pas la ressource mise à jour (onSuccess est
   // un simple signal) : on recharge la fenêtre actuellement ouverte plutôt
   // que d'essayer de fusionner un objet partiel dans la liste en mémoire.
@@ -453,6 +477,7 @@ export function CalendarListView({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
+        onWheel={handleWheel}
         data-testid="calendar-list-scroll"
         className="flex flex-1 flex-col gap-3 lg:min-h-0 lg:overflow-y-auto"
       >
@@ -487,8 +512,27 @@ export function CalendarListView({
                   <CardContent className="flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary">{t(`type${item.event.type}`)}</Badge>
-                        <Badge variant="outline">{item.event.team.name}</Badge>
+                        <Badge
+                          className={cn(
+                            colorMode === "type" &&
+                              cn(eventTypeColorClass(item.event.type), "text-white"),
+                          )}
+                          variant={colorMode === "type" ? "default" : "secondary"}
+                        >
+                          {t(`type${item.event.type}`)}
+                        </Badge>
+                        <Badge
+                          className={cn(
+                            colorMode === "team" &&
+                              cn(
+                                teamColorClass(teamIndexById.get(item.event.team.id) ?? -1),
+                                "text-white",
+                              ),
+                          )}
+                          variant={colorMode === "team" ? "default" : "outline"}
+                        >
+                          {item.event.team.name}
+                        </Badge>
                         <span className="font-medium">{item.event.title}</span>
                       </div>
                       <div className="flex gap-1">
