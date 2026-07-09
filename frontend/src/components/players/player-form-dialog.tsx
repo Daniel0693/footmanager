@@ -153,11 +153,13 @@ export function PlayerFormDialog({
         lastName: values.lastName,
         phone: toTextOrNull(values.phone) ?? undefined,
         gender: toSelectOrNull<Gender>(values.gender) ?? undefined,
+        // birthDate vit sur Member (docs/schema/fondations.md, 2026-07-08) —
+        // pas sur PlayerProfile, commun à tous les rôles.
+        birthDate: toIsoDateOrNull(values.birthDate) ?? undefined,
       };
       const profilePayload = {
         licenseNumber: toTextOrNull(values.licenseNumber) ?? undefined,
         nationality: toTextOrNull(values.nationality) ?? undefined,
-        birthDate: toIsoDateOrNull(values.birthDate) ?? undefined,
         preferredFoot: toSelectOrNull<Foot>(values.preferredFoot) ?? undefined,
       };
       const jerseyNumber =

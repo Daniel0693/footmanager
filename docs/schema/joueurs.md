@@ -16,8 +16,10 @@ Relation **1–1** avec `Member`. Isole les données propres au rôle Player.
 | `memberId` | FK → Member, **unique** | garantit la relation 1–1 |
 | `licenseNumber` | String, unique, nullable | numéro de licence fédérale |
 | `nationality` | String, nullable | |
-| `birthDate` | Date, nullable | |
 | `preferredFoot` | enum `Foot`, nullable | `LEFT` \| `RIGHT` \| `BOTH` — non renseigné par défaut |
+
+**`birthDate`** : déplacé sur `Member` le 2026-07-08 (voir `docs/schema/fondations.md`) — commun à
+tous les rôles, pas seulement au Player.
 
 ---
 
@@ -295,22 +297,37 @@ scope `OWN` (Player) — voir `docs/decisions-ouvertes-et-rgpd.md` (Article 15).
 
 ## PlayerAbsence — Absence planifiée
 
-**Pas encore implémenté** (n'existe pas dans `schema.prisma`) : retiré de la Partie A
-(Phase 2) — sera construit avec le module Calendrier/présences (Partie B et/ou Phases 4-5),
-emplacement précis à trancher au moment venu. Voir `docs/roadmap.md` §Partie A/étape A7. Champs
-ci-dessous à titre de design prévisionnel, à confirmer avant implémentation.
-
-Indépendante de l'équipe : s'applique à toutes les activités du joueur sur la période.
+Implémenté à l'étape B8 du module Calendrier (`docs/roadmap.md` §Partie B). Indépendante de
+l'équipe : s'applique à toutes les activités du joueur sur la période. Pas de rapprochement
+automatique avec les convocations (`MatchAttendance`/`TrainingAttendance` n'existent pas
+encore) — différé aux Phases 4/5.
 
 | Champ | Type | Notes |
 |---|---|---|
 | `id` | PK | |
 | `playerId` | FK → PlayerProfile | |
-| `reason` | String | texte libre |
+| `reason` | enum `AbsenceReason` | liste fermée (statistiques par motif) — voir §Enums |
+| `description` | Text, nullable | précision libre du motif sélectionné |
 | `startDate` | Date | |
 | `endDate` | Date | |
-| `isExcused` | Boolean, nullable | |
+| `isExcused` | Boolean, nullable | jamais renseigné par le joueur lui-même — voir ci-dessous |
 | `reportedById` | FK → Member, nullable | |
+
+**`reason` en liste fermée (correctif post-B9, 2026-07-09)** : à l'origine texte libre, remplacé
+par l'enum `AbsenceReason` (`INJURY`/`ILLNESS`/`VACATION`/`OTHER`) pour permettre des statistiques
+par motif (ex. nombre d'entraînements manqués pour blessure, caractère récurrent ou non). Le champ
+`description` reste un texte libre optionnel pour préciser le contexte (ex. motif `ILLNESS`,
+description "Testé positif au COVID, isolement en cours"). Migration `20260709070000_player_absence_reason_enum` :
+le texte déjà saisi est préservé dans `description`, `reason` retombe sur `OTHER` pour les lignes
+existantes (aucun moyen fiable de déduire le motif depuis du texte libre).
+
+**Un joueur peut désormais déclarer sa propre absence** (permission `player_absence CREATE OWN`,
+correctif post-B9) — pour anticiper une indisponibilité connue à l'avance. `isExcused` est
+toujours forcé à `null` côté service quand l'appelant est en scope `OWN`, même si transmis dans
+la requête : seul l'entraîneur (scope `TEAM`) ou un admin (scope `CLUB`/`ALL`) décide si une
+absence est justifiée. Un joueur ne peut ni modifier ni supprimer une absence après création (pas
+de permission `UPDATE`/`DELETE` en scope `OWN`). Notification à l'entraîneur lors d'une
+déclaration par un joueur : différé au système de notifications (décision ouverte #2).
 
 ---
 
@@ -348,6 +365,13 @@ enum ObjectiveStatus {
   ACHIEVED
   FAILED
 }
+
+enum AbsenceReason {
+  INJURY
+  ILLNESS
+  VACATION
+  OTHER
+}
 ```
 
 ---
@@ -382,9 +406,10 @@ ci-dessous est à ajouter rétroactivement en Phase 3 — voir `docs/roadmap.md`
 @@unique([clubId, categoryId])             sur ClubEvaluationConfig
 @@unique([evaluationId, criterionId])      sur PlayerEvaluationScore
 @@index([playerId])                        sur PlayerTeam, PlayerNote, PlayerInterview,
-                                              PlayerObjective, PlayerAbsence, PlayerMeasurement
+                                              PlayerObjective, PlayerMeasurement
 @@index([teamId])                          sur PlayerTeam
-@@index([playerId, date])                  sur PlayerEvaluation, PlayerAbsence
+@@index([playerId, date])                  sur PlayerEvaluation
+@@index([playerId, startDate])             sur PlayerAbsence
 @@index([evaluationId])                    sur PlayerEvaluationScore
 @@index([teamId, memberId])                sur TeamStaff
 @@index([categoryId])                      sur EvaluationCriterion

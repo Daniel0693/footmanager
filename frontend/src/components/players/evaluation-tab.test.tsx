@@ -76,8 +76,15 @@ function mockConfigAnd(evaluations: unknown[]) {
   });
 }
 
-function renderTab(clubId = "1", teamId = "5", playerId = "1") {
-  return renderWithIntl(<EvaluationTab clubId={clubId} teamId={teamId} playerId={playerId} />);
+function renderTab(clubId = "1", teamId = "5", playerId = "1", isOwnProfile = false) {
+  return renderWithIntl(
+    <EvaluationTab
+      clubId={clubId}
+      teamId={teamId}
+      playerId={playerId}
+      isOwnProfile={isOwnProfile}
+    />,
+  );
 }
 
 function queryOf(url: string) {
@@ -251,5 +258,16 @@ describe("EvaluationTab", () => {
       await screen.findByRole("button", { name: "Contrôle de balle : 8 sur 10" }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText<HTMLInputElement>("Date")).toHaveValue("2026-06-01");
+  });
+
+  it("isOwnProfile masque le bouton Ajouter et les actions Modifier/Supprimer par ligne (Player n'a que READ/OWN)", async () => {
+    mockConfigAnd([evaluation()]);
+
+    renderTab("1", "5", "10", true);
+
+    await screen.findByText(/1 juin 2026/);
+    expect(screen.queryByRole("button", { name: "Ajouter une évaluation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Modifier" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Supprimer" })).not.toBeInTheDocument();
   });
 });

@@ -35,8 +35,15 @@ function objective(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderTab(clubId = "1", teamId = "5", playerId = "1") {
-  return renderWithIntl(<ObjectivesTab clubId={clubId} teamId={teamId} playerId={playerId} />);
+function renderTab(clubId = "1", teamId = "5", playerId = "1", isOwnProfile = false) {
+  return renderWithIntl(
+    <ObjectivesTab
+      clubId={clubId}
+      teamId={teamId}
+      playerId={playerId}
+      isOwnProfile={isOwnProfile}
+    />,
+  );
 }
 
 function queryOf(url: string) {
@@ -224,5 +231,16 @@ describe("ObjectivesTab", () => {
 
     const descriptionInput = await screen.findByLabelText<HTMLTextAreaElement>("Description");
     expect(descriptionInput).toHaveValue("Améliorer les contrôles orientés");
+  });
+
+  it("isOwnProfile masque le bouton Ajouter et les actions Modifier/Supprimer par ligne (Player n'a que READ/OWN)", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse([objective()]));
+
+    renderTab("1", "5", "10", true);
+
+    await screen.findByText("Améliorer les contrôles orientés");
+    expect(screen.queryByRole("button", { name: "Ajouter un objectif" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Modifier" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Supprimer" })).not.toBeInTheDocument();
   });
 });

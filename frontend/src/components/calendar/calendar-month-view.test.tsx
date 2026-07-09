@@ -1,0 +1,248 @@
+import { fireEvent } from "@testing-library/react";
+import type { ComponentProps } from "react";
+import { renderWithIntl, screen, waitFor, within } from "@/test-utils/render";
+import { CalendarMonthView } from "./calendar-month-view";
+import type { ExistingEvent } from "./event-form-dialog";
+import { EVENT_TYPES } from "@/lib/event";
+import { getIsoWeekNumber } from "@/lib/calendar-grid";
+
+jest.mock("sonner", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
+
+const mockUseAuth = jest.fn();
+jest.mock("@/lib/auth/auth-context", () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
+const mockApiFetch = jest.fn();
+jest.mock("@/lib/api", () => ({
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  parseErrorCode: jest.fn().mockResolvedValue("AUTH.UNKNOWN"),
+}));
+
+function jsonResponse(body: unknown, ok = true) {
+  return { ok, json: () => Promise.resolve(body) };
+}
+
+const teams = [
+  { id: 5, name: "U15 A" },
+  { id: 8, name: "Seniors" },
+];
+
+const allTypesFilters = { types: new Set(EVENT_TYPES), teamIds: new Set([5, 8]), showBirthdays: false };
+
+function event(overrides: Partial<ExistingEvent> = {}): ExistingEvent {
+  return {
+    id: 1,
+    type: "MATCH",
+    title: "Match amical",
+    startAt: "2026-07-10T18:00:00.000Z",
+    endAt: null,
+    location: null,
+    description: null,
+    isRecurring: false,
+    team: teams[1],
+    ...overrides,
+  };
+}
+
+function dayKey(date: Date) {
+  return `calendar-day-${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function renderMonthView(overrides: Partial<ComponentProps<typeof CalendarMonthView>> = {}) {
+  return renderWithIntl(
+    <CalendarMonthView
+      clubId="1"
+      month={new Date(2026, 6, 1)}
+      onMonthChange={jest.fn()}
+      teams={teams}
+      filters={allTypesFilters}
+      refreshKey={0}
+      colorMode="type"
+      onSelectRange={jest.fn()}
+      onEditEvent={jest.fn()}
+      {...overrides}
+    />,
+  );
+}
+
+describe("CalendarMonthView", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseAuth.mockReturnValue({ accessToken: "token" });
+    mockApiFetch.mockResolvedValue(jsonResponse([]));
+  });
+
+  it("affiche le libellé du mois et les en-têtes de jours de la semaine", async () => {
+    renderMonthView();
+
+    expect(screen.getByText("juillet 2026")).toBeInTheDocument();
+    expect(screen.getByText("lun.")).toBeInTheDocument();
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+  });
+
+  it("charge les événements bornés à la grille affichée (pas tout l'historique)", async () => {
+    renderMonthView();
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+    const [url] = mockApiFetch.mock.calls[0];
+    const query = new URL(url as string, "http://localhost").searchParams;
+    // Grille de juillet 2026 : commence le lundi 29 juin, finit le
+    // dimanche 9 août (42 jours).
+    expect(query.get("dateFrom")).toBe(new Date(2026, 5, 29).toISOString());
+    expect(query.get("types")).toBe("TRAINING,MATCH,OTHER");
+    expect(query.get("teamIds")).toBe("5,8");
+  });
+
+  it("navigue au mois précédent/suivant", async () => {
+    const onMonthChange = jest.fn();
+    renderMonthView({ onMonthChange });
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Mois suivant" }));
+    expect(onMonthChange).toHaveBeenCalledWith(new Date(2026, 7, 1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Mois précédent" }));
+    expect(onMonthChange).toHaveBeenCalledWith(new Date(2026, 5, 1));
+  });
+
+  it("place un événement sur le jour de son startAt, avec son heure", async () => {
+    const theEvent = event();
+    mockApiFetch.mockResolvedValue(jsonResponse([theEvent]));
+    renderMonthView();
+
+    const cell = await waitFor(() => screen.getByTestId(dayKey(new Date(2026, 6, 10))));
+    expect(cell).toHaveTextContent("Match amical");
+    const expectedTime = new Date(theEvent.startAt).toLocaleTimeString("fr", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    expect(cell).toHaveTextContent(expectedTime);
+  });
+
+  it("un clic simple sur une cellule vide sélectionne un seul jour", async () => {
+    const onSelectRange = jest.fn();
+    renderMonthView({ onSelectRange });
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+
+    const cell = screen.getByTestId(dayKey(new Date(2026, 6, 15)));
+    fireEvent.mouseDown(cell);
+    fireEvent.mouseUp(window);
+
+    expect(onSelectRange).toHaveBeenCalledWith(new Date(2026, 6, 15), new Date(2026, 6, 15));
+  });
+
+  it("glisser d'une cellule à une autre sélectionne la plage complète", async () => {
+    const onSelectRange = jest.fn();
+    renderMonthView({ onSelectRange });
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+
+    const start = screen.getByTestId(dayKey(new Date(2026, 6, 10)));
+    const end = screen.getByTestId(dayKey(new Date(2026, 6, 12)));
+    fireEvent.mouseDown(start);
+    fireEvent.mouseEnter(end);
+    fireEvent.mouseUp(window);
+
+    expect(onSelectRange).toHaveBeenCalledWith(new Date(2026, 6, 10), new Date(2026, 6, 12));
+  });
+
+  it("cliquer sur un événement déclenche l'édition sans déclencher une sélection de cellule", async () => {
+    const onEditEvent = jest.fn();
+    const onSelectRange = jest.fn();
+    const theEvent = event();
+    mockApiFetch.mockResolvedValue(jsonResponse([theEvent]));
+    renderMonthView({ onEditEvent, onSelectRange });
+
+    const chip = await screen.findByText("Match amical");
+    fireEvent.click(chip);
+
+    expect(onEditEvent).toHaveBeenCalledWith(theEvent);
+    fireEvent.mouseUp(window);
+    expect(onSelectRange).not.toHaveBeenCalled();
+  });
+
+  it("affiche un événement multi-jours comme un bandeau qui s'étend sur les jours concernés", async () => {
+    const onEditEvent = jest.fn();
+    const multiDay = event({
+      id: 2,
+      title: "Camp d'été",
+      startAt: "2026-07-08T00:00:00.000Z",
+      endAt: "2026-07-10T00:00:00.000Z",
+    });
+    mockApiFetch.mockResolvedValue(jsonResponse([multiDay]));
+    renderMonthView({ onEditEvent });
+
+    const banner = await screen.findByText("Camp d'été");
+    fireEvent.click(banner);
+    expect(onEditEvent).toHaveBeenCalledWith(multiDay);
+
+    // Pas de puce dupliquée dans les cellules individuelles que le
+    // bandeau traverse.
+    const middleDay = screen.getByTestId(dayKey(new Date(2026, 6, 9)));
+    expect(middleDay).not.toHaveTextContent("Camp d'été");
+  });
+
+  it("le bandeau multi-jours apparaît sous le numéro du jour, pas comme une ligne entre deux semaines", async () => {
+    const multiDay = event({
+      id: 2,
+      title: "Camp d'été",
+      startAt: "2026-07-08T00:00:00.000Z",
+      endAt: "2026-07-10T00:00:00.000Z",
+    });
+    mockApiFetch.mockResolvedValue(jsonResponse([multiDay]));
+    renderMonthView();
+
+    // Attendre le bandeau lui-même : les cellules de jour existent dès le
+    // premier rendu (avant la résolution du fetch), donc attendre la
+    // cellule seule ne garantit pas que les événements sont déjà chargés.
+    await screen.findByText("Camp d'été");
+    const cell = screen.getByTestId(dayKey(new Date(2026, 6, 9)));
+    // Le bandeau est superposé au bloc de la semaine qui contient la
+    // cellule qu'il traverse (juillet 2026 : semaine du 6-12 juillet est le
+    // 2e bloc), pas une ligne séparée entre deux semaines.
+    const weekBlock = cell.closest('[data-testid^="calendar-week-block-"]')!;
+    expect(within(weekBlock as HTMLElement).getByText("Camp d'été")).toBeInTheDocument();
+  });
+
+  it("affiche le numéro de semaine ISO pour chaque semaine", async () => {
+    renderMonthView();
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+
+    // Grille de juillet 2026 : première semaine commence le lundi 29 juin.
+    const firstWeekNumber = getIsoWeekNumber(new Date(2026, 5, 29));
+    expect(screen.getByTestId("calendar-week-block-0")).toHaveTextContent(
+      String(firstWeekNumber),
+    );
+  });
+
+  it("affiche un anniversaire dans la cellule de son jour, sans déclencher l'édition au clic", async () => {
+    const onEditEvent = jest.fn();
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/members/birthdays")) {
+        return Promise.resolve(
+          jsonResponse([
+            { memberId: 9, firstName: "Léa", lastName: "Martin", date: "2026-07-10T00:00:00.000Z", age: 14 },
+          ]),
+        );
+      }
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    renderMonthView({ filters: { ...allTypesFilters, showBirthdays: true }, onEditEvent });
+
+    const cell = await waitFor(() => screen.getByTestId(dayKey(new Date(2026, 6, 10))));
+    expect(within(cell).getByText("Léa Martin — 14 ans")).toBeInTheDocument();
+
+    fireEvent.click(within(cell).getByText("Léa Martin — 14 ans"));
+    expect(onEditEvent).not.toHaveBeenCalled();
+  });
+
+  it("ne charge pas les anniversaires quand le filtre est désactivé", async () => {
+    renderMonthView({ filters: { ...allTypesFilters, showBirthdays: false } });
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+    expect(
+      mockApiFetch.mock.calls.some(([url]) => (url as string).includes("/members/birthdays")),
+    ).toBe(false);
+  });
+});

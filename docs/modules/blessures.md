@@ -4,7 +4,7 @@
 > physique, médecin du club, kiné, entraîneur...) et offre une vue centralisée de l'historique
 > médical des joueurs.
 
-Entités associées (détail des champs : `docs/schema-bdd.md` §12) : `Injury`,
+Entités associées (détail des champs : `docs/schema/medical.md`) : `Injury`,
 `InjuryAssignment`, `InjuryRehabEvent`.
 
 ## Enregistrement d'une blessure

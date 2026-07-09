@@ -132,8 +132,239 @@ au total après correctif. Voir `docs/modules/auth-roles.md` §Patterns découve
 
 ### Partie B — Module Calendrier
 
-Non commencée. À la conception, statuer sur l'emplacement de `PlayerAbsence` (voir note A7
-ci-dessus).
+Non commencée. Découpage établi le 2026-07-08 (planification, aucun code encore écrit).
+
+**Décision — emplacement de `PlayerAbsence`** : construit dans cette partie (voir B8), pas
+reporté aux Phases 4/5. Version minimale planifiée : schéma + CRUD + affichage dans le
+calendrier comme période bloquée + réactivation de l'onglet Absence sur la fiche joueur (retiré
+en A7). **L'affichage calendrier a finalement été retiré après B8** (retour utilisateur, voir la
+ligne B8 ci-dessous et `docs/modules/calendrier-evenements.md` §Absences) — seuls le schéma, le
+CRUD et l'onglet Absence ont été conservés. Pas de rapprochement automatique avec les
+convocations (`MatchAttendance`/`TrainingAttendance` n'existent pas encore) — ce lien reste
+différé aux Phases 4/5, comme déjà documenté dans `docs/schema/joueurs.md` §PlayerAbsence.
+
+**Hors scope de cette partie** : logique de récurrence (`Event.isRecurring`/`recurringRuleId`
+posés en base mais inertes — `RecurringRule` reste une entité future) ; notifications/rappels
+(décision ouverte #2) ; rôle `Parent` non câblé (décision ouverte #5, même exclusion que
+l'Effectif) ; `TrainingSession`/`Match` (extensions 1–1 de `Event`, Phases 4/5).
+
+**Vues calendrier demandées** : mensuelle, hebdomadaire, liste — avec sélecteur de vue.
+
+| Étape | Statut | Contenu |
+|---|---|---|
+| B0 — Prérequis transverse | ✅ | Permission `event` ajoutée au seed (READ/CREATE/UPDATE/DELETE scope TEAM pour Coach, CLUB pour AdminClub, ALL pour SuperAdmin/Proprietaire ; Player en READ/TEAM seul, même pattern que `team` — pas de scope OWN, un événement n'appartient à personne en particulier) + entrée `Calendrier` dans `frontend/src/components/layout/nav-modules.ts` (icône `Calendar`, `href` vers `/clubs/:clubId/calendar` — page pas encore créée, livrée en B4) + clés `nav.calendar` (fr/en) |
+| B1 — Schéma `Event` | ✅ | Migration `add_event` + enum `EventType` (TRAINING/MATCH/OTHER), index `(teamId, startAt)`. `recurringRuleId` non ajouté (RecurringRule n'existe pas encore, même logique que `trainingSessionId` sur `PlayerNote`) — seul `isRecurring` (défaut `false`) est posé. Voir `docs/schema/evenements.md` |
+| B2 — Backend `events` CRUD | ✅ | CRUD scopé équipe (`/clubs/:clubId/teams/:teamId/events`) — `teamId` dans l'URL (même pattern que `TeamStaff`), pas besoin du contournement `?teamId=` des ressources scopées joueur. Filtres `type`/`dateFrom`/`dateTo`/`sortOrder` sur le listing (résolus côté backend). 15 tests (service + intégration multi-rôles Coach/AdminClub/Player/sans-rôle) |
+| B3 — Backend vue agrégée multi-équipes | ✅ | Route self-service `GET /clubs/:clubId/events/mine` (`EventsMineController`, même pattern que `teams/mine`/`players/me`) : scope CLUB/ALL voit tout le club, scope TEAM retombe sur les équipes où l'appelant a un `MemberRole`. Réponse enrichie de `team: { id, name }` (nécessaire au code couleur par équipe, vue AdminClub). 7 tests ajoutés (unitaires + intégration avec le vrai `PermissionsService`) — 275 tests backend au total |
+| B4 — Frontend fondation calendrier + vue Liste | ✅ | Page `/clubs/:clubId/calendar`, filtres sidebar (cases à cocher type/équipe, résolus côté backend via `?types=`/`?teamIds=` — sélection vide affichée sans aller-retour réseau), vue **Liste** (timeline, même famille que Notes/Objectifs), dialogue création/édition (`EventFormDialog`, sélecteur d'équipe en création uniquement — équipe non modifiable en édition). Backend étendu : `FindMyEventsQueryDto` (CSV `types`/`teamIds`, distinct du `type` singulier de `findAllByTeam`). Nouveau composant `ui/checkbox.tsx` (Base UI) + polyfill `PointerEvent` dans `jest.setup.ts` (jsdom, nécessaire aux tests d'interaction Base UI). 12 tests frontend (dialogue + page) + 2 tests backend supplémentaires (filtre `teamIds`) |
+| B5 — Vue Mensuelle | ✅ | `CalendarMonthView` : grille de 6 semaines, création au clic (mousedown+mouseup même jour) et par glisser (mousedown+mouseenter+mouseup, écouté sur `window` pour capter un relâchement hors grille) → `EventFormDialog` piloté en externe (nouveaux props `open`/`onOpenChange`/`defaultDate`/`defaultEndDate`, `trigger` devenu optionnel), clic sur un événement → édition. Palette catégorielle validée ajoutée aux tokens `--chart-1..8` (globals.css, jusque-là un placeholder gris inutilisé — skill dataviz, `references/palette.md`, ΔE 24.2 clair/10.3 sombre) ; `lib/calendar-color.ts` assigne type→3 premiers slots (Coach/Player) ou équipe→slot par position (AdminClub), repli neutre au-delà de 8. **Simplification documentée** : le mode de couleur (`type` vs `équipe`) est dérivé de `teams.length > 1` (proxy sur le nombre d'équipes accessibles), pas d'une détection de rôle réelle — non exposée côté frontend actuellement ; à revisiter si un futur cas (ex. Coach multi-équipes) s'avère mal servi par ce proxy. **Écart au découpage initial** : un sélecteur Liste/Mois (`Tabs`) a été ajouté dès B5 (prévu pour B7) — sans lui, la vue Mensuelle aurait été inatteignable et invérifiable en navigateur ; B7 l'étendra avec Hebdomadaire + persistance du choix. 9 tests frontend ajoutés (`calendar-month-view.test.tsx`, 6 + extensions `calendar-page-content.test.tsx`, 3) — 168 tests frontend au total |
+| B6 — Vue Hebdomadaire | ✅ | `CalendarWeekView` : 7 jours (lundi-dimanche), mêmes briques que B5 — grille de jours extraite dans `CalendarGridDays` (partagée Mois/Semaine, plus de duplication du drag-to-select ni du code couleur), cellules plus hautes (une seule rangée). Aides de date communes dans `lib/calendar-grid.ts`. Troisième onglet ajouté au sélecteur Liste/Mois de B5. 7 tests ajoutés (5 `calendar-week-view.test.tsx` + 2 `calendar-page-content.test.tsx`) — 175 tests frontend au total. **Le sélecteur de vue à 3 voies existe donc déjà** ; B7 se limite désormais à la persistance du choix (pas de nouveau switcher à construire) |
+| B7 — Sélecteur de vue | ✅ | Bascule Mensuel/Hebdomadaire/Liste déjà en place depuis B5/B6 (`Tabs`). Persistance ajoutée : `CalendarPageContent` lit `view`/`month`/`week` depuis les query params au montage (initialiseurs paresseux) et les réécrit via `router.replace` (`{ scroll: false }`, pas de nouvelle entrée d'historique par interaction) à chaque changement — un rechargement de page ou un lien partagé retombe sur la même vue/position plutôt que sur la Liste recentrée sur aujourd'hui. `useSearchParams` (`next/navigation`) combiné à `usePathname`/`useRouter` (`@/i18n/navigation`, locale-aware). 4 tests ajoutés (`calendar-page-content.test.tsx`) — 228 tests frontend au total. |
+| B8 — `PlayerAbsence` | ✅ | Nouveau modèle `PlayerAbsence` (`reason`, `startDate`/`endDate` `@db.Date`, `isExcused?`, `reportedById?`) sans modèle de visibilité (contrairement à `PlayerNote`/`PlayerObjective`) — une absence n'a rien à cacher. CRUD scopé joueur (`clubs/:clubId/players/:playerId/absences`, permission `player_absence` OWN/TEAM/CLUB/ALL, mêmes conventions que `player_objective`). `AbsenceTab` réactivé sur la fiche joueur (liste/création/édition/suppression avec confirmation obligatoire, `alert-dialog.tsx`). **Écart au découpage initial, retour utilisateur (2026-07-08)** : un affichage calendrier (bandeau par absence dans les 3 vues + route agrégée `GET /clubs/:clubId/absences/mine`) a été construit puis entièrement retiré — un bandeau par personne grandit linéairement et devient invivable en période de vacances (7-10 absents simultanés vécu réellement par l'utilisateur) ; voir `docs/modules/calendrier-evenements.md` §Absences pour la décision détaillée et la piste retenue si repris un jour (indicateur agrégé par jour). `ExternalCalendar` (abonnement ICS) explicitement écarté du MVP, documenté pour référence future dans `docs/decisions-ouvertes-et-rgpd.md`. 25 tests backend ajoutés (`player-absences.service.spec.ts`, `player-absences-permissions.integration.spec.ts`) — 329 tests backend au total ; 18 tests frontend ajoutés (`AbsenceFormDialog`, `AbsenceTab`) — 246 tests frontend au total |
+| B9 — Tests multi-rôles bout-en-bout | ✅ | Scénario "Marc" (Coach équipe 5/Player équipe 8, Club 1/Parent équipe 12, Club 2), miroir d'A8 : `backend/src/common/calendrier-multi-role.integration.spec.ts` (8 tests) exerce les vrais guards/services d'`EventsController` (CRUD scopé équipe, pas de scope OWN) et `PlayerAbsencesController` (CRUD scopé joueur, `assertPlayerInTeam`), plus les agrégations "mine" (`EventsService.findMineInClub`, `MembersService.findBirthdaysInClub`) avec le vrai `PermissionsService` — 337 tests backend au total. **Constat documenté (pas corrigé)** : les agrégations "mine" utilisent l'existence d'un `MemberRole` scopé équipe comme proxy d'accessibilité, jamais la permission précise sur la ressource — cohérent avec `TeamsService.findMineInClub` (Phase 3), sans impact aujourd'hui (`Parent` non câblé à un `MemberRole` équipe) ; voir `docs/modules/auth-roles.md` §Patterns découverts. **Smoke test Docker** (comptes de dev réels, Club 1) : Coach crée un événement et une absence, Player lit son équipe/ses propres absences (confirme le 403 déjà documenté en A8 pour une lecture OWN sans `?teamId=`) et se voit refuser l'écriture, AdminClub lit en scope club-entier ; nettoyage complet des données de test, aucune erreur dans les logs Docker. **Revue de cohérence doc ↔ code** : `@@index([recurringGroupId])` manquant dans le tableau d'index de `docs/schema/evenements.md` ; six références mortes vers `docs/schema-bdd.md` (fichier remplacé par `docs/schema/*.md`, jamais entièrement nettoyé) corrigées dans `docs/architecture.md`, `docs/modules/blessures.md`, `docs/modules/matchs.md`, `docs/modules/entrainement.md` (×2) et `docs/modules/calendrier-evenements.md` ; paragraphe de décision B8 (Partie B) mis à jour pour refléter le retrait de l'affichage calendrier des absences, resté formulé comme le plan initial après coup |
+
+Ordre choisi : fondations schéma/CRUD d'abord (B1-B2), puis l'agrégation multi-équipe qui
+conditionne toute vue calendrier (B3), puis le frontend en commençant par la vue la plus simple
+(Liste, B4) avant la grille (Mensuelle B5, dont Hebdomadaire B6 est une variante), sélecteur de
+vue en B7, `PlayerAbsence` greffé en avant-dernier comme une entité annexe (même position que
+les onglets A7.x), tests multi-rôles en dernier (B9, miroir d'A8).
+
+**Corrections post-revue visuelle (2026-07-08, sur B5/B6)** : premier retour en conditions
+réelles (capture d'écran) de l'Entraîneur Daniel après B5/B6, quatre correctifs appliqués avant
+de poursuivre :
+- **Hauteur pleine page, sans scroll de page** : chaîne flexbox `lg:min-h-0`/`lg:flex-1` de
+  `page.tsx` jusqu'aux vues (déjà le pattern des onglets Mesures/Évaluation en Effectif) — seules
+  les zones internes défilent désormais (liste, cellule de grille mensuelle, grille horaire
+  hebdomadaire).
+- **Chaque vue borne désormais sa propre requête à sa plage affichée** (`lib/calendar-events-api.ts`,
+  `fetchCalendarEvents`) — jusque-là `CalendarPageContent` chargeait tous les événements
+  correspondant aux filtres sans borne de dates, quelle que soit la vue active. Mois/Semaine
+  rechargent au changement de mois/semaine (ou de filtres, via `refreshKey`) ; toute mutation
+  (création/édition/suppression) déclenche un rechargement via ce même `refreshKey`, plus de
+  `load()` centralisé dans `CalendarPageContent`.
+- **Vue Liste → scroll infini** (`CalendarListView`, nouveau composant) : fenêtre initiale de
+  J-14 à J+60 autour d'aujourd'hui, extension par blocs de 30 jours au scroll (vers le haut =
+  passé, vers le bas = futur), compensation du saut visuel au prepend (ajustement de `scrollTop`
+  après ajout de contenu en haut).
+- **Vue Hebdomadaire → grille horaire** (reconstruite, remplace l'ancienne grille de type Mensuel
+  zoomée) : créneaux positionnés par heure (06h-23h, scroll interne), répartition côte-à-côte des
+  événements qui se chevauchent (algorithme de voies glouton, pas un compactage optimal), bandeau
+  dédié pour les événements multi-jours au-dessus de la grille. Simplification documentée : plus
+  de glisser multi-jours dans cette vue (clic simple → un point précis dans le temps) — le glisser
+  multi-jours reste disponible en vue Mensuelle.
+- **Vue Mensuelle** : heure de chaque événement désormais affichée à côté du titre dans la cellule
+  (`CalendarGridDays`).
+- Correctif associé : `EventFormDialog.atDefaultHour` ne forçait pas la bonne heure — une date
+  pré-remplie portant déjà une heure précise (clic dans la grille horaire Semaine) était écrasée
+  à 9h ; ne s'applique désormais qu'aux dates à minuit (clic sur une cellule de jour, vue
+  Mensuelle).
+- `calendar-list-view.test.tsx` nouveau (6 tests) ; `calendar-month-view.test.tsx`,
+  `calendar-week-view.test.tsx` et `calendar-page-content.test.tsx` largement réécrits pour le
+  nouveau modèle de chargement par vue (chaque test mocke désormais `apiFetch` avec sa propre
+  fenêtre de dates plutôt que de recevoir des `events` en prop) — 184 tests frontend au total.
+
+**Corrections post-revue visuelle #2 (2026-07-08, sur B5/B6)** : deuxième retour (capture
+d'écran) après les premières corrections, deux correctifs :
+- **Vue Mensuelle → bandeau multi-jours** : un événement dont `startAt`/`endAt` tombent sur des
+  jours différents n'apparaissait auparavant que comme une puce sur son seul jour de départ,
+  sans indiquer qu'il s'étend sur plusieurs jours (déjà correct en vue Hebdomadaire).
+  `CalendarGridDays` restructuré : la grille de 42 jours est découpée en 6 blocs "semaine"
+  (`flex flex-col`, chacun `flex-1`), chaque bloc affichant un bandeau optionnel au-dessus de
+  ses cellules pour les événements multi-jours qui le traversent — même algorithme de voies
+  glouton que le chevauchement horaire de la vue Hebdomadaire, appliqué ici à des colonnes de
+  jours (`isMultiDay` déplacé dans `lib/calendar-grid.ts`, partagé Mois/Semaine).
+- **Bouton "Aujourd'hui"** : recentre la vue active. Mois/Semaine se recentrent directement via
+  leur état de navigation (`setMonth`/`setWeek(new Date())`) ; la vue Liste n'a pas d'état de
+  navigation équivalent (fenêtre de scroll ouverte progressivement) — nouveau prop
+  `recenterKey` sur `CalendarListView`, incrémenté par le bouton, qui efface la fenêtre
+  mémorisée pour forcer un retour à la fenêtre initiale centrée sur aujourd'hui (au lieu du
+  comportement `refreshKey` habituel qui préserve la fenêtre ouverte).
+- 8 tests ajoutés (bandeau multi-jours, recentrage Liste et Mois) — 187 tests frontend au total.
+
+**Corrections post-revue visuelle #3 (2026-07-08, sur B5/B6)** : troisième retour (capture
+d'écran) — le bandeau multi-jours de la correction #2 s'affichait entre deux semaines plutôt que
+dans les cellules qu'il traverse. Deux correctifs :
+- **Bandeau repositionné à l'intérieur des cellules** : `CalendarGridDays` restructuré une
+  deuxième fois — chaque semaine est désormais un conteneur `relative` contenant la grille des 7
+  cellules ET une superposition (`position: absolute`) de bandeaux alignée sur les mêmes colonnes
+  (`grid-cols-7 gap-px` identique des deux côtés). Chaque cellule réserve un espace vide
+  (`DAY_NUMBER_AREA_PX` + `laneCount × BANNER_LANE_HEIGHT_PX`) juste sous son numéro de jour pour
+  que la superposition s'y intercale visuellement sans recouvrir le contenu de la cellule. Le
+  glisser (drag-to-select) reste sur les cellules ; les boutons de bandeau interceptent le clic
+  (`pointer-events-auto` sur un conteneur `pointer-events-none`) sans déclencher de sélection.
+- **Numéro de semaine ISO 8601** : `getIsoWeekNumber` ajouté à `lib/calendar-grid.ts` (algorithme
+  standard "semaine du jeudi"), affiché dans une gouttière `w-5` à gauche de chaque semaine — même
+  gouttière ajoutée à l'en-tête des jours dans `CalendarMonthView` pour l'alignement des colonnes.
+- 2 tests ajoutés (bandeau superposé à l'intérieur du bon bloc de semaine, numéro de semaine) —
+  189 tests frontend au total.
+
+**Événements récurrents (2026-07-08)** : demande explicite (pas dans le découpage B1-B9 initial —
+`Event.isRecurring`/`recurringRuleId` avaient été posés en base dès B1 comme "future entité", ce
+moment est arrivé). Décision structurante : **pas de nouvelle entité `RecurringRule`**. Le
+frontend calcule la liste concrète des dates d'occurrence à la validation du formulaire
+(`lib/recurrence.ts`) et le backend crée chaque occurrence comme un `Event` indépendant
+(`isRecurring = true`, sans lien de groupe entre elles) via un nouvel endpoint bulk — pas de règle
+vivante réévaluée dynamiquement, conforme à la demande ("créer tous les événements en question
+entre les dates de récurrence").
+- **Backend** : `POST /clubs/:clubId/teams/:teamId/events/bulk` (`CreateEventsBulkDto`, tableau de
+  `CreateEventDto` validé, `@ArrayMaxSize(200)`), `EventsService.createBulk` (`prisma.event.createMany`
+  en une requête). Même permission `event CREATE` que la création simple. 6 tests ajoutés (service +
+  intégration multi-rôles) — 280 tests backend au total.
+- **Frontend — `lib/recurrence.ts`** (pur, testé indépendamment de l'UI) : `computeOccurrenceDates(rule,
+  rangeStart, rangeEnd)` pour 3 types de règle — hebdomadaire (jours de semaine cochés), mensuel
+  (jour fixe du mois OU Nième/dernier jour de semaine du mois), annuel (date fixe OU Nième/dernier
+  jour de semaine d'un mois donné). Garde-fou `MAX_OCCURRENCES = 200` (même borne que le backend).
+  11 tests.
+- **Frontend — `EventFormDialog`** : case "Événement récurrent" (création uniquement, absente en
+  édition — éditer une occurrence n'a pas de sens en tant que série) qui remplace les champs
+  Début/Fin normaux par heure de début/fin (communes à toutes les occurrences) + sélecteur de type
+  de récurrence + champs spécifiques au type + plage de dates de la récurrence. Aperçu du nombre
+  d'occurrences recalculé en direct (`useMemo` sur les valeurs surveillées). À la soumission :
+  calcule les dates, construit un événement par date (même heure/lieu/description), envoie tout à
+  l'endpoint bulk en une requête. 5 tests ajoutés — 204 tests frontend au total.
+
+**Édition/suppression en masse des événements récurrents + confirmation de suppression
+(2026-07-08)** : demande explicite suite aux événements récurrents ci-dessus — édition d'une
+occurrence doit proposer "cet événement seulement" ou "cet événement et les suivants" (jamais les
+occurrences passées), et **toute** suppression (récurrente ou non) doit être confirmée (aucune
+validation n'existait auparavant — risque d'erreur humaine signalé explicitement). Décision
+structurante : ajout de `Event.recurringGroupId` (UUID, nullable, migration
+`add_event_recurring_group`) — un seul identifiant généré par lot dans `createBulk`, partagé par
+toutes les occurrences de ce lot, permettant de retrouver "cet événement et les suivants" sans
+entité `RecurringRule` dédiée (décision initiale du 2026-07-08 ci-dessus inchangée).
+- **Backend** : `PATCH`/`DELETE .../events/:id` acceptent `?scope=single|future` (`single` par
+  défaut, comportement historique inchangé). En scope `future`, seuls titre/type/lieu/description/
+  heure se propagent aux occurrences trouvées (`recurringGroupId` égal + `startAt >= ancre`) ; la
+  date de chacune est préservée via `combineDateWithTime`. Retombe silencieusement sur `single` si
+  l'événement n'appartient à aucun lot récurrent. 4 tests service ajoutés — 284 tests backend au
+  total. Pas de nouveau test de permission dédié : `scope` ne change pas le modèle RBAC (même
+  `@RequirePermission` qu'avant), voir `docs/schema/evenements.md`.
+- **Frontend — `components/ui/alert-dialog.tsx`** (nouveau, mirroir de `dialog.tsx` sur
+  `@base-ui/react/alert-dialog`) : primitives brutes sans boutons Action/Cancel imposés — chaque
+  appelant compose son propre jeu de boutons (2 pour une confirmation simple, 3 pour le choix
+  "cet événement seulement / et les suivants / annuler").
+- **Frontend — `DeleteEventDialog`** (nouveau) : confirmation systématique avant toute suppression,
+  seul point d'entrée de suppression du calendrier (`CalendarListView`). Affiche une simple
+  confirmation pour un événement isolé, ou le choix single/future pour un événement récurrent.
+- **Frontend — `EventFormDialog`** : soumission d'une édition (`mode="edit"`) sur un événement
+  récurrent n'envoie plus le `PATCH` immédiatement — un `AlertDialog` demande le périmètre
+  (single/future) avant d'appeler `performSubmit`. Édition d'un événement non récurrent : inchangée,
+  PATCH direct avec `scope=single`.
+- `ExistingEvent.isRecurring` ajouté (le champ existait déjà côté API, seul le type frontend
+  manquait). 4 tests ajoutés (3 `event-form-dialog.test.tsx`, 1 `calendar-list-view.test.tsx`, plus
+  fixtures existantes mises à jour) — 208 tests frontend au total.
+
+**Correctifs post-B9 (2026-07-09, retours utilisateur en conditions réelles)** :
+- **Bug — vue Liste, anniversaires invisibles sans aucun type d'événement coché** :
+  `CalendarListView` ne calculait la fenêtre de dates (`pastBoundary`/`futureBoundary`, dont
+  dépend l'effet anniversaires) que lorsque `types`/`teamIds` contenait au moins une sélection —
+  sélection de types vide (ex. seul le filtre "Anniversaires" actif) mettait ces bornes à `null`,
+  coupant silencieusement l'effet anniversaires même si son propre filtre restait coché. Corrigé :
+  la fenêtre est désormais calculée indépendamment de `isEmptyFilterSelection`, qui ne contrôle
+  plus que l'appel réseau des événements eux-mêmes.
+- **Bug #2 — même zone, anniversaires hors fenêtre initiale introuvables (retour utilisateur
+  immédiat sur le correctif précédent)** : une fois le bug ci-dessus corrigé, un anniversaire
+  situé au-delà de la fenêtre initiale (14 jours avant/60 jours après aujourd'hui) restait quand
+  même invisible et impossible à découvrir — avec aussi peu de contenu, la liste ne déborde pas
+  assez pour déclencher le scroll infini existant. `CalendarListView` étend désormais
+  automatiquement la fenêtre (alterné passé/futur, blocs de 30 jours) tant qu'elle contient moins
+  de 8 anniversaires, plafonné à 6 itérations. Portée volontairement restreinte à la sélection de
+  types/équipes vide (voir `docs/modules/calendrier-evenements.md` §Anniversaires pour la
+  justification détaillée du choix de ne pas généraliser). 2 tests de régression ajoutés.
+- **`PlayerAbsence` — un joueur peut désormais déclarer sa propre absence à l'avance** :
+  permission `player_absence CREATE OWN` ajoutée au rôle `Player` (seed). Le champ `isExcused`
+  reste exclusivement la décision de l'entraîneur/admin — masqué du formulaire côté frontend
+  (`AbsenceFormDialog canSetExcused={false}`) et forcé à `null` côté backend
+  (`PlayerAbsencesService.create`) même si transmis. Un joueur n'a ni `UPDATE` ni `DELETE` sur ses
+  absences : actions masquées dans `AbsenceTab` (`isOwnProfile`, dérivé de
+  `player.member.user.id === utilisateur connecté`, exposé via `PlayersService.findOne`) plutôt
+  que menant à un 403 au clic. Notification à l'entraîneur : différée au système de notifications
+  (décision ouverte #2).
+- **`PlayerAbsence.reason` — texte libre remplacé par une liste fermée** : nouvel enum
+  `AbsenceReason` (`INJURY`/`ILLNESS`/`VACATION`/`OTHER`), qui permettra des statistiques par motif
+  d'absence (ex. entraînements manqués pour blessure, caractère récurrent). Nouveau champ
+  `description` (texte libre optionnel) pour préciser le motif sélectionné. Migration
+  `20260709070000_player_absence_reason_enum` : texte déjà saisi préservé dans `description`,
+  `reason` retombe sur `OTHER` pour les lignes existantes. Voir `docs/schema/joueurs.md`
+  §PlayerAbsence pour le détail.
+- **Bug #3 — vue Liste, doublons d'anniversaire après plusieurs clics rapprochés sur
+  "Aujourd'hui"** : `loadOlder`/`loadNewer` (invoquées de façon impérative, sans le nettoyage
+  automatique d'un effet React) n'avaient aucun garde-fou contre un appel encore en vol au moment
+  d'un recentrage — son résultat s'appliquait alors sur un état déjà périmé, rouvrant une fenêtre
+  censée avoir été réinitialisée (symptôme : la même personne affichée deux fois, avec deux âges
+  différents). Corrigé par un compteur de génération (`generationRef`) invalidant tout résultat
+  d'un cycle précédent. Anniversaires en vue Liste affichés avec leur date exacte
+  (`birthdayAgeWithDate`, JJ/MM/AAAA) en plus de l'âge — les distingue en cas d'occurrences
+  multiples et répond au besoin de connaître la date, pas seulement l'âge. Voir
+  `docs/modules/calendrier-evenements.md` §Anniversaires. 2 tests de régression ajoutés.
+- **Boutons d'action affichés à un joueur sans les droits de les utiliser** (Mesures, Évaluation,
+  Objectifs, Entretien, Notes) : `isOwnProfile` (déjà introduit pour `AbsenceTab`) propagé à ces 5
+  onglets ainsi qu'au bouton "Modifier" du profil joueur — chaque action masquée reflète
+  exactement les permissions réelles du rôle `Player` (READ/OWN seul sur ces 5 ressources). Voir
+  `docs/modules/effectif-joueurs.md` §Boutons d'action masqués pour la simplification documentée
+  (suppose qu'un Player n'est jamais aussi Coach/AdminClub sur cette page précise). 5 tests
+  ajoutés (un par onglet) + 1 test d'intégration sur la fiche joueur.
+- **Bug — graphique Mesures écrasé quand le formulaire d'ajout est masqué** : effet de bord du
+  correctif précédent — la carte du graphique (`h-full`, étirée par `items-stretch` à la hauteur
+  de la colonne Filtres + Formulaire) s'écrasait avec cette colonne une fois le formulaire masqué
+  (`isOwnProfile`). Corrigé par `min-h-96` sur la carte, indépendant de la présence du formulaire.
+  Voir `docs/modules/effectif-joueurs.md` §Mesures.
+- **Bugs #2 — retour immédiat sur le correctif ci-dessus** : les champs de plage de dates
+  débordaient de la carte Filtres (20rem) — `w-36` fixes remplacés par `w-0 min-w-0 flex-1`
+  (incohérence avec l'onglet Évaluation, qui avait déjà ce correctif). Carte Filtres étirée
+  jusqu'au bas de la colonne uniquement quand le formulaire est masqué, dimensions inchangées
+  sinon.
+- **Bugs #3 — retour immédiat, le passage en `flex-1` casse le passage à la ligne** : `flex-wrap`
+  ne déclenche plus de retour à la ligne entre Type et Date avec des champs `flex-1` (ils se
+  réduisaient à une largeur illisible sur une même ligne). Corrigé en empilant Type et Date
+  verticalement dans la carte Filtres (100% de largeur chacun) plutôt qu'un flex-wrap horizontal
+  — spécifique à cette carte étroite (20rem), les barres de filtres pleine largeur des autres
+  onglets gardent leur flex-wrap existant. Voir `docs/modules/effectif-joueurs.md` §Mesures.
+- 8 tests backend ajoutés/adaptés (`player-absences.service.spec.ts`,
+  `player-absences-permissions.integration.spec.ts`, `calendrier-multi-role.integration.spec.ts`)
+  — 340 tests backend au total ; tests frontend adaptés/ajoutés sur `AbsenceFormDialog`,
+  `AbsenceTab`, la fiche joueur, les 5 onglets Effectif et `calendar-list-view.test.tsx`
+  (extension automatique + garde-fou de génération inclus) — 259 tests frontend au total.
 
 ---
 

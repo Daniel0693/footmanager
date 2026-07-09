@@ -63,7 +63,7 @@ présences, messagerie).
 
 PostgreSQL pour l'intégrité référentielle sur des données fortement relationnelles (joueurs ↔
 équipes ↔ événements ↔ notes ↔ évaluations). Prisma comme ORM pour la cohérence de types
-TypeScript de bout en bout et la gestion des migrations. Schéma complet : `docs/schema-bdd.md`.
+TypeScript de bout en bout et la gestion des migrations. Schéma complet : `docs/schema/index.md`.
 
 **Principes de conception de la BDD** (non négociables) :
 

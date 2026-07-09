@@ -15,6 +15,7 @@ import {
 import { Link } from "@/i18n/navigation";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
+import { formatDate } from "@/lib/date-format";
 import type { Foot } from "@/lib/foot";
 import type { Gender } from "@/lib/gender";
 import type { Position } from "@/lib/positions";
@@ -22,6 +23,7 @@ import {
   ExistingPlayer,
   PlayerFormDialog,
 } from "@/components/players/player-form-dialog";
+import { AbsenceTab } from "@/components/players/absence-tab";
 import { EvaluationTab } from "@/components/players/evaluation-tab";
 import { InterviewsTab } from "@/components/players/interviews-tab";
 import { MeasurementsTab } from "@/components/players/measurements-tab";
@@ -33,7 +35,6 @@ interface PlayerDetail {
   id: number;
   licenseNumber: string | null;
   nationality: string | null;
-  birthDate: string | null;
   preferredFoot: Foot | null;
   member: {
     id: number;
@@ -41,8 +42,9 @@ interface PlayerDetail {
     lastName: string;
     phone: string | null;
     gender: Gender | null;
+    birthDate: string | null;
     isActive: boolean;
-    user: { email: string } | null;
+    user: { id: number; email: string } | null;
   };
   playerTeams: Array<{
     id: number;
@@ -81,7 +83,7 @@ export function PlayerDetailPageContent({
   const tPlayers = useTranslations("players");
   const tGender = useTranslations("gender");
   const tFoot = useTranslations("foot");
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [hasError, setHasError] = useState(false);
   const [isSavingPosition, setIsSavingPosition] = useState(false);
@@ -150,6 +152,14 @@ export function PlayerDetailPageContent({
     return null;
   }
 
+  // Le viewer consulte-t-il sa propre fiche joueur ? Détermine si le
+  // formulaire de déclaration d'absence doit masquer le champ "Excusé" —
+  // seul l'entraîneur décide du statut d'excuse, jamais le joueur
+  // lui-même (voir AbsenceTab/AbsenceFormDialog). `!!` évite qu'un id
+  // manquant des deux côtés (ex. joueur sans compte lié) ne soit
+  // faussement traité comme "même personne".
+  const isOwnProfile = !!player.member.user?.id && player.member.user.id === user?.id;
+
   const assignment =
     player.playerTeams.find((pt) => pt.teamId === Number(teamId)) ??
     player.playerTeams[0];
@@ -165,7 +175,7 @@ export function PlayerDetailPageContent({
         gender: player.member.gender,
         licenseNumber: player.licenseNumber,
         nationality: player.nationality,
-        birthDate: player.birthDate,
+        birthDate: player.member.birthDate,
         preferredFoot: player.preferredFoot,
         jerseyNumber: assignment.jerseyNumber,
         mainPosition: assignment.mainPosition,
@@ -232,7 +242,10 @@ export function PlayerDetailPageContent({
         >
           {t("backToRoster")}
         </Link>
-        {existingPlayer && (
+        {/* Un joueur consultant sa propre fiche n'a que READ/OWN sur son
+            profil joueur (voir backend/prisma/seed.ts, rôle Player) —
+            jamais UPDATE : masqué plutôt que menant à un 403 au clic. */}
+        {existingPlayer && !isOwnProfile && (
           <PlayerFormDialog
             clubId={clubId}
             teamId={teamId}
@@ -270,7 +283,11 @@ export function PlayerDetailPageContent({
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">{t("birthDate")}</span>
-                <span>{player.birthDate ?? tPlayers("emptyValue")}</span>
+                <span>
+                  {player.member.birthDate
+                    ? formatDate(player.member.birthDate)
+                    : tPlayers("emptyValue")}
+                </span>
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">{t("gender")}</span>
@@ -291,7 +308,9 @@ export function PlayerDetailPageContent({
             <CardContent className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">{t("joinDate")}</span>
-                <span>{assignment?.joinDate ?? tPlayers("emptyValue")}</span>
+                <span>
+                  {assignment?.joinDate ? formatDate(assignment.joinDate) : tPlayers("emptyValue")}
+                </span>
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">{t("licenseNumber")}</span>
@@ -343,19 +362,52 @@ export function PlayerDetailPageContent({
               flex-1 overflow-y-auto) défile — pas la page entière. En
               dessous de lg, tout reste en flux normal. */}
           <TabsContent value="measurements" className="lg:flex lg:min-h-0 lg:flex-col">
-            <MeasurementsTab clubId={clubId} teamId={teamId} playerId={playerId} />
+            <MeasurementsTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
           </TabsContent>
           <TabsContent value="interview" className="lg:flex lg:min-h-0 lg:flex-col">
-            <InterviewsTab clubId={clubId} teamId={teamId} playerId={playerId} />
+            <InterviewsTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
           </TabsContent>
           <TabsContent value="notes" className="lg:flex lg:min-h-0 lg:flex-col">
-            <NotesTab clubId={clubId} teamId={teamId} playerId={playerId} />
+            <NotesTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
           </TabsContent>
           <TabsContent value="objectives" className="lg:flex lg:min-h-0 lg:flex-col">
-            <ObjectivesTab clubId={clubId} teamId={teamId} playerId={playerId} />
+            <ObjectivesTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
           </TabsContent>
           <TabsContent value="evaluation" className="lg:flex lg:min-h-0 lg:flex-col">
-            <EvaluationTab clubId={clubId} teamId={teamId} playerId={playerId} />
+            <EvaluationTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
+          </TabsContent>
+          <TabsContent value="absence" className="lg:flex lg:min-h-0 lg:flex-col">
+            <AbsenceTab
+              clubId={clubId}
+              teamId={teamId}
+              playerId={playerId}
+              isOwnProfile={isOwnProfile}
+            />
           </TabsContent>
           {DETAIL_TABS.filter(
             (tab) =>
@@ -363,7 +415,8 @@ export function PlayerDetailPageContent({
               tab !== "interview" &&
               tab !== "notes" &&
               tab !== "objectives" &&
-              tab !== "evaluation",
+              tab !== "evaluation" &&
+              tab !== "absence",
           ).map((tab) => (
             <TabsContent key={tab} value={tab}>
               <Card>

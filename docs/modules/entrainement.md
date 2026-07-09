@@ -6,7 +6,7 @@
 type `TRAINING` possède une `TrainingSession` associée). Toute la mécanique du calendrier
 (création, filtres, code couleur) est réutilisée sans dupliquer de logique.
 
-Entités associées (détail des champs : `docs/schema-bdd.md` §12) :
+Entités associées (détail des champs : `docs/schema/evenements.md`) :
 - `TrainingSession`
 - `Exercise`
 - `TrainingSessionExercise` (liaison séance ↔ exercices, avec ordre)
@@ -19,7 +19,7 @@ Entités associées (détail des champs : `docs/schema-bdd.md` §12) :
 
 **Décision tranchée** : la table `TeamStaff` est confirmée, avec les rôles `PRINCIPAL`,
 `CO_ENTRAINEUR` et `ADJOINT`. Le module Entraînement dépend de cette table pour gérer
-correctement le co-coaching. Voir `docs/schema-bdd.md` §5.
+correctement le co-coaching. Voir `docs/schema/joueurs.md` §TeamStaff.
 
 ---
 

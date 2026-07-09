@@ -1,17 +1,22 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CreateMemberDto } from './dto/create-member.dto';
+import { FindBirthdaysQueryDto } from './dto/find-birthdays-query.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
+import { UpdateMyMemberDto } from './dto/update-my-member.dto';
 import { MembersService } from './members.service';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -26,6 +31,47 @@ export class MembersController {
     @Body() dto: CreateMemberDto,
   ) {
     return this.membersService.create({ clubId, ...dto });
+  }
+
+  // "Mon profil" (docs/roadmap.md) : doit être déclaré avant ':id' (Nest
+  // résout les routes dans l'ordre de déclaration, sinon 'me' serait capturé
+  // par ':id'). Pas de @RequirePermission — MembersService.findMe/updateMe
+  // résolvent le Member depuis le JWT, aucun scope RBAC à évaluer pour
+  // éditer ses propres données (même pattern que PlayersController.findMe).
+  @Get('me')
+  findMe(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @CurrentUser() user: { userId: number },
+  ) {
+    return this.membersService.findMe(clubId, user.userId);
+  }
+
+  @Patch('me')
+  updateMe(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @CurrentUser() user: { userId: number },
+    @Body() dto: UpdateMyMemberDto,
+  ) {
+    return this.membersService.updateMe(clubId, user.userId, dto);
+  }
+
+  // Anniversaires visibles par l'appelant (docs/modules/calendrier-evenements.md
+  // §Anniversaires) : même raison de contournement que 'me' ci-dessus — un
+  // Coach peut couvrir plusieurs équipes, cette route sans teamId ne pourrait
+  // jamais matcher un scope TEAM via PermissionsGuard. Le scope club/équipe
+  // est résolu manuellement dans MembersService.findBirthdaysInClub.
+  @Get('birthdays')
+  findBirthdays(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @CurrentUser() user: { userId: number },
+    @Query() query: FindBirthdaysQueryDto,
+  ) {
+    return this.membersService.findBirthdaysInClub(
+      clubId,
+      user.userId,
+      { dateFrom: query.dateFrom, dateTo: query.dateTo },
+      query.teamIds,
+    );
   }
 
   // Cette route ne porte pas de teamId dans l'URL : un Coach (rôle scopé

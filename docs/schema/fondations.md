@@ -76,6 +76,7 @@ Un même `User` peut être `Member` de plusieurs clubs (un enregistrement par cl
 | `phone` | String, nullable | |
 | `avatarUrl` | String, nullable | |
 | `gender` | enum `Gender`, nullable | `MALE` \| `FEMALE` \| `OTHER` — non renseigné par défaut |
+| `birthDate` | Date, nullable | commun à tous les rôles (2026-07-08 : déplacé depuis `PlayerProfile`, un Coach/Parent/AdminClub a aussi un anniversaire) — alimente les anniversaires du calendrier |
 | `isActive` | Boolean, défaut `true` | |
 
 **Contrainte** : unicité sur `(userId, clubId)` — un User n'a qu'un seul Member par club. `NULL`

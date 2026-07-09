@@ -80,6 +80,7 @@ describe("PlayerFormDialog", () => {
           lastName: "Joueur",
           phone: undefined,
           gender: undefined,
+          birthDate: undefined,
         }),
       }),
     );
@@ -92,7 +93,6 @@ describe("PlayerFormDialog", () => {
           memberId: 42,
           licenseNumber: undefined,
           nationality: undefined,
-          birthDate: undefined,
           preferredFoot: undefined,
         }),
       }),
@@ -166,10 +166,20 @@ describe("PlayerFormDialog", () => {
       "/clubs/1/members/6?teamId=5",
       expect.objectContaining({ method: "PATCH" }),
     );
+    // birthDate est envoyé au membre (docs/schema/fondations.md, 2026-07-08),
+    // plus au profil joueur.
+    const [, memberOptions] = mockApiFetch.mock.calls[0];
+    expect(JSON.parse((memberOptions as RequestInit).body as string)).toMatchObject({
+      birthDate: "2011-10-30",
+    });
     expect(mockApiFetch).toHaveBeenNthCalledWith(
       2,
       "/clubs/1/players/1?teamId=5",
       expect.objectContaining({ method: "PATCH" }),
+    );
+    const [, profileOptions] = mockApiFetch.mock.calls[1];
+    expect(JSON.parse((profileOptions as RequestInit).body as string)).not.toHaveProperty(
+      "birthDate",
     );
     expect(mockApiFetch).toHaveBeenNthCalledWith(
       3,

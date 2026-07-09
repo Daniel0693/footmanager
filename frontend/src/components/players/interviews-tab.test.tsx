@@ -31,9 +31,14 @@ function interview(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderTab(clubId = "1", teamId = "5", playerId = "1") {
+function renderTab(clubId = "1", teamId = "5", playerId = "1", isOwnProfile = false) {
   return renderWithIntl(
-    <InterviewsTab clubId={clubId} teamId={teamId} playerId={playerId} />,
+    <InterviewsTab
+      clubId={clubId}
+      teamId={teamId}
+      playerId={playerId}
+      isOwnProfile={isOwnProfile}
+    />,
   );
 }
 
@@ -237,5 +242,16 @@ describe("InterviewsTab", () => {
 
     const subjectInput = await screen.findByLabelText<HTMLInputElement>("Sujet");
     expect(subjectInput).toHaveValue("Bilan mi-saison");
+  });
+
+  it("isOwnProfile masque le bouton Ajouter et les actions Modifier/Supprimer par ligne (Player n'a que READ/OWN)", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse([interview()]));
+
+    renderTab("1", "5", "10", true);
+
+    await screen.findByText("Bilan mi-saison");
+    expect(screen.queryByRole("button", { name: "Ajouter un entretien" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Modifier" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Supprimer" })).not.toBeInTheDocument();
   });
 });

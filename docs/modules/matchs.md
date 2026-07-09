@@ -10,7 +10,7 @@ Un `Match` peut être lié à un `ChampionshipMatch` (si c'est un match de champ
 `Match.championshipMatchId`. Voir `docs/modules/saisons-championnats.md` pour la règle de
 source de vérité sur le score.
 
-Entités associées (détail des champs : `docs/schema-bdd.md` §13 et §24) :
+Entités associées (détail des champs : `docs/schema/evenements.md`) :
 - `Match` — fiche du match de notre équipe
 - `MatchPeriod` — gestion des périodes (live)
 - `MatchLineup` — composition

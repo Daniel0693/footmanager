@@ -21,7 +21,19 @@ filtres et code couleur par type.
 | `location` | String, nullable | |
 | `description` | Text, nullable | |
 | `isRecurring` | Boolean, défaut `false` | |
-| `recurringRuleId` | FK → RecurringRule, nullable | future entité pour les récurrences |
+| `recurringGroupId` | UUID, nullable | voir "Événements récurrents" ci-dessous |
+
+**Événements récurrents (2026-07-08)** : pas d'entité `RecurringRule`. Le frontend calcule la
+liste concrète des dates d'occurrence à la validation du formulaire (règle hebdomadaire,
+mensuelle ou annuelle — voir `docs/modules/calendrier-evenements.md`) et le backend crée chaque
+occurrence comme un `Event` indépendant via `EventsService.createBulk` (`isRecurring = true`,
+`recurringGroupId` = même UUID généré une fois par lot, partagé par toutes les occurrences de ce
+lot). Pas de règle vivante réévaluée dynamiquement : `recurringGroupId` sert uniquement à
+retrouver "cet événement et les suivants" pour une édition ou suppression en masse
+(`scope=single|future` sur `PATCH`/`DELETE .../events/:id`) — jamais les occurrences passées par
+rapport à celle éditée/supprimée. En scope `future`, seuls titre/type/lieu/description/heure se
+propagent aux occurrences suivantes ; la date de chacune est préservée (même convention que
+Google Calendar "cet événement et les suivants").
 
 ---
 
@@ -286,4 +298,5 @@ dénormalisées en MVP.
 @@index([matchId])                                sur MatchPeriod, MatchLineup, MatchEvent, MatchAttendance
 @@index([playerId])                               sur TrainingAttendance, TrainingFeedback, MatchPlayerRating
 @@index([teamId, startAt])                        sur Event
+@@index([recurringGroupId])                       sur Event
 ```

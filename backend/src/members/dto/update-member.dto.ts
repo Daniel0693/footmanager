@@ -1,5 +1,12 @@
 import { Gender } from '@prisma/client';
-import { IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsDate,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class UpdateMemberDto {
   @IsOptional()
@@ -19,4 +26,9 @@ export class UpdateMemberDto {
   @IsOptional()
   @IsEnum(Gender)
   gender?: Gender;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  birthDate?: Date;
 }

@@ -90,24 +90,26 @@ model Team {
   playerTeams       PlayerTeam[]
   teamStaffs        TeamStaff[]
   playerEvaluations PlayerEvaluation[]
+  events            Event[]
 
   @@index([clubId])
 }
 
 model Member {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   userId    Int?
-  user      User?    @relation(fields: [userId], references: [id])
+  user      User?     @relation(fields: [userId], references: [id])
   clubId    Int
-  club      Club     @relation(fields: [clubId], references: [id])
+  club      Club      @relation(fields: [clubId], references: [id])
   firstName String
   lastName  String
   phone     String?
   avatarUrl String?
   gender    Gender?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  birthDate DateTime? @db.Date
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   memberRoles         MemberRole[]
   playerProfile       PlayerProfile?
@@ -116,6 +118,7 @@ model Member {
   authoredNotes       PlayerNote[]
   assignedObjectives  PlayerObjective[]
   evaluationsGiven    PlayerEvaluation[]
+  reportedAbsences    PlayerAbsence[]
 
   @@unique([userId, clubId])
 }
@@ -239,15 +242,14 @@ enum Foot {
 }
 
 model PlayerProfile {
-  id            Int       @id @default(autoincrement())
-  memberId      Int       @unique
-  member        Member    @relation(fields: [memberId], references: [id])
-  licenseNumber String?   @unique
+  id            Int      @id @default(autoincrement())
+  memberId      Int      @unique
+  member        Member   @relation(fields: [memberId], references: [id])
+  licenseNumber String?  @unique
   nationality   String?
-  birthDate     DateTime? @db.Date
   preferredFoot Foot?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   playerTeams        PlayerTeam[]
   playerMeasurements PlayerMeasurement[]
@@ -255,6 +257,7 @@ model PlayerProfile {
   playerNotes        PlayerNote[]
   playerObjectives   PlayerObjective[]
   playerEvaluations  PlayerEvaluation[]
+  playerAbsences     PlayerAbsence[]
 }
 
 enum MeasurementType {
@@ -399,6 +402,37 @@ model PlayerObjective {
   @@index([playerId])
 }
 
+enum AbsenceReason {
+  INJURY
+  ILLNESS
+  VACATION
+  OTHER
+}
+
+// Indépendante de l'équipe : s'applique à toutes les activités du joueur sur
+// la période (docs/schema/joueurs.md §PlayerAbsence). Pas de rapprochement
+// automatique avec les convocations (MatchAttendance/TrainingAttendance
+// n'existent pas encore) — différé aux Phases 4/5. `reason` en liste fermée
+// (plutôt que texte libre) pour permettre des statistiques par motif
+// (ex. nombre d'entraînements manqués pour blessure) ; `description` reste
+// un texte libre optionnel pour préciser le contexte.
+model PlayerAbsence {
+  id           Int           @id @default(autoincrement())
+  playerId     Int
+  player       PlayerProfile @relation(fields: [playerId], references: [id])
+  reason       AbsenceReason
+  description  String?       @db.Text
+  startDate    DateTime      @db.Date
+  endDate      DateTime      @db.Date
+  isExcused    Boolean?
+  reportedById Int?
+  reportedBy   Member?       @relation(fields: [reportedById], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([playerId, startDate])
+}
+
 model PlayerTeam {
   id                 Int           @id @default(autoincrement())
   playerId           Int
@@ -438,6 +472,43 @@ model TeamStaff {
   updatedAt DateTime      @updatedAt
 
   @@index([teamId, memberId])
+}
+
+enum EventType {
+  TRAINING
+  MATCH
+  OTHER
+}
+
+// Événement générique du calendrier (docs/modules/calendrier-evenements.md,
+// docs/schema/evenements.md) — entité parente de tout ce qui s'affiche dans
+// le calendrier. TrainingSession et Match l'étendront en relation 1-1
+// (Phases 4/5, pas encore implémentées). `recurringRuleId` différé : la
+// future entité RecurringRule n'existe pas encore (même logique que
+// trainingSessionId sur PlayerNote — champ ajouté une fois le modèle cible
+// disponible, pas anticipé ici).
+model Event {
+  id               Int       @id @default(autoincrement())
+  teamId           Int
+  team             Team      @relation(fields: [teamId], references: [id])
+  type             EventType
+  title            String
+  startAt          DateTime
+  endAt            DateTime?
+  location         String?
+  description      String?   @db.Text
+  isRecurring      Boolean   @default(false)
+  // Identifiant partagé par toutes les occurrences créées en une seule fois
+  // par EventsService.createBulk (docs/roadmap.md — événements récurrents) —
+  // permet de retrouver "cet événement et les suivants" pour une édition/
+  // suppression en masse (scope=future), sans entité RecurringRule dédiée.
+  // null pour un événement non récurrent.
+  recurringGroupId String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([teamId, startAt])
+  @@index([recurringGroupId])
 }
 
 model EvaluationCategory {
