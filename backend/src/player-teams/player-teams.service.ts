@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerTeamDto } from './dto/create-player-team.dto';
+import { FindPlayerTeamsQueryDto } from './dto/find-player-teams-query.dto';
 import { UpdatePlayerTeamDto } from './dto/update-player-team.dto';
 
 /**
@@ -45,13 +46,21 @@ export class PlayerTeamsService {
     });
   }
 
-  async findAllByTeam(clubId: number, teamId: number) {
+  async findAllByTeam(
+    clubId: number,
+    teamId: number,
+    query: FindPlayerTeamsQueryDto = {},
+  ) {
     await this.assertTeamInClub(clubId, teamId);
 
     // include player+member : la liste effectif (frontend) affiche le nom
     // du joueur, pas seulement son id.
     return this.prisma.playerTeam.findMany({
-      where: { teamId, leaveDate: null },
+      where: {
+        teamId,
+        leaveDate: null,
+        mainPosition: query.position ? { in: query.position } : undefined,
+      },
       include: { player: { include: { member: true } } },
       orderBy: { jerseyNumber: 'asc' },
     });

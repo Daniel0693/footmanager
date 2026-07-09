@@ -182,7 +182,24 @@ describe('PlayerTeamsService', () => {
 
       expect(result).toEqual([assignment]);
       expect(ptFindMany).toHaveBeenCalledWith({
-        where: { teamId: 5, leaveDate: null },
+        where: { teamId: 5, leaveDate: null, mainPosition: undefined },
+        include: { player: { include: { member: true } } },
+        orderBy: { jerseyNumber: 'asc' },
+      });
+    });
+
+    it('filtre par poste(s) côté backend quand `position` est transmis (pas de filtrage JS côté frontend)', async () => {
+      teamFindFirst.mockResolvedValue(team);
+      ptFindMany.mockResolvedValue([assignment]);
+
+      await service.findAllByTeam(1, 5, { position: ['CB', 'RB', 'LB'] });
+
+      expect(ptFindMany).toHaveBeenCalledWith({
+        where: {
+          teamId: 5,
+          leaveDate: null,
+          mainPosition: { in: ['CB', 'RB', 'LB'] },
+        },
         include: { player: { include: { member: true } } },
         orderBy: { jerseyNumber: 'asc' },
       });

@@ -26,7 +26,6 @@ import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import {
   LINE_POSITIONS,
-  lineForPosition,
   POSITIONS,
   POSITION_LINES,
   type Position,
@@ -49,6 +48,24 @@ interface PlayerTeamRow {
 
 const ALL = "ALL";
 
+// Filtres résolus côté backend (voir docs/modules/effectif-joueurs.md
+// §Mesures, réappliqué ici) : le frontend traduit ligne/poste sélectionnés
+// en query params `position` avant de fetcher, il ne filtre plus jamais le
+// roster déjà chargé en JS. Version locale minimale de `toQueryString`,
+// mutualisée avec le reste du frontend dans un chantier séparé.
+function toQueryString(params: Record<string, string | string[] | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const v of value) search.append(key, v);
+    } else {
+      search.set(key, value);
+    }
+  }
+  return search.toString();
+}
+
 // Composant nommé séparé du default export de page.tsx : voir la même note
 // dans ../page.tsx (TeamsPageContent) — `use(params)` ne se résout pas de
 // façon fiable sous Jest/jsdom, donc on teste ce composant directement avec
@@ -69,13 +86,28 @@ export function TeamPlayersPageContent({
   const [lineFilter, setLineFilter] = useState<PositionLine | typeof ALL>(ALL);
   const [positionFilter, setPositionFilter] = useState<Position | typeof ALL>(ALL);
 
+  // Poste exact prioritaire sur la ligne (même priorité que l'ancien filtre
+  // JS) : sélectionner un poste précis restreint à ce seul poste, sinon la
+  // ligne restreint à tous les postes qui la composent.
+  const positionsToQuery = useMemo(
+    () =>
+      positionFilter !== ALL
+        ? [positionFilter]
+        : lineFilter !== ALL
+          ? LINE_POSITIONS[lineFilter]
+          : undefined,
+    [positionFilter, lineFilter],
+  );
+
   const fetchRoster = useCallback(async () => {
-    const response = await apiFetch(`/clubs/${clubId}/teams/${teamId}/players`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const query = toQueryString({ position: positionsToQuery });
+    const response = await apiFetch(
+      `/clubs/${clubId}/teams/${teamId}/players${query ? `?${query}` : ""}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
     if (!response.ok) throw new Error();
     return response.json();
-  }, [clubId, teamId, accessToken]);
+  }, [clubId, teamId, accessToken, positionsToQuery]);
 
   const loadRoster = useCallback(async () => {
     try {
@@ -118,17 +150,6 @@ export function TeamPlayersPageContent({
     setLineFilter(value ?? ALL);
     setPositionFilter(ALL);
   }, []);
-
-  const filteredRoster = useMemo(() => {
-    if (!roster) return [];
-    return roster.filter((row) => {
-      if (positionFilter !== ALL) return row.mainPosition === positionFilter;
-      if (lineFilter !== ALL) {
-        return row.mainPosition !== null && lineForPosition(row.mainPosition) === lineFilter;
-      }
-      return true;
-    });
-  }, [roster, lineFilter, positionFilter]);
 
   return (
     <div className="flex w-full flex-col gap-4 p-4">
@@ -194,7 +215,7 @@ export function TeamPlayersPageContent({
 
       {hasError ? (
         <p className="text-sm text-destructive">{t("loadFailed")}</p>
-      ) : roster !== null && filteredRoster.length === 0 ? (
+      ) : roster !== null && roster.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         <Table>
@@ -207,7 +228,7 @@ export function TeamPlayersPageContent({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRoster.map((row) => (
+            {(roster ?? []).map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{row.jerseyNumber ?? t("emptyValue")}</TableCell>
                 <TableCell>

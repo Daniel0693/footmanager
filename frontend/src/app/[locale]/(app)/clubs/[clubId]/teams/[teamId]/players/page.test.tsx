@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { renderWithIntl, screen, within } from "@/test-utils/render";
+import { renderWithIntl, screen, waitFor, within } from "@/test-utils/render";
 import { TeamPlayersPageContent } from "./page";
 
 // require() dans la factory jest.mock : nécessaire pour un mock fiable, voir navigation-mock.tsx.
@@ -19,6 +19,10 @@ jest.mock("@/lib/api", () => ({
 
 function jsonResponse(body: unknown, ok = true) {
   return { ok, json: () => Promise.resolve(body) };
+}
+
+function queryOf(url: string) {
+  return new URL(url, "http://localhost").searchParams;
 }
 
 function player(
@@ -105,34 +109,24 @@ describe("TeamPlayersPageContent", () => {
     expect(screen.queryByText("ALL")).not.toBeInTheDocument();
   });
 
-  it("le filtre par ligne ne garde que les joueurs de cette ligne", async () => {
-    mockApiFetch.mockResolvedValue(
-      jsonResponse([
-        player(1, "Tom", "CAM"), // MID
-        player(2, "Luc", "GK"), // GK
-        player(3, "Bob", "CB"), // DEF
-      ]),
-    );
+  it("le filtre par ligne est résolu côté backend (query params `position`), pas par un filtrage JS côté client", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse([player(1, "Tom", "CAM")]));
     const user = userEvent.setup();
 
     renderPage();
     await screen.findByText("Tom Test");
+    mockApiFetch.mockClear();
 
     await user.click(screen.getByText("Toutes les lignes"));
     await user.click(await screen.findByRole("option", { name: "Milieu" }));
 
-    expect(screen.getByText("Tom Test")).toBeInTheDocument();
-    expect(screen.queryByText("Luc Test")).not.toBeInTheDocument();
-    expect(screen.queryByText("Bob Test")).not.toBeInTheDocument();
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+    const [url] = mockApiFetch.mock.calls[0];
+    expect(queryOf(url).getAll("position")).toEqual(["CDM", "CM", "RM", "LM", "CAM"]);
   });
 
-  it("le filtre par poste précis affine encore le filtre par ligne", async () => {
-    mockApiFetch.mockResolvedValue(
-      jsonResponse([
-        player(1, "Tom", "CAM"),
-        player(2, "Alex", "CDM"),
-      ]),
-    );
+  it("le filtre par poste précis n'envoie que ce poste, même si une ligne est déjà sélectionnée", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse([player(1, "Tom", "CAM")]));
     const user = userEvent.setup();
 
     renderPage();
@@ -140,13 +134,14 @@ describe("TeamPlayersPageContent", () => {
 
     await user.click(screen.getByText("Toutes les lignes"));
     await user.click(await screen.findByRole("option", { name: "Milieu" }));
-    expect(screen.getByText("Alex Test")).toBeInTheDocument();
+    mockApiFetch.mockClear();
 
     await user.click(screen.getByText("Tous les postes"));
     await user.click(await screen.findByRole("option", { name: "Milieu offensif" }));
 
-    expect(screen.getByText("Tom Test")).toBeInTheDocument();
-    expect(screen.queryByText("Alex Test")).not.toBeInTheDocument();
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+    const [url] = mockApiFetch.mock.calls[0];
+    expect(queryOf(url).getAll("position")).toEqual(["CAM"]);
   });
 
   it("un joueur sans poste renseigné affiche un tiret plutôt que de planter", async () => {
