@@ -368,6 +368,22 @@ export function CalendarListView({
   const formatTime = (iso: string) =>
     new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
+  // Plage de dates actuellement chargée (pastBoundary/futureBoundary), pas
+  // les dates du premier/dernier élément réellement visible : plus simple,
+  // et cohérent avec ce que l'utilisateur charge réellement en scrollant
+  // (même principe que rangeLabel dans calendar-week-view.tsx).
+  const visibleRangeLabel =
+    pastBoundary && futureBoundary
+      ? t("visibleRange", {
+          from: pastBoundary.toLocaleDateString(locale, { day: "2-digit", month: "short" }),
+          to: futureBoundary.toLocaleDateString(locale, {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }),
+        })
+      : null;
+
   const timelineItems: TimelineItem[] =
     events === null
       ? []
@@ -381,13 +397,22 @@ export function CalendarListView({
         ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return (
-    <div
-      ref={scrollRef}
-      onScroll={handleScroll}
-      data-testid="calendar-list-scroll"
-      className="flex flex-1 flex-col gap-3 lg:min-h-0 lg:overflow-y-auto"
-    >
-      {hasError && <p className="text-sm text-destructive">{t("loadFailed")}</p>}
+    <div className="flex flex-1 flex-col gap-2 lg:min-h-0">
+      {visibleRangeLabel && (
+        <p
+          data-testid="calendar-list-visible-range"
+          className="shrink-0 text-sm text-muted-foreground"
+        >
+          {visibleRangeLabel}
+        </p>
+      )}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        data-testid="calendar-list-scroll"
+        className="flex flex-1 flex-col gap-3 lg:min-h-0 lg:overflow-y-auto"
+      >
+        {hasError && <p className="text-sm text-destructive">{t("loadFailed")}</p>}
       {!hasError && events !== null && timelineItems.length === 0 && (
         <Card>
           <CardContent className="py-6 text-sm text-muted-foreground">{t("empty")}</CardContent>
@@ -467,6 +492,7 @@ export function CalendarListView({
           )}
         </ol>
       )}
+      </div>
     </div>
   );
 }

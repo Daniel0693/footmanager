@@ -93,6 +93,40 @@ describe("CalendarListView", () => {
     expect(await screen.findByText("Match amical")).toBeInTheDocument();
   });
 
+  it("affiche la plage de dates actuellement chargée", async () => {
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+    );
+
+    const range = await screen.findByTestId("calendar-list-visible-range");
+    // Fenêtre initiale : 2026-06-26 (aujourd'hui - 14j) au 2026-09-08
+    // (aujourd'hui + 60j) — vérifie les deux bornes plutôt que le format
+    // exact (dépendant de la locale ICU du runtime).
+    expect(range.textContent).toContain("26");
+    expect(range.textContent).toContain("2026");
+  });
+
+  it("la plage affichée s'étend vers le passé après un scroll vers le haut", async () => {
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+    );
+    const range = await screen.findByTestId("calendar-list-visible-range");
+    const initialText = range.textContent;
+
+    const container = screen.getByTestId("calendar-list-scroll");
+    Object.defineProperty(container, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(container, "clientHeight", { value: 400, configurable: true });
+    container.scrollTop = 50;
+    fireEvent.scroll(container);
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByTestId("calendar-list-visible-range").textContent).not.toBe(initialText),
+    );
+    // Nouvelle borne passée : 2026-05-27 (ancienne borne - 30j).
+    expect(screen.getByTestId("calendar-list-visible-range").textContent).toContain("27");
+  });
+
   it("scroll près du haut charge les événements plus anciens et les ajoute au début", async () => {
     mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
     renderWithIntl(

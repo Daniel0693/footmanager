@@ -276,6 +276,7 @@
     "loadFailed": "Impossible de charger le calendrier",
     "teamsLoadFailed": "Impossible de charger vos équipes",
     "empty": "Aucun événement à afficher",
+    "visibleRange": "Période affichée : {from} – {to}",
     "today": "Aujourd'hui",
     "viewList": "Liste",
     "viewWeek": "Semaine",
