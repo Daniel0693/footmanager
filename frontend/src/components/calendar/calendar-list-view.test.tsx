@@ -178,6 +178,45 @@ describe("CalendarListView", () => {
     expect(await screen.findByText("Futur match")).toBeInTheDocument();
   });
 
+  it("fenêtre glissante bornée : un scroll prolongé vers le passé purge le futur au-delà de MAX_WINDOW_DAYS (pas d'accumulation infinie)", async () => {
+    // Événement à aujourd'hui + 45j : dans la fenêtre initiale (+60j), et
+    // toujours dans la fenêtre après un premier loadOlder (span = 104j =
+    // MAX_WINDOW_DAYS, pas encore dépassé), mais hors fenêtre après un
+    // second loadOlder (span dépasse 104j, le futur se referme à +30j).
+    mockApiFetch.mockResolvedValueOnce(
+      jsonResponse([eventItem({ id: 1, title: "Événement lointain", startAt: "2026-08-24T10:00:00.000Z" })]),
+    );
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} />,
+    );
+    await screen.findByText("Événement lointain");
+
+    const container = screen.getByTestId("calendar-list-scroll");
+    Object.defineProperty(container, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(container, "clientHeight", { value: 400, configurable: true });
+    container.scrollTop = 50;
+
+    // Premier scroll vers le passé : span = 44 + 60 = 104 = MAX_WINDOW_DAYS,
+    // pas de purge — l'événement lointain reste visible.
+    mockApiFetch.mockClear();
+    mockApiFetch.mockResolvedValue(jsonResponse([eventItem({ id: 2, title: "Ancien match 1" })]));
+    fireEvent.scroll(container);
+    await screen.findByText("Ancien match 1");
+    expect(screen.getByText("Événement lointain")).toBeInTheDocument();
+
+    // Second scroll vers le passé : span = 74 + 60 = 134 > 104 — le futur
+    // se referme à +30j, l'événement à +45j sort de la fenêtre et disparaît.
+    mockApiFetch.mockClear();
+    mockApiFetch.mockResolvedValue(jsonResponse([eventItem({ id: 3, title: "Ancien match 2" })]));
+    container.scrollTop = 50;
+    fireEvent.scroll(container);
+    await screen.findByText("Ancien match 2");
+
+    expect(screen.queryByText("Événement lointain")).not.toBeInTheDocument();
+    // Les deux événements anciens, dans la fenêtre bornée courante, restent.
+    expect(screen.getByText("Ancien match 1")).toBeInTheDocument();
+  });
+
   it("supprime un événement de la liste sans recharger toute la fenêtre", async () => {
     mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });

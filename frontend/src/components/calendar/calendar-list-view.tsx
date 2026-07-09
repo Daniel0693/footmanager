@@ -52,6 +52,33 @@ const SCROLL_THRESHOLD_PX = 200;
 // MAX_AUTO_EXPANSIONS itérations pour rester borné en requêtes réseau.
 const MIN_TIMELINE_ITEMS = 8;
 const MAX_AUTO_EXPANSIONS = 6;
+// Fenêtre glissante bornée (correctif 2026-07-10) : loadOlder/loadNewer
+// accumulaient indéfiniment (spread sans jamais retirer les événements déjà
+// chargés) — un scroll prolongé grossissait le DOM/la mémoire sans limite.
+// Chaque extension purge maintenant l'extrémité opposée au-delà de cette
+// largeur totale (fenêtre initiale + une marge d'un CHUNK_DAYS, pour ne pas
+// purger dès la première extension). Les anniversaires n'ont pas besoin de
+// cette purge : ils sont déjà rechargés en entier à chaque changement de
+// borne (voir l'effet plus bas), jamais accumulés.
+const MAX_WINDOW_DAYS = INITIAL_PAST_DAYS + INITIAL_FUTURE_DAYS + CHUNK_DAYS;
+
+// Calcule la borne opposée à imposer après l'extension d'un côté de la
+// fenêtre : inchangée si la largeur totale reste sous MAX_WINDOW_DAYS,
+// sinon ramenée à MAX_WINDOW_DAYS de distance de la borne qui vient d'être
+// étendue (purge l'extrémité opposée, jamais celle qui vient de s'ouvrir).
+function capBoundary(
+  extendedBoundary: Date,
+  oppositeBoundary: Date,
+  extendedSide: "past" | "future",
+): Date {
+  const totalDays = Math.round(
+    Math.abs(oppositeBoundary.getTime() - extendedBoundary.getTime()) / 86_400_000,
+  );
+  if (totalDays <= MAX_WINDOW_DAYS) return oppositeBoundary;
+  return extendedSide === "past"
+    ? endOfDay(addDays(extendedBoundary, MAX_WINDOW_DAYS))
+    : addDays(extendedBoundary, -MAX_WINDOW_DAYS);
+}
 
 export function CalendarListView({
   clubId,
@@ -203,7 +230,7 @@ export function CalendarListView({
   }, [clubId, accessToken, filters.showBirthdays, filters.teamIds, pastBoundary, futureBoundary]);
 
   const loadOlder = useCallback(async () => {
-    if (!pastBoundary || isLoadingMore) return;
+    if (!pastBoundary || !futureBoundary || isLoadingMore) return;
     // Fige la génération au moment de l'appel : si un nouveau cycle démarre
     // (recentrage, changement de filtres) avant que cet appel ne se termine,
     // son résultat est ignoré plutôt qu'appliqué sur un état déjà périmé.
@@ -227,8 +254,17 @@ export function CalendarListView({
       if (generationRef.current !== myGeneration) return;
       const container = scrollRef.current;
       const previousScrollHeight = container?.scrollHeight ?? 0;
-      setEvents((prev) => [...data, ...(prev ?? [])]);
+      // Fenêtre glissante bornée : purge le futur au-delà de MAX_WINDOW_DAYS
+      // plutôt que de laisser `events` grossir indéfiniment (voir
+      // MAX_WINDOW_DAYS ci-dessus).
+      const cappedFutureBoundary = capBoundary(newBoundary, futureBoundary, "past");
+      setEvents((prev) =>
+        [...data, ...(prev ?? [])].filter(
+          (event) => new Date(event.startAt) <= cappedFutureBoundary,
+        ),
+      );
       setPastBoundary(newBoundary);
+      setFutureBoundary(cappedFutureBoundary);
       // Compense le décalage visuel provoqué par l'ajout de contenu en haut
       // de la liste — technique standard pour un scroll infini "vers le
       // passé", sans quoi la fenêtre visible saute au moment du prepend.
@@ -246,10 +282,10 @@ export function CalendarListView({
       // `true` bloquerait indéfiniment le nouveau cycle.
       setIsLoadingMore(false);
     }
-  }, [clubId, accessToken, filters, pastBoundary, isLoadingMore, t]);
+  }, [clubId, accessToken, filters, pastBoundary, futureBoundary, isLoadingMore, t]);
 
   const loadNewer = useCallback(async () => {
-    if (!futureBoundary || isLoadingMore) return;
+    if (!pastBoundary || !futureBoundary || isLoadingMore) return;
     const myGeneration = generationRef.current;
     const newBoundary = endOfDay(addDays(futureBoundary, CHUNK_DAYS));
     if (isEmptyFilterSelection(filters)) {
@@ -264,14 +300,22 @@ export function CalendarListView({
         sortOrder: "asc",
       });
       if (generationRef.current !== myGeneration) return;
-      setEvents((prev) => [...(prev ?? []), ...data]);
+      // Fenêtre glissante bornée : purge le passé au-delà de MAX_WINDOW_DAYS
+      // (voir loadOlder ci-dessus, symétrique).
+      const cappedPastBoundary = capBoundary(newBoundary, pastBoundary, "future");
+      setEvents((prev) =>
+        [...(prev ?? []), ...data].filter(
+          (event) => new Date(event.startAt) >= cappedPastBoundary,
+        ),
+      );
+      setPastBoundary(cappedPastBoundary);
       setFutureBoundary(newBoundary);
     } catch {
       if (generationRef.current === myGeneration) toast.error(t("loadFailed"));
     } finally {
       setIsLoadingMore(false);
     }
-  }, [clubId, accessToken, filters, futureBoundary, isLoadingMore, t]);
+  }, [clubId, accessToken, filters, pastBoundary, futureBoundary, isLoadingMore, t]);
 
   // Extension automatique tant que la fenêtre affiche trop peu d'éléments
   // pour remplir la zone visible (voir MIN_TIMELINE_ITEMS ci-dessus) — sans
