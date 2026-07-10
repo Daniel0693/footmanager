@@ -18,7 +18,7 @@
 > SuperAdmin/Proprietaire — jamais Player) pour gater le filtre Actif/Archivé indépendamment
 > du scope `player_team`/`team_staff` déjà partagé par Coach et Player ; `team_staff READ
 > TEAM` étendu au rôle Player (absent jusqu'ici) pour qu'il puisse voir le staff dans le
-> tableau unifié. Reste à faire : B5 (frontend).
+> tableau unifié. B5 (frontend) en cours d'implémentation, par incréments (voir plus bas).
 >
 > **B1 — `GET /clubs/:clubId/teams/:teamId/roster` (implémenté)** : lecture unifiée
 > `backend/src/roster/`. Fusionne `PlayerTeam` et `TeamStaff` en une forme commune
@@ -88,9 +88,25 @@
 > limité aux joueurs (pas de bulk staff) — non demandé par le plan initial, à étendre si le
 > besoin se confirme. Permission `player_team CREATE`/`UPDATE` déjà seedée TEAM (Coach) /
 > CLUB/ALL (AdminClub/SuperAdmin/Proprietaire) — aucun changement de seed nécessaire.
+>
+> **B5.1/B5.2 — tableau unifié : lecture, tri, pagination, filtre statut (implémenté)** :
+> `frontend/.../teams/[teamId]/players/page.tsx` consomme désormais `GET .../roster` au lieu
+> de `GET .../players`. Nouveau composant réutilisable `components/ui/pagination.tsx`
+> (`Pagination` + `PageSizeSelect`, tailles 20/50/100). Colonnes : N°, Nom, Prénom,
+> Téléphone, Email, Date de naissance, Poste principal (badge), Postes secondaires (badges
+> `variant="outline"`), Rôle (badge — nouvelle table de traduction `rosterRoles`,
+> première apparition du staff dans le frontend). En-têtes triables (N°/Nom/Téléphone/Email/
+> Date de naissance/Rôle) : un clic trie ascendant, un second clic sur la même colonne
+> inverse le sens (icônes `lucide-react` `ArrowUp`/`ArrowDown`/`ArrowUpDown`). Filtre Statut
+> (Actifs/Archivés/Tous) affiché seulement si `canViewArchived` ; bouton "Ajouter un joueur"
+> affiché seulement si `canCreate` — aucune infrastructure de permission côté client,
+> uniquement ces deux booléens transmis par le backend (voir "Indicateurs de capacité"
+> ci-dessus). Changer un filtre/tri/taille de page remet toujours la pagination à la page 1.
+> Restent à faire : B5.3 (colonne Actions — Éditer/Archiver/Supprimer, y compris un nouveau
+> formulaire d'édition staff) et B5.4 (modales de création/édition en masse).
 
-Table par équipe : numéro de maillot, nom, poste principal (badge), poste(s) secondaire(s). Deux
-filtres combinables :
+Tableau par équipe (voir le tableau unifié Joueurs + Staff plus haut pour les colonnes
+actuelles). Deux filtres de poste combinables (en plus du filtre Statut) :
 - **Par ligne** (Gardien/Défense/Milieu/Attaque) — la ligne n'est pas stockée en base, elle est
   dérivée du poste précis en code (voir `docs/schema/index.md` §enum `Position`). Sélectionner
   une ligne réduit les postes proposés dans le second filtre à ceux de cette ligne.
