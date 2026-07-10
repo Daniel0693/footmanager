@@ -3,7 +3,7 @@
 import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -175,7 +175,18 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
     setGridDialog({ open: true, mode: "edit", event });
   };
 
-  const filters = { types: selectedTypes, teamIds: selectedTeamIds, showBirthdays };
+  // Mémoïsé (correctif 2026-07-10) : un objet littéral recréé à chaque
+  // rendu de CalendarPageContent (pour n'importe quelle raison — ouverture
+  // d'un dialogue, etc.) changeait de référence sans que son contenu change
+  // réellement, ce qui redéclenchait à tort l'effet de chargement principal
+  // de CalendarListView (filters est dans ses dépendances) : la génération
+  // avançait, invalidant silencieusement le résultat d'un loadOlder/
+  // loadNewer déclenché par le scroll encore en vol (requête réseau bien
+  // partie, mais résultat jeté — voir generationRef dans CalendarListView).
+  const filters = useMemo(
+    () => ({ types: selectedTypes, teamIds: selectedTeamIds, showBirthdays }),
+    [selectedTypes, selectedTeamIds, showBirthdays],
+  );
 
   return (
     <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row">

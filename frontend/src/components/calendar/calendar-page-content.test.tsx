@@ -96,6 +96,47 @@ describe("CalendarPageContent", () => {
     expect(await screen.findByText("Match amical")).toBeInTheDocument();
   });
 
+  it("un rendu du parent sans rapport (filters recréé) n'invalide pas un chargement de scroll déjà en vol (bug : requête partie mais rien ne s'affichait)", async () => {
+    // Mock sensible à la plage de dates demandée : la fenêtre initiale
+    // (inchangée, ré-interrogée si l'effet principal redémarre à tort) ne
+    // renvoie JAMAIS "Ancien match" — seule une requête loadOlder pour une
+    // plage plus ancienne l'obtient. Sans ce mock précis, un simple refetch
+    // fautif de la fenêtre courante pourrait masquer le bug (voir historique).
+    const cutoff = new Date("2026-06-26T00:00:00.000Z");
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/teams/mine")) return Promise.resolve(jsonResponse(twoTeams));
+      if (url.includes("/events/mine")) {
+        const dateFrom = new Date(queryOf(url).get("dateFrom")!);
+        return Promise.resolve(
+          jsonResponse(
+            dateFrom < cutoff
+              ? [{ ...oneEvent[0], id: 2, title: "Ancien match" }]
+              : oneEvent,
+          ),
+        );
+      }
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    const { rerender } = renderWithIntl(<CalendarPageContent clubId="1" />);
+    await screen.findByText("Match amical");
+    mockApiFetch.mockClear();
+
+    const container = screen.getByTestId("calendar-list-scroll");
+    Object.defineProperty(container, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(container, "clientHeight", { value: 400, configurable: true });
+    // Démarre loadOlder (requête en vol, encore non résolue) puis force un
+    // rendu du parent avec les mêmes props — avant le correctif, `filters`
+    // était un objet littéral recréé à chaque rendu, ce qui redéclenchait
+    // l'effet de chargement principal de CalendarListView (generationRef
+    // avance) et jetait silencieusement le résultat du scroll à sa
+    // résolution.
+    fireEvent.wheel(container, { deltaY: -100 });
+    rerender(<CalendarPageContent clubId="1" />);
+
+    expect(await screen.findByText("Ancien match")).toBeInTheDocument();
+  });
+
   it("décocher un type d'événement relance le chargement avec la liste réduite", async () => {
     mockRoutes(twoTeams, oneEvent);
     const user = userEvent.setup();
