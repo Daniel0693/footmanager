@@ -523,7 +523,8 @@
       "UNKNOWN": "Une erreur inattendue est survenue"
     },
     "MEMBERS": {
-      "NOT_FOUND": "Membre introuvable"
+      "NOT_FOUND": "Membre introuvable",
+      "REFERENCED_ELSEWHERE": "Ce membre a laissé des données sur d'autres joueurs (notes, évaluations, entretiens, absences ou objectifs) : archivez-le plutôt, ou confirmez la suppression complète pour anonymiser ces données"
     },
     "PLAYERS": {
       "MEMBER_NOT_IN_CLUB": "Ce membre n'appartient pas à ce club",

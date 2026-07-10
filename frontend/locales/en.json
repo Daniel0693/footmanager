@@ -523,7 +523,8 @@
       "UNKNOWN": "An unexpected error occurred"
     },
     "MEMBERS": {
-      "NOT_FOUND": "Member not found"
+      "NOT_FOUND": "Member not found",
+      "REFERENCED_ELSEWHERE": "This member left data on other players (notes, evaluations, interviews, absences, or objectives): archive them instead, or confirm full deletion to anonymize this data"
     },
     "PLAYERS": {
       "MEMBER_NOT_IN_CLUB": "This member does not belong to this club",

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -15,6 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { FindBirthdaysQueryDto } from './dto/find-birthdays-query.dto';
+import { RemoveMemberDto } from './dto/remove-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { UpdateMyMemberDto } from './dto/update-my-member.dto';
 import { MembersService } from './members.service';
@@ -89,5 +91,23 @@ export class MembersController {
     @Body() dto: UpdateMemberDto,
   ) {
     return this.membersService.update(clubId, id, dto);
+  }
+
+  // Suppression RGPD en cascade (docs/decisions-ouvertes-et-rgpd.md) : ne
+  // supprime jamais le User (identifiants de connexion), uniquement ce
+  // Member et ses données scopées à ce club. Réservé à AdminClub/
+  // SuperAdmin/Proprietaire — `member DELETE` n'est pas accordé au Coach
+  // dans le seed (qui garde le droit d'archiver, pas de supprimer
+  // définitivement).
+  @RequirePermission('member', 'DELETE')
+  @Delete(':id')
+  remove(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RemoveMemberDto,
+  ) {
+    return this.membersService.remove(clubId, id, {
+      forceAnonymize: dto.forceAnonymize,
+    });
   }
 }

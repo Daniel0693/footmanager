@@ -153,6 +153,174 @@ describe('MembersService', () => {
     });
   });
 
+  describe('remove — suppression RGPD en cascade', () => {
+    const memberWithoutProfile = { ...member, id: 7, playerProfile: null };
+    const memberWithProfile = {
+      ...member,
+      id: 42,
+      playerProfile: { id: 100, memberId: 42 },
+    };
+
+    function buildPrismaStub(overrides: Record<string, unknown> = {}) {
+      const tx = {
+        playerNote: { updateMany: jest.fn(), deleteMany: jest.fn() },
+        playerEvaluation: { updateMany: jest.fn(), deleteMany: jest.fn() },
+        playerInterview: { updateMany: jest.fn(), deleteMany: jest.fn() },
+        playerAbsence: { updateMany: jest.fn(), deleteMany: jest.fn() },
+        playerObjective: { updateMany: jest.fn(), deleteMany: jest.fn() },
+        playerMeasurement: { deleteMany: jest.fn() },
+        playerTeam: { deleteMany: jest.fn() },
+        teamStaff: { deleteMany: jest.fn() },
+        memberRole: { deleteMany: jest.fn() },
+        playerProfile: { delete: jest.fn() },
+        member: { delete: jest.fn() },
+      };
+      const counts = {
+        playerNote: jest.fn().mockResolvedValue(0),
+        playerEvaluation: jest.fn().mockResolvedValue(0),
+        playerInterview: jest.fn().mockResolvedValue(0),
+        playerAbsence: jest.fn().mockResolvedValue(0),
+        playerObjective: jest.fn().mockResolvedValue(0),
+      };
+      const prismaStub = {
+        member: { findFirst: jest.fn(), delete: jest.fn() },
+        playerNote: { count: counts.playerNote },
+        playerEvaluation: { count: counts.playerEvaluation },
+        playerInterview: { count: counts.playerInterview },
+        playerAbsence: { count: counts.playerAbsence },
+        playerObjective: { count: counts.playerObjective },
+        $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+          callback(tx),
+        ),
+        ...overrides,
+      } as unknown as PrismaService;
+      return { prismaStub, tx, counts };
+    }
+
+    it("renvoie 404 si le membre n'appartient pas au club", async () => {
+      const { prismaStub } = buildPrismaStub({
+        member: { findFirst: jest.fn().mockResolvedValue(null) },
+      });
+      const service = new MembersService(prismaStub, permissionsServiceStub);
+
+      await expect(service.remove(1, 999)).rejects.toMatchObject({
+        status: 404,
+      });
+    });
+
+    it("bloque (409) si le membre est référencé comme auteur sur d'AUTRES joueurs, sans forceAnonymize", async () => {
+      const { prismaStub, tx } = buildPrismaStub({
+        member: { findFirst: jest.fn().mockResolvedValue(memberWithProfile) },
+        playerNote: { count: jest.fn().mockResolvedValue(3) },
+      });
+      const service = new MembersService(prismaStub, permissionsServiceStub);
+
+      await expect(service.remove(1, 42)).rejects.toMatchObject({
+        status: 409,
+        response: {
+          code: 'MEMBERS.REFERENCED_ELSEWHERE',
+          details: { notes: 3, total: 3 },
+        },
+      });
+      expect(tx.member.delete).not.toHaveBeenCalled();
+    });
+
+    it('exclut les notes/évaluations sur SOI-MÊME du comptage (auto-référencement)', async () => {
+      const { prismaStub, counts } = buildPrismaStub({
+        member: { findFirst: jest.fn().mockResolvedValue(memberWithProfile) },
+      });
+      const service = new MembersService(prismaStub, permissionsServiceStub);
+
+      await service.remove(1, 42);
+
+      expect(counts.playerNote).toHaveBeenCalledWith({
+        where: { authorId: 42, player: { memberId: { not: 42 } } },
+      });
+    });
+
+    it('supprime le membre et toutes ses données (profil joueur inclus) quand rien ne bloque', async () => {
+      const { prismaStub, tx } = buildPrismaStub({
+        member: { findFirst: jest.fn().mockResolvedValue(memberWithProfile) },
+      });
+      const service = new MembersService(prismaStub, permissionsServiceStub);
+
+      await service.remove(1, 42);
+
+      expect(tx.playerEvaluation.deleteMany).toHaveBeenCalledWith({
+        where: { playerId: 100 },
+      });
+      expect(tx.playerMeasurement.deleteMany).toHaveBeenCalledWith({
+        where: { playerId: 100 },
+      });
+      expect(tx.playerNote.deleteMany).toHaveBeenCalledWith({
+        where: { playerId: 100 },
+      });
+      expect(tx.playerObjective.deleteMany).toHaveBeenCalledWith({
+        where: { playerId: 100 },
+      });
+      expect(tx.playerInterview.deleteMany).toHaveBeenCalledWith({
+        where: { playerId: 100 },
+      });
+      expect(tx.playerAbsence.deleteMany).toHaveBeenCalledWith({
+        where: { playerId: 100 },
+      });
+      expect(tx.playerTeam.deleteMany).toHaveBeenCalledWith({
+        where: { playerId: 100 },
+      });
+      expect(tx.teamStaff.deleteMany).toHaveBeenCalledWith({
+        where: { memberId: 42 },
+      });
+      expect(tx.memberRole.deleteMany).toHaveBeenCalledWith({
+        where: { memberId: 42 },
+      });
+      expect(tx.playerProfile.delete).toHaveBeenCalledWith({
+        where: { id: 100 },
+      });
+      expect(tx.member.delete).toHaveBeenCalledWith({ where: { id: 42 } });
+      // Aucune anonymisation quand rien ne bloquait : pas d'auteur à préserver.
+      expect(tx.playerNote.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("supprime un membre du STAFF sans profil joueur (n'appelle aucun deleteMany scopé playerId)", async () => {
+      const { prismaStub, tx } = buildPrismaStub({
+        member: {
+          findFirst: jest.fn().mockResolvedValue(memberWithoutProfile),
+        },
+      });
+      const service = new MembersService(prismaStub, permissionsServiceStub);
+
+      await service.remove(1, 7);
+
+      expect(tx.playerTeam.deleteMany).not.toHaveBeenCalled();
+      expect(tx.playerProfile.delete).not.toHaveBeenCalled();
+      expect(tx.teamStaff.deleteMany).toHaveBeenCalledWith({
+        where: { memberId: 7 },
+      });
+      expect(tx.member.delete).toHaveBeenCalledWith({ where: { id: 7 } });
+    });
+
+    it('anonymise (authorId/evaluatorId/... = null) les références sur AUTRES joueurs quand forceAnonymize=true, puis supprime le membre', async () => {
+      const { prismaStub, tx } = buildPrismaStub({
+        member: { findFirst: jest.fn().mockResolvedValue(memberWithProfile) },
+        playerNote: { count: jest.fn().mockResolvedValue(2) },
+        playerEvaluation: { count: jest.fn().mockResolvedValue(1) },
+      });
+      const service = new MembersService(prismaStub, permissionsServiceStub);
+
+      await service.remove(1, 42, { forceAnonymize: true });
+
+      expect(tx.playerNote.updateMany).toHaveBeenCalledWith({
+        where: { authorId: 42, player: { memberId: { not: 42 } } },
+        data: { authorId: null },
+      });
+      expect(tx.playerEvaluation.updateMany).toHaveBeenCalledWith({
+        where: { evaluatorId: 42, player: { memberId: { not: 42 } } },
+        data: { evaluatorId: null },
+      });
+      expect(tx.member.delete).toHaveBeenCalledWith({ where: { id: 42 } });
+    });
+  });
+
   describe('findMe / updateMe ("Mon profil")', () => {
     it("renvoie le Member de l'utilisateur courant pour ce club", async () => {
       const findUnique = jest.fn().mockResolvedValue(member);

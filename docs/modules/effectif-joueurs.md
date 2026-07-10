@@ -18,7 +18,7 @@
 > SuperAdmin/Proprietaire — jamais Player) pour gater le filtre Actif/Archivé indépendamment
 > du scope `player_team`/`team_staff` déjà partagé par Coach et Player ; `team_staff READ
 > TEAM` étendu au rôle Player (absent jusqu'ici) pour qu'il puisse voir le staff dans le
-> tableau unifié. Restent à faire : B3 (suppression RGPD), B4 (bulk), B5 (frontend).
+> tableau unifié. Restent à faire : B4 (bulk), B5 (frontend).
 >
 > **B1 — `GET /clubs/:clubId/teams/:teamId/roster` (implémenté)** : lecture unifiée
 > `backend/src/roster/`. Fusionne `PlayerTeam` et `TeamStaff` en une forme commune
@@ -43,6 +43,26 @@
 > aujourd'hui si omis). Aucune permission nouvelle : réutilise `player_team UPDATE`/
 > `team_staff UPDATE` déjà seedées, y compris `assertCanModifyPrincipal` côté staff (un
 > Adjoint/Co-entraîneur ne peut pas archiver la fiche d'un *autre* Principal).
+>
+> **B3 — suppression RGPD en cascade (implémentée)** : `DELETE /clubs/:clubId/members/:id`
+> sur `MembersController`/`MembersService.remove` (permission `member DELETE`, réservée
+> AdminClub/SuperAdmin/Proprietaire — absente du Coach dans le seed, qui garde le droit
+> d'archiver, pas de supprimer définitivement). Corps optionnel `{ forceAnonymize?: boolean }`.
+> Ne supprime jamais le `User` lié (identifiants de connexion). Flux en deux temps pour un
+> membre référencé comme auteur/évaluateur/référent (`PlayerNote.authorId`,
+> `PlayerEvaluation.evaluatorId`, `PlayerInterview.staffId`, `PlayerAbsence.reportedById`,
+> `PlayerObjective.assignedById`) sur des données d'**autres** joueurs (l'auto-référencement
+> est exclu du comptage, il disparaît de toute façon avec le reste des données du membre) :
+> - Par défaut, bloqué (409 `MEMBERS.REFERENCED_ELSEWHERE`, `details` = compteur par type +
+>   total) — archiver est le chemin recommandé.
+> - Avec `forceAnonymize: true`, ces références sont anonymisées (`authorId`/`evaluatorId`/...
+>   mis à `null`, colonnes désormais nullables — voir `docs/schema/joueurs.md` §PlayerNote)
+>   plutôt que de bloquer, puis la suppression se poursuit normalement.
+>
+> Une seule transaction Prisma supprime ensuite, dans l'ordre imposé par les contraintes FK,
+> tout ce dont ce membre est le SUJET : `PlayerEvaluation` (cascade `PlayerEvaluationScore`),
+> `PlayerMeasurement`, `PlayerNote`, `PlayerObjective`, `PlayerInterview`, `PlayerAbsence`,
+> `PlayerTeam`, puis `TeamStaff`/`MemberRole`, puis `PlayerProfile`, puis `Member`.
 
 Table par équipe : numéro de maillot, nom, poste principal (badge), poste(s) secondaire(s). Deux
 filtres combinables :
