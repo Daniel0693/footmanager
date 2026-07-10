@@ -58,40 +58,40 @@ export function BulkPlayerRowFields({
 
   return (
     <>
-      <TableCell>
+      <TableCell className="p-1">
         <Input
           aria-label={t("firstName")}
-          className="w-32"
+          className="h-7 w-32"
           {...register(`${namePrefix}.firstName`)}
         />
         {errors?.firstName && (
           <p className="text-xs text-destructive">{t("firstNameRequired")}</p>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="p-1">
         <Input
           aria-label={t("lastName")}
-          className="w-32"
+          className="h-7 w-32"
           {...register(`${namePrefix}.lastName`)}
         />
         {errors?.lastName && (
           <p className="text-xs text-destructive">{t("lastNameRequired")}</p>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="p-1">
         <Input
           aria-label={t("phone")}
-          className="w-32"
+          className="h-7 w-32"
           {...register(`${namePrefix}.phone`)}
         />
       </TableCell>
-      <TableCell>
+      <TableCell className="p-1">
         <Controller
           control={control}
           name={`${namePrefix}.gender`}
           render={({ field }) => (
             <Select value={(field.value as string) ?? NONE} onValueChange={field.onChange}>
-              <SelectTrigger className="w-28" aria-label={t("gender")}>
+              <SelectTrigger className="w-28" size="sm" aria-label={t("gender")}>
                 <SelectValue>
                   {(value: string | null) =>
                     value && value !== NONE ? tGender(value) : t("genderUnspecified")
@@ -110,30 +110,30 @@ export function BulkPlayerRowFields({
           )}
         />
       </TableCell>
-      <TableCell>
+      <TableCell className="p-1">
         <Input
           aria-label={t("birthDate")}
           type="date"
-          className="w-36"
+          className="h-7 w-36"
           {...register(`${namePrefix}.birthDate`)}
         />
       </TableCell>
-      <TableCell>
+      <TableCell className="p-1">
         <Input
           aria-label={t("jerseyNumber")}
           type="number"
           min={0}
-          className="w-20"
+          className="h-7 w-20"
           {...register(`${namePrefix}.jerseyNumber`)}
         />
       </TableCell>
-      <TableCell>
+      <TableCell className="p-1">
         <Controller
           control={control}
           name={`${namePrefix}.mainPosition`}
           render={({ field }) => (
             <Select value={(field.value as string) ?? NONE} onValueChange={field.onChange}>
-              <SelectTrigger className="w-32" aria-label={t("mainPosition")}>
+              <SelectTrigger className="w-32" size="sm" aria-label={t("mainPosition")}>
                 <SelectValue>
                   {(value: string | null) =>
                     value && value !== NONE ? tPositions(value) : t("positionUnspecified")
@@ -152,11 +152,11 @@ export function BulkPlayerRowFields({
           )}
         />
       </TableCell>
-      <TableCell>
+      <TableCell className="p-1">
         <Input
           aria-label={t("joinDate")}
           type="date"
-          className="w-36"
+          className="h-7 w-36"
           {...register(`${namePrefix}.joinDate`)}
         />
       </TableCell>

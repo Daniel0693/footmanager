@@ -154,15 +154,15 @@ export function BulkCreatePlayersDialog({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("firstName")}</TableHead>
-                  <TableHead>{t("lastName")}</TableHead>
-                  <TableHead>{t("phone")}</TableHead>
-                  <TableHead>{t("gender")}</TableHead>
-                  <TableHead>{t("birthDate")}</TableHead>
-                  <TableHead>{t("jerseyNumber")}</TableHead>
-                  <TableHead>{t("mainPosition")}</TableHead>
-                  <TableHead>{t("joinDate")}</TableHead>
-                  <TableHead />
+                  <TableHead className="h-8 px-1">{t("firstName")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("lastName")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("phone")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("gender")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("birthDate")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("jerseyNumber")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("mainPosition")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("joinDate")}</TableHead>
+                  <TableHead className="h-8 px-1" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -174,16 +174,16 @@ export function BulkCreatePlayersDialog({
                       namePrefix={`items.${index}`}
                       errors={errors.items?.[index]}
                     />
-                    <TableCell>
+                    <TableCell className="p-1">
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
+                        size="icon-sm"
                         aria-label={t("removeRow")}
                         disabled={fields.length <= 1}
                         onClick={() => remove(index)}
                       >
-                        <Trash2 className="size-4" />
+                        <Trash2 className="size-3.5" />
                       </Button>
                     </TableCell>
                   </TableRow>

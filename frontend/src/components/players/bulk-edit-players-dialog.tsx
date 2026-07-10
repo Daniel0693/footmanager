@@ -181,14 +181,14 @@ export function BulkEditPlayersDialog({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("firstName")}</TableHead>
-                  <TableHead>{t("lastName")}</TableHead>
-                  <TableHead>{t("phone")}</TableHead>
-                  <TableHead>{t("gender")}</TableHead>
-                  <TableHead>{t("birthDate")}</TableHead>
-                  <TableHead>{t("jerseyNumber")}</TableHead>
-                  <TableHead>{t("mainPosition")}</TableHead>
-                  <TableHead>{t("joinDate")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("firstName")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("lastName")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("phone")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("gender")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("birthDate")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("jerseyNumber")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("mainPosition")}</TableHead>
+                  <TableHead className="h-8 px-1">{t("joinDate")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
