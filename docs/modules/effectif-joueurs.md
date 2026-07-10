@@ -22,8 +22,10 @@
 >
 > **B1 — `GET /clubs/:clubId/teams/:teamId/roster` (implémenté)** : lecture unifiée
 > `backend/src/roster/`. Fusionne `PlayerTeam` et `TeamStaff` en une forme commune
-> (`RosterRow` : `id` de l'affectation sous-jacente, `memberId`, `role` — `"PLAYER"` ou
-> `TeamStaffRole` —, `firstName`/`lastName`/`phone`/`email`/`birthDate` du `Member`/`User`
+> (`RosterRow` : `id` de l'affectation sous-jacente, `memberId`, `playerId` — id du
+> `PlayerProfile`, `null` pour une ligne staff, nécessaire au frontend pour rouvrir
+> `PlayerFormDialog` en édition (B5) —, `role` — `"PLAYER"` ou `TeamStaffRole` —,
+> `firstName`/`lastName`/`phone`/`email`/`birthDate` du `Member`/`User`
 > lié, `jerseyNumber`/`mainPosition`/`secondaryPositions` pour les joueurs uniquement,
 > `isArchived`), triée/paginée en mémoire (volume par équipe trop faible pour justifier une
 > jointure SQL unifiée). Query params : `status` (`ACTIVE` par défaut / `ARCHIVED` / `ALL`,

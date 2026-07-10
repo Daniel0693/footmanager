@@ -133,6 +133,18 @@ describe('RosterService', () => {
     });
   });
 
+  it('expose playerId (PlayerProfile) pour les joueurs, null pour le staff — nécessaire au frontend pour rouvrir PlayerFormDialog en édition (B5)', async () => {
+    ptFindMany.mockResolvedValue([playerTeamRow()]);
+    tsFindMany.mockResolvedValue([teamStaffRow()]);
+
+    const result = await service.findAllByTeam(requester);
+
+    const player = result.data.find((row) => row.role === 'PLAYER');
+    const staff = result.data.find((row) => row.role === 'PRINCIPAL');
+    expect(player?.playerId).toBe(100); // playerTeamRow().playerId
+    expect(staff?.playerId).toBeNull();
+  });
+
   it("dérive isArchived=true et email=null quand le membre n'a pas de compte User", async () => {
     ptFindMany.mockResolvedValue([
       playerTeamRow({

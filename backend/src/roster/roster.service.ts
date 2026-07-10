@@ -33,6 +33,11 @@ export interface RosterRow {
   // opèrent sur des endpoints déjà scindés .../players/:id et .../staff/:id.
   id: number;
   memberId: number;
+  // Id du PlayerProfile — null pour une ligne staff. Le frontend en a besoin
+  // pour rouvrir PlayerFormDialog (existant, B5) en édition, qui cible
+  // GET/PATCH /clubs/:clubId/players/:playerId — un id distinct de `id`
+  // (PlayerTeam) et de `memberId` (Member).
+  playerId: number | null;
   role: 'PLAYER' | TeamStaffRole;
   firstName: string;
   lastName: string;
@@ -199,6 +204,7 @@ export class RosterService {
     return {
       id: assignment.id,
       memberId: member.id,
+      playerId: assignment.playerId,
       role: 'PLAYER',
       firstName: member.firstName,
       lastName: member.lastName,
@@ -393,6 +399,7 @@ export class RosterService {
     return assignments.map((assignment) => ({
       id: assignment.id,
       memberId: assignment.member.id,
+      playerId: null,
       role: assignment.staffRole,
       firstName: assignment.member.firstName,
       lastName: assignment.member.lastName,
