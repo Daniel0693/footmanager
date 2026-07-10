@@ -18,7 +18,7 @@
 > SuperAdmin/Proprietaire — jamais Player) pour gater le filtre Actif/Archivé indépendamment
 > du scope `player_team`/`team_staff` déjà partagé par Coach et Player ; `team_staff READ
 > TEAM` étendu au rôle Player (absent jusqu'ici) pour qu'il puisse voir le staff dans le
-> tableau unifié. Restent à faire : B4 (bulk), B5 (frontend).
+> tableau unifié. Reste à faire : B5 (frontend).
 >
 > **B1 — `GET /clubs/:clubId/teams/:teamId/roster` (implémenté)** : lecture unifiée
 > `backend/src/roster/`. Fusionne `PlayerTeam` et `TeamStaff` en une forme commune
@@ -63,6 +63,21 @@
 > tout ce dont ce membre est le SUJET : `PlayerEvaluation` (cascade `PlayerEvaluationScore`),
 > `PlayerMeasurement`, `PlayerNote`, `PlayerObjective`, `PlayerInterview`, `PlayerAbsence`,
 > `PlayerTeam`, puis `TeamStaff`/`MemberRole`, puis `PlayerProfile`, puis `Member`.
+>
+> **B4 — création/édition en masse (implémentée, joueurs uniquement)** :
+> `POST`/`PATCH /clubs/:clubId/teams/:teamId/roster/bulk` sur `RosterController`/
+> `RosterService.bulkCreate`/`bulkUpdate`. Une seule transaction Prisma par requête,
+> tout-ou-rien (décision produit) : `POST` crée `Member` + `PlayerProfile` + `PlayerTeam`
+> pour chaque ligne (`CreateRosterRowDto` : identité + `jerseyNumber`/`mainPosition`/
+> `secondaryPositions`/`joinDate`) ; `PATCH` cible un `PlayerTeam` existant par `id`
+> (`UpdateRosterRowDto`, mêmes champs + `leaveDate`) et met à jour `Member`+`PlayerTeam`.
+> L'unicité du numéro de maillot est vérifiée ligne par ligne **dans** la transaction : une
+> insertion devient visible aux vérifications suivantes de la même transaction, ce qui
+> détecte aussi bien un conflit avec une affectation déjà active qu'un doublon entre deux
+> lignes du même envoi, sans logique dédiée aux doublons intra-lot. Scope volontairement
+> limité aux joueurs (pas de bulk staff) — non demandé par le plan initial, à étendre si le
+> besoin se confirme. Permission `player_team CREATE`/`UPDATE` déjà seedée TEAM (Coach) /
+> CLUB/ALL (AdminClub/SuperAdmin/Proprietaire) — aucun changement de seed nécessaire.
 
 Table par équipe : numéro de maillot, nom, poste principal (badge), poste(s) secondaire(s). Deux
 filtres combinables :

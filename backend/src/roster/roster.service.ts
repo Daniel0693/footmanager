@@ -1,14 +1,22 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { Position, TeamStaffRole } from '@prisma/client';
+import type {
+  Member,
+  PlayerTeam,
+  Position,
+  Prisma,
+  TeamStaffRole,
+} from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsService } from '../roles/permissions.service';
+import { CreateRosterRowDto } from './dto/create-roster-row.dto';
 import {
   FindRosterQueryDto,
   RosterSortBy,
   RosterStatus,
 } from './dto/find-roster-query.dto';
+import { UpdateRosterRowDto } from './dto/update-roster-row.dto';
 
 export interface RosterRequestContext {
   memberId: number;
@@ -128,23 +136,197 @@ export class RosterService {
       include: { player: { include: { member: { include: { user: true } } } } },
     });
 
-    return assignments.map((assignment) => {
-      const member = assignment.player.member;
-      return {
-        id: assignment.id,
-        memberId: member.id,
-        role: 'PLAYER',
-        firstName: member.firstName,
-        lastName: member.lastName,
-        phone: member.phone,
-        email: member.user?.email ?? null,
-        birthDate: member.birthDate,
-        jerseyNumber: assignment.jerseyNumber,
-        mainPosition: assignment.mainPosition,
-        secondaryPositions: assignment.secondaryPositions,
-        isArchived: assignment.leaveDate !== null,
-      };
+    return assignments.map((assignment) =>
+      this.toPlayerRow(
+        assignment,
+        assignment.player.member,
+        assignment.player.member.user?.email ?? null,
+      ),
+    );
+  }
+
+  // Partagé entre la lecture (B1) et le bulk create/update (B4) : un membre
+  // fraîchement créé ou mis à jour via $transaction n'a jamais la relation
+  // `user` incluse (Prisma ne la renvoie que si explicitement demandée) —
+  // l'email est donc résolu par l'appelant plutôt que dérivé ici, pour
+  // rester correct dans les deux contextes (toujours `null` à la création,
+  // potentiellement un email réel après une mise à jour avec `include`).
+  private toPlayerRow(
+    assignment: PlayerTeam,
+    member: Member,
+    email: string | null,
+  ): RosterRow {
+    return {
+      id: assignment.id,
+      memberId: member.id,
+      role: 'PLAYER',
+      firstName: member.firstName,
+      lastName: member.lastName,
+      phone: member.phone,
+      email,
+      birthDate: member.birthDate,
+      jerseyNumber: assignment.jerseyNumber,
+      mainPosition: assignment.mainPosition,
+      secondaryPositions: assignment.secondaryPositions,
+      isArchived: assignment.leaveDate !== null,
+    };
+  }
+
+  /**
+   * Création en masse (B4) : une seule transaction pour toutes les lignes,
+   * tout-ou-rien (décision produit) — Member + PlayerProfile + PlayerTeam
+   * par ligne, contre trois appels distincts avec l'API existante.
+   * L'unicité du numéro de maillot est vérifiée ligne par ligne DANS la
+   * transaction : chaque insertion devient visible aux vérifications
+   * suivantes de la même transaction, ce qui détecte aussi bien un conflit
+   * avec une affectation déjà active qu'un doublon entre deux lignes du
+   * même envoi, sans logique dédiée aux doublons intra-lot.
+   */
+  async bulkCreate(
+    clubId: number,
+    teamId: number,
+    items: CreateRosterRowDto[],
+  ): Promise<RosterRow[]> {
+    await assertTeamInClub(
+      this.prisma,
+      clubId,
+      teamId,
+      'ROSTER.TEAM_NOT_IN_CLUB',
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const created: RosterRow[] = [];
+      for (const item of items) {
+        if (item.jerseyNumber !== undefined) {
+          await this.assertJerseyNumberAvailable(tx, teamId, item.jerseyNumber);
+        }
+        const member = await tx.member.create({
+          data: {
+            clubId,
+            firstName: item.firstName,
+            lastName: item.lastName,
+            phone: item.phone,
+            gender: item.gender,
+            birthDate: item.birthDate,
+          },
+        });
+        const player = await tx.playerProfile.create({
+          data: { memberId: member.id },
+        });
+        const assignment = await tx.playerTeam.create({
+          data: {
+            playerId: player.id,
+            teamId,
+            jerseyNumber: item.jerseyNumber,
+            mainPosition: item.mainPosition,
+            secondaryPositions: item.secondaryPositions ?? [],
+            joinDate: item.joinDate,
+          },
+        });
+        // Jamais de User à la création en masse (pas de compte de
+        // connexion, même convention que CreateMemberDto) : email toujours
+        // null pour une ligne fraîchement créée.
+        created.push(this.toPlayerRow(assignment, member, null));
+      }
+      return created;
     });
+  }
+
+  /**
+   * Mise à jour en masse (B4) : même principe transactionnel que
+   * bulkCreate. `id` cible le PlayerTeam existant (voir UpdateRosterRowDto).
+   */
+  async bulkUpdate(
+    clubId: number,
+    teamId: number,
+    items: UpdateRosterRowDto[],
+  ): Promise<RosterRow[]> {
+    await assertTeamInClub(
+      this.prisma,
+      clubId,
+      teamId,
+      'ROSTER.TEAM_NOT_IN_CLUB',
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated: RosterRow[] = [];
+      for (const item of items) {
+        const assignment = await tx.playerTeam.findFirst({
+          where: { id: item.id, teamId, team: { clubId } },
+          include: { player: true },
+        });
+        if (!assignment) {
+          throw new AppException(
+            'ROSTER.PLAYER_TEAM_NOT_FOUND',
+            HttpStatus.NOT_FOUND,
+          );
+        }
+        if (
+          item.jerseyNumber !== undefined &&
+          item.jerseyNumber !== assignment.jerseyNumber
+        ) {
+          await this.assertJerseyNumberAvailable(
+            tx,
+            teamId,
+            item.jerseyNumber,
+            item.id,
+          );
+        }
+
+        const member = await tx.member.update({
+          where: { id: assignment.player.memberId },
+          data: {
+            firstName: item.firstName,
+            lastName: item.lastName,
+            phone: item.phone,
+            gender: item.gender,
+            birthDate: item.birthDate,
+          },
+          include: { user: true },
+        });
+        const updatedAssignment = await tx.playerTeam.update({
+          where: { id: item.id },
+          data: {
+            jerseyNumber: item.jerseyNumber,
+            mainPosition: item.mainPosition,
+            secondaryPositions: item.secondaryPositions,
+            joinDate: item.joinDate,
+            leaveDate: item.leaveDate,
+          },
+        });
+        updated.push(
+          this.toPlayerRow(
+            updatedAssignment,
+            member,
+            member.user?.email ?? null,
+          ),
+        );
+      }
+      return updated;
+    });
+  }
+
+  // Même vérification que PlayerTeamsService.assertJerseyNumberAvailable
+  // (pas de contrainte SQL sur (teamId, jerseyNumber), voir
+  // docs/schema/joueurs.md), réécrite ici pour opérer sur le client de
+  // transaction du bulk plutôt que sur `this.prisma` directement.
+  private async assertJerseyNumberAvailable(
+    tx: Prisma.TransactionClient,
+    teamId: number,
+    jerseyNumber: number,
+    excludeId?: number,
+  ) {
+    const conflict = await tx.playerTeam.findFirst({
+      where: {
+        teamId,
+        jerseyNumber,
+        leaveDate: null,
+        ...(excludeId !== undefined ? { id: { not: excludeId } } : {}),
+      },
+    });
+    if (conflict) {
+      throw new AppException('ROSTER.JERSEY_NUMBER_TAKEN', HttpStatus.CONFLICT);
+    }
   }
 
   private async findStaffRows(

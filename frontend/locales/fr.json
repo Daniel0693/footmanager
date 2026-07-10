@@ -540,7 +540,9 @@
     },
     "ROSTER": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
-      "ARCHIVE_FORBIDDEN": "Vous n'avez pas les droits pour consulter les membres archivés"
+      "ARCHIVE_FORBIDDEN": "Vous n'avez pas les droits pour consulter les membres archivés",
+      "PLAYER_TEAM_NOT_FOUND": "Une des lignes ne correspond à aucune affectation existante dans cette équipe",
+      "JERSEY_NUMBER_TAKEN": "Deux lignes utilisent le même numéro de maillot, ou ce numéro est déjà attribué dans cette équipe"
     },
     "PLAYER_MEASUREMENTS": {
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",

@@ -1,8 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
   ParseIntPipe,
+  Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -11,6 +14,8 @@ import { CurrentMember } from '../auth/decorators/current-member.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { BulkCreateRosterDto } from './dto/bulk-create-roster.dto';
+import { BulkUpdateRosterDto } from './dto/bulk-update-roster.dto';
 import { FindRosterQueryDto } from './dto/find-roster-query.dto';
 import { RosterService } from './roster.service';
 
@@ -36,5 +41,28 @@ export class RosterController {
       { memberId: member.id, clubId, teamId },
       query,
     );
+  }
+
+  // Coach ET AdminClub/SuperAdmin/Proprietaire (player_team CREATE/UPDATE
+  // déjà scopé TEAM/CLUB/ALL dans le seed) — pas de permission nouvelle,
+  // même ressource que la création/édition unitaire existante.
+  @RequirePermission('player_team', 'CREATE')
+  @Post('bulk')
+  bulkCreate(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @Body() dto: BulkCreateRosterDto,
+  ) {
+    return this.rosterService.bulkCreate(clubId, teamId, dto.items);
+  }
+
+  @RequirePermission('player_team', 'UPDATE')
+  @Patch('bulk')
+  bulkUpdate(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @Body() dto: BulkUpdateRosterDto,
+  ) {
+    return this.rosterService.bulkUpdate(clubId, teamId, dto.items);
   }
 }

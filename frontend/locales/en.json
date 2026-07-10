@@ -540,7 +540,9 @@
     },
     "ROSTER": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
-      "ARCHIVE_FORBIDDEN": "You don't have permission to view archived members"
+      "ARCHIVE_FORBIDDEN": "You don't have permission to view archived members",
+      "PLAYER_TEAM_NOT_FOUND": "One of the rows doesn't match any existing assignment in this team",
+      "JERSEY_NUMBER_TAKEN": "Two rows use the same jersey number, or this number is already taken in this team"
     },
     "PLAYER_MEASUREMENTS": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",

@@ -375,3 +375,268 @@ describe('RosterService', () => {
     });
   });
 });
+
+function buildBulkPrismaStub(overrides: Record<string, unknown> = {}) {
+  const tx = {
+    member: {
+      create: jest.fn().mockResolvedValue({
+        id: 900,
+        firstName: 'Nouveau',
+        lastName: 'Joueur',
+        phone: null,
+        birthDate: null,
+      }),
+      update: jest.fn().mockResolvedValue({
+        id: 42,
+        firstName: 'Karim',
+        lastName: 'Benali',
+        phone: null,
+        birthDate: null,
+        user: null,
+      }),
+    },
+    playerProfile: {
+      create: jest.fn().mockResolvedValue({ id: 950, memberId: 900 }),
+    },
+    playerTeam: {
+      create: jest.fn().mockResolvedValue({
+        id: 990,
+        playerId: 950,
+        teamId: 5,
+        jerseyNumber: 10,
+        mainPosition: null,
+        secondaryPositions: [],
+        leaveDate: null,
+      }),
+      update: jest.fn().mockResolvedValue({
+        id: 200,
+        playerId: 100,
+        teamId: 5,
+        jerseyNumber: 11,
+        mainPosition: 'ST',
+        secondaryPositions: [],
+        leaveDate: null,
+      }),
+      // Deux usages bien distincts partagent ce même mock : résoudre
+      // l'affectation ciblée par bulkUpdate (`where.id` est un nombre
+      // simple) vs. vérifier la disponibilité d'un numéro de maillot
+      // (`where` n'a jamais de `id` simple — soit absent en création, soit
+      // `{ not: excludeId }` en modification). On distingue les deux sur la
+      // forme de `where.id` plutôt que sur l'ordre d'appel, plus robuste
+      // aux tests qui n'exercent qu'un seul des deux chemins.
+      findFirst: jest.fn((args: { where: { id?: unknown } }) =>
+        typeof args.where.id === 'number'
+          ? Promise.resolve({
+              id: args.where.id,
+              playerId: 100,
+              teamId: 5,
+              jerseyNumber: 9,
+              player: { id: 100, memberId: 42 },
+            })
+          : Promise.resolve(null),
+      ),
+    },
+  };
+  const transaction = jest.fn((callback: (tx: unknown) => unknown) =>
+    callback(tx),
+  );
+  const prismaStub = {
+    team: { findFirst: jest.fn().mockResolvedValue(team) },
+    $transaction: transaction,
+    ...overrides,
+  } as unknown as PrismaService;
+  return { prismaStub, tx, transaction };
+}
+
+describe('RosterService.bulkCreate', () => {
+  const permissionsStub = { can: jest.fn() } as unknown as PermissionsService;
+
+  it('crée Member + PlayerProfile + PlayerTeam pour chaque ligne, en une transaction', async () => {
+    const { prismaStub, tx } = buildBulkPrismaStub();
+    const service = new RosterService(prismaStub, permissionsStub);
+
+    const result = await service.bulkCreate(1, 5, [
+      { firstName: 'Nouveau', lastName: 'Joueur', jerseyNumber: 10 },
+    ]);
+
+    expect(tx.member.create).toHaveBeenCalledWith({
+      data: {
+        clubId: 1,
+        firstName: 'Nouveau',
+        lastName: 'Joueur',
+        phone: undefined,
+        gender: undefined,
+        birthDate: undefined,
+      },
+    });
+    expect(tx.playerProfile.create).toHaveBeenCalledWith({
+      data: { memberId: 900 },
+    });
+    expect(tx.playerTeam.create).toHaveBeenCalledWith({
+      data: {
+        playerId: 950,
+        teamId: 5,
+        jerseyNumber: 10,
+        mainPosition: undefined,
+        secondaryPositions: [],
+        joinDate: undefined,
+      },
+    });
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 990,
+        memberId: 900,
+        role: 'PLAYER',
+        email: null,
+      }),
+    ]);
+  });
+
+  it("refuse (409) si le numéro de maillot d'une ligne est déjà pris par une affectation active", async () => {
+    const { prismaStub, tx } = buildBulkPrismaStub();
+    (tx.playerTeam as { findFirst: jest.Mock }).findFirst = jest
+      .fn()
+      .mockResolvedValue({ id: 1, jerseyNumber: 10 }); // conflit déjà en base
+    const service = new RosterService(prismaStub, permissionsStub);
+
+    await expect(
+      service.bulkCreate(1, 5, [
+        { firstName: 'A', lastName: 'B', jerseyNumber: 10 },
+      ]),
+    ).rejects.toMatchObject({ status: HttpStatus.CONFLICT });
+    expect(tx.member.create).not.toHaveBeenCalled();
+  });
+
+  it('refuse (409) si deux lignes du même envoi utilisent le même numéro de maillot (détecté via la visibilité intra-transaction)', async () => {
+    const { prismaStub, tx } = buildBulkPrismaStub();
+    let createCount = 0;
+    (tx.playerTeam as { findFirst: jest.Mock }).findFirst = jest.fn(() => {
+      // La première ligne n'a encore rien créé (pas de conflit) ; la
+      // seconde ligne, elle, doit voir la première déjà insérée dans la
+      // même transaction.
+      return Promise.resolve(
+        createCount > 0 ? { id: 1, jerseyNumber: 10 } : null,
+      );
+    });
+    (tx.playerTeam as { create: jest.Mock }).create = jest.fn(() => {
+      createCount += 1;
+      return Promise.resolve({
+        id: 990 + createCount,
+        playerId: 950,
+        teamId: 5,
+        jerseyNumber: 10,
+        mainPosition: null,
+        secondaryPositions: [],
+        leaveDate: null,
+      });
+    });
+    const service = new RosterService(prismaStub, permissionsStub);
+
+    await expect(
+      service.bulkCreate(1, 5, [
+        { firstName: 'A', lastName: 'A', jerseyNumber: 10 },
+        { firstName: 'B', lastName: 'B', jerseyNumber: 10 },
+      ]),
+    ).rejects.toMatchObject({ status: HttpStatus.CONFLICT });
+    // La vérification de disponibilité précède la création du Member pour
+    // chaque ligne : la 2e ligne échoue avant même de créer son Member.
+    expect(tx.member.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("renvoie 404 si l'équipe n'appartient pas au club (avant toute transaction)", async () => {
+    const { prismaStub, transaction } = buildBulkPrismaStub({
+      team: { findFirst: jest.fn().mockResolvedValue(null) },
+    });
+    const service = new RosterService(prismaStub, permissionsStub);
+
+    await expect(
+      service.bulkCreate(1, 5, [{ firstName: 'A', lastName: 'B' }]),
+    ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+    expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('RosterService.bulkUpdate', () => {
+  const permissionsStub = { can: jest.fn() } as unknown as PermissionsService;
+
+  it('met à jour Member et PlayerTeam pour chaque ligne, en une transaction', async () => {
+    const { prismaStub, tx } = buildBulkPrismaStub();
+    const service = new RosterService(prismaStub, permissionsStub);
+
+    const result = await service.bulkUpdate(1, 5, [
+      { id: 200, lastName: 'Benali-Modifié', jerseyNumber: 11 },
+    ]);
+
+    expect(tx.member.update).toHaveBeenCalledWith({
+      where: { id: 42 },
+      data: {
+        firstName: undefined,
+        lastName: 'Benali-Modifié',
+        phone: undefined,
+        gender: undefined,
+        birthDate: undefined,
+      },
+      include: { user: true },
+    });
+    expect(tx.playerTeam.update).toHaveBeenCalledWith({
+      where: { id: 200 },
+      data: {
+        jerseyNumber: 11,
+        mainPosition: undefined,
+        secondaryPositions: undefined,
+        joinDate: undefined,
+        leaveDate: undefined,
+      },
+    });
+    expect(result).toEqual([
+      expect.objectContaining({ id: 200, memberId: 42, role: 'PLAYER' }),
+    ]);
+  });
+
+  it('renvoie 404 si une ligne cible un PlayerTeam introuvable dans cette équipe/club', async () => {
+    const { prismaStub, tx } = buildBulkPrismaStub();
+    (tx.playerTeam as { findFirst: jest.Mock }).findFirst = jest
+      .fn()
+      .mockResolvedValue(null);
+    const service = new RosterService(prismaStub, permissionsStub);
+
+    await expect(service.bulkUpdate(1, 5, [{ id: 999 }])).rejects.toMatchObject(
+      { status: HttpStatus.NOT_FOUND },
+    );
+    expect(tx.member.update).not.toHaveBeenCalled();
+  });
+
+  it('refuse (409) si le nouveau numéro de maillot est déjà pris par une AUTRE affectation active', async () => {
+    const { prismaStub, tx } = buildBulkPrismaStub();
+    (tx.playerTeam as { findFirst: jest.Mock }).findFirst = jest
+      .fn()
+      .mockResolvedValueOnce({
+        id: 200,
+        playerId: 100,
+        teamId: 5,
+        jerseyNumber: 9,
+        player: { id: 100, memberId: 42 },
+      })
+      .mockResolvedValueOnce({ id: 201, jerseyNumber: 11 }); // conflit
+
+    const service = new RosterService(prismaStub, permissionsStub);
+
+    await expect(
+      service.bulkUpdate(1, 5, [{ id: 200, jerseyNumber: 11 }]),
+    ).rejects.toMatchObject({ status: HttpStatus.CONFLICT });
+    expect(tx.member.update).not.toHaveBeenCalled();
+  });
+
+  it('ne revérifie pas le numéro de maillot si inchangé', async () => {
+    const { prismaStub, tx } = buildBulkPrismaStub();
+    const findFirst = tx.playerTeam.findFirst as jest.Mock;
+
+    const service = new RosterService(prismaStub, permissionsStub);
+
+    await service.bulkUpdate(1, 5, [{ id: 200, jerseyNumber: 9 }]);
+
+    // Un seul appel findFirst (résolution de l'affectation) : pas de second
+    // appel pour vérifier la disponibilité du numéro puisqu'il n'a pas changé.
+    expect(findFirst).toHaveBeenCalledTimes(1);
+  });
+});
