@@ -339,8 +339,12 @@ model PlayerNote {
   id         Int            @id @default(autoincrement())
   playerId   Int
   player     PlayerProfile  @relation(fields: [playerId], references: [id])
-  authorId   Int
-  author     Member         @relation(fields: [authorId], references: [id])
+  // Nullable (docs/decisions-ouvertes-et-rgpd.md) : un membre du STAFF peut
+  // demander la suppression complète (anonymisation) de son compte plutôt
+  // que son archivage — authorId passe alors à null sur ses notes existantes
+  // plutôt que de bloquer ou de les supprimer.
+  authorId   Int?
+  author     Member?        @relation(fields: [authorId], references: [id])
   visibility NoteVisibility
   title      String?
   content    String         @db.Text

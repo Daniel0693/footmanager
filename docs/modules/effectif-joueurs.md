@@ -12,6 +12,16 @@
 
 ## Liste de l'effectif — filtres par poste
 
+> **En cours (branche `feature/effectif-tableau-avance`)** : refonte vers un tableau unifié
+> Joueurs + Staff (tri, pagination, filtre Actif/Archivé, actions Éditer/Archiver/Supprimer,
+> édition/création en masse) — voir le plan associé. Prérequis déjà en place : nouvelle
+> permission `roster_archive READ` (scope TEAM pour Coach, CLUB pour AdminClub, ALL pour
+> SuperAdmin/Proprietaire — jamais Player) pour gater le futur filtre Actif/Archivé
+> indépendamment du scope `player_team`/`team_staff` déjà partagé par Coach et Player ;
+> `team_staff READ TEAM` étendu au rôle Player (absent jusqu'ici) pour qu'il puisse voir le
+> staff dans le tableau unifié à venir. Cette section sera complétée au fil des incréments
+> (B1-B5).
+
 Table par équipe : numéro de maillot, nom, poste principal (badge), poste(s) secondaire(s). Deux
 filtres combinables :
 - **Par ligne** (Gardien/Défense/Milieu/Attaque) — la ligne n'est pas stockée en base, elle est

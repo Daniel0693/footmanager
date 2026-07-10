@@ -171,6 +171,7 @@ async function seedRoles() {
       ['player_profile', READ, OWN, 'Consulter son propre profil joueur'],
       ['team', READ, TEAM, 'Consulter son équipe'],
       ['player_team', READ, TEAM, 'Consulter l’effectif de son équipe'],
+      ['team_staff', READ, TEAM, 'Consulter le staff de son équipe'],
       [
         'player_measurement',
         READ,
@@ -267,6 +268,16 @@ async function seedRoles() {
         UPDATE,
         TEAM,
         "Modifier une affectation d'effectif de ses équipes",
+      ],
+      // Gate le filtre statut Actif/Archivé du tableau effectif
+      // indépendamment du scope player_team/team_staff déjà partagé par
+      // Coach et Player (docs/modules/effectif-joueurs.md) — jamais accordé
+      // à Player.
+      [
+        'roster_archive',
+        READ,
+        TEAM,
+        'Consulter les membres archivés de ses équipes',
       ],
       [
         'player_measurement',
@@ -465,6 +476,12 @@ async function seedRoles() {
         DELETE,
         CLUB,
         "Supprimer une affectation d'effectif du club",
+      ],
+      [
+        'roster_archive',
+        READ,
+        CLUB,
+        'Consulter les membres archivés de toutes les équipes du club',
       ],
       [
         'player_measurement',
@@ -678,6 +695,12 @@ async function seedRoles() {
         DELETE,
         ALL,
         "Supprimer n'importe quelle affectation d'effectif",
+      ],
+      [
+        'roster_archive',
+        READ,
+        ALL,
+        "Consulter les membres archivés de n'importe quelle équipe",
       ],
       [
         'player_measurement',
