@@ -513,6 +513,12 @@
     "firstNameRequired": "First name is required",
     "lastNameRequired": "Last name is required"
   },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "pageInfo": "Page {page} of {totalPages}",
+    "rowsPerPage": "Rows per page"
+  },
   "errors": {
     "AUTH": {
       "INVALID_CREDENTIALS": "Incorrect email or password",

@@ -513,6 +513,12 @@
     "firstNameRequired": "Le prénom est requis",
     "lastNameRequired": "Le nom est requis"
   },
+  "pagination": {
+    "previous": "Précédent",
+    "next": "Suivant",
+    "pageInfo": "Page {page} sur {totalPages}",
+    "rowsPerPage": "Lignes par page"
+  },
   "errors": {
     "AUTH": {
       "INVALID_CREDENTIALS": "Adresse e-mail ou mot de passe incorrect",
