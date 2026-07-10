@@ -70,7 +70,10 @@ function defaultValues(staff?: ExistingStaff): FormValues {
     firstName: staff?.firstName ?? "",
     lastName: staff?.lastName ?? "",
     phone: staff?.phone ?? "",
-    birthDate: staff?.birthDate ?? "",
+    // .slice(0, 10) : voir le commentaire équivalent dans player-form-dialog.tsx
+    // (l'API renvoie une date ISO complète, <input type="date"> n'accepte
+    // que "AAAA-MM-JJ").
+    birthDate: staff?.birthDate?.slice(0, 10) ?? "",
     staffRole: staff?.staffRole ?? "PRINCIPAL",
   };
 }

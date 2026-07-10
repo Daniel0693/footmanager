@@ -189,6 +189,33 @@ describe("PlayerFormDialog", () => {
     );
   });
 
+  it("pré-remplit date de naissance et date d'arrivée même quand l'API renvoie une date ISO complète (régression 2026-07-10)", async () => {
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <PlayerFormDialog
+        clubId="1"
+        teamId="5"
+        player={{
+          ...existingPlayer,
+          birthDate: "2011-10-30T00:00:00.000Z",
+          joinDate: "2025-09-05T00:00:00.000Z",
+        }}
+        onSuccess={jest.fn()}
+        trigger={<Button>Modifier</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+
+    expect(await screen.findByLabelText<HTMLInputElement>("Date de naissance")).toHaveValue(
+      "2011-10-30",
+    );
+    expect(screen.getByLabelText<HTMLInputElement>("Date d'arrivée dans l'équipe")).toHaveValue(
+      "2025-09-05",
+    );
+  });
+
   describe("mode contrôlé (open/onOpenChange externes, sans trigger visible)", () => {
     it("s'ouvre déjà pré-rempli quand open=true est transmis dès le premier rendu (colonne Actions, B5.3)", async () => {
       renderWithIntl(

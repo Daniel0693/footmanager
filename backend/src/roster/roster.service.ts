@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type {
+  Gender,
   Member,
   PlayerTeam,
   Position,
@@ -43,10 +44,16 @@ export interface RosterRow {
   lastName: string;
   phone: string | null;
   email: string | null;
+  gender: Gender | null;
   birthDate: Date | null;
   jerseyNumber: number | null;
   mainPosition: Position | null;
   secondaryPositions: Position[];
+  // Null pour le staff : PlayerTeam.joinDate n'existe pas sur TeamStaff.
+  // Toujours déjà chargé (assignment/member complets), aucun coût réseau
+  // supplémentaire — exposé pour que le frontend puisse pré-remplir
+  // gender/joinDate en édition (B5.4, sinon perdus/vides à tort).
+  joinDate: Date | null;
   isArchived: boolean;
 }
 
@@ -210,9 +217,11 @@ export class RosterService {
       lastName: member.lastName,
       phone: member.phone,
       email,
+      gender: member.gender,
       birthDate: member.birthDate,
       jerseyNumber: assignment.jerseyNumber,
       mainPosition: assignment.mainPosition,
+      joinDate: assignment.joinDate,
       secondaryPositions: assignment.secondaryPositions,
       isArchived: assignment.leaveDate !== null,
     };
@@ -405,10 +414,12 @@ export class RosterService {
       lastName: assignment.member.lastName,
       phone: assignment.member.phone,
       email: assignment.member.user?.email ?? null,
+      gender: assignment.member.gender,
       birthDate: assignment.member.birthDate,
       jerseyNumber: null,
       mainPosition: null,
       secondaryPositions: [],
+      joinDate: null,
       isArchived: assignment.endDate !== null,
     }));
   }

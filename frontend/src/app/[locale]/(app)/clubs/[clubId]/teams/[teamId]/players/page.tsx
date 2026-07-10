@@ -50,10 +50,12 @@ interface RosterRow {
   lastName: string;
   phone: string | null;
   email: string | null;
+  gender: string | null;
   birthDate: string | null;
   jerseyNumber: number | null;
   mainPosition: Position | null;
   secondaryPositions: Position[];
+  joinDate: string | null;
   isArchived: boolean;
 }
 

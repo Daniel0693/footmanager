@@ -145,6 +145,38 @@ describe('RosterService', () => {
     expect(staff?.playerId).toBeNull();
   });
 
+  it("expose gender et joinDate (déjà chargés, aucun coût réseau supplémentaire) — nécessaires au frontend pour pré-remplir l'édition en masse (correctif 2026-07-10)", async () => {
+    const joinDate = new Date('2025-09-01');
+    ptFindMany.mockResolvedValue([
+      playerTeamRow({
+        joinDate,
+        player: {
+          id: 100,
+          memberId: 42,
+          member: {
+            id: 42,
+            firstName: 'Karim',
+            lastName: 'Benali',
+            phone: '0600000000',
+            gender: 'MALE',
+            birthDate: new Date('2011-03-04'),
+            user: { email: 'karim@example.com' },
+          },
+        },
+      }),
+    ]);
+    tsFindMany.mockResolvedValue([
+      teamStaffRow({ member: { ...teamStaffRow().member, gender: 'FEMALE' } }),
+    ]);
+
+    const result = await service.findAllByTeam(requester);
+
+    const player = result.data.find((row) => row.role === 'PLAYER');
+    const staff = result.data.find((row) => row.role === 'PRINCIPAL');
+    expect(player).toMatchObject({ gender: 'MALE', joinDate });
+    expect(staff).toMatchObject({ gender: 'FEMALE', joinDate: null });
+  });
+
   it("dérive isArchived=true et email=null quand le membre n'a pas de compte User", async () => {
     ptFindMany.mockResolvedValue([
       playerTeamRow({

@@ -29,18 +29,19 @@ import { useAuth } from "@/lib/auth/auth-context";
 const NONE = "NONE";
 
 // Une ligne du roster actuellement chargée (page effectif) — sous-ensemble
-// des champs de RosterRow nécessaires au pré-remplissage. `gender` n'y
-// figure pas (absent de RosterRow, voir docs/modules/effectif-joueurs.md
-// §B1) : le champ part toujours "Non renseigné" en édition, envoyé (donc
-// modifié) seulement si l'utilisateur choisit explicitement une valeur.
+// des champs de RosterRow nécessaires au pré-remplissage (gender/joinDate
+// exposés par RosterRow depuis le correctif du 2026-07-10 — déjà chargés
+// côté backend, aucun coût réseau supplémentaire).
 export interface BulkEditableRow {
   id: number;
   firstName: string;
   lastName: string;
   phone: string | null;
+  gender: string | null;
   birthDate: string | null;
   jerseyNumber: number | null;
   mainPosition: string | null;
+  joinDate: string | null;
 }
 
 const rowSchema = z.object({
@@ -65,11 +66,16 @@ function toRowValues(row: BulkEditableRow) {
     firstName: row.firstName,
     lastName: row.lastName,
     phone: row.phone ?? "",
-    gender: NONE,
-    birthDate: row.birthDate ?? "",
+    gender: row.gender ?? NONE,
+    // .slice(0, 10) : l'API renvoie une date ISO complète
+    // ("2011-03-04T00:00:00.000Z"), mais <input type="date"> n'accepte que
+    // "AAAA-MM-JJ" — sans ça, le navigateur rejette la valeur et affiche le
+    // champ vide (même correctif déjà appliqué ailleurs dans le projet,
+    // voir absence-form-dialog.tsx/objective-form-dialog.tsx).
+    birthDate: row.birthDate?.slice(0, 10) ?? "",
     jerseyNumber: row.jerseyNumber !== null ? String(row.jerseyNumber) : "",
     mainPosition: row.mainPosition ?? NONE,
-    joinDate: "",
+    joinDate: row.joinDate?.slice(0, 10) ?? "",
   };
 }
 

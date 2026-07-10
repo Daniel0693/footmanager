@@ -87,7 +87,12 @@ function defaultValues(player?: ExistingPlayer): FormValues {
     gender: player?.gender ?? NONE,
     licenseNumber: player?.licenseNumber ?? "",
     nationality: player?.nationality ?? "",
-    birthDate: player?.birthDate ?? "",
+    // .slice(0, 10) : l'API renvoie une date ISO complète
+    // ("2011-03-04T00:00:00.000Z"), mais <input type="date"> n'accepte que
+    // "AAAA-MM-JJ" — sans ça, le navigateur rejette la valeur et affiche le
+    // champ vide (bug signalé 2026-07-10 ; même correctif déjà appliqué
+    // ailleurs dans le projet, voir absence-form-dialog.tsx/objective-form-dialog.tsx).
+    birthDate: player?.birthDate?.slice(0, 10) ?? "",
     preferredFoot: player?.preferredFoot ?? NONE,
     jerseyNumber: player?.jerseyNumber !== null && player?.jerseyNumber !== undefined
       ? String(player.jerseyNumber)
@@ -97,7 +102,7 @@ function defaultValues(player?: ExistingPlayer): FormValues {
     // tableau) : la sélection de plusieurs postes secondaires se fait via le
     // terrain interactif de la fiche joueur (décision du 2026-07-06).
     secondaryPosition: player?.secondaryPositions[0] ?? NONE,
-    joinDate: player?.joinDate ?? "",
+    joinDate: player?.joinDate?.slice(0, 10) ?? "",
   };
 }
 

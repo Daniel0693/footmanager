@@ -27,18 +27,25 @@ const rows: BulkEditableRow[] = [
     firstName: "Karim",
     lastName: "Benali",
     phone: null,
+    gender: null,
     birthDate: null,
     jerseyNumber: 9,
     mainPosition: "ST",
+    joinDate: null,
   },
   {
     id: 201,
     firstName: "Zoe",
     lastName: "Martin",
     phone: "+41 78 000 00 00",
-    birthDate: "2011-03-04",
+    // Date ISO complète, comme renvoyée par l'API (pas juste "AAAA-MM-JJ") —
+    // reproduit exactement le bug signalé (2026-07-10) : sans .slice(0, 10),
+    // <input type="date"> refuse cette valeur et affiche un champ vide.
+    gender: "FEMALE",
+    birthDate: "2011-03-04T00:00:00.000Z",
     jerseyNumber: 10,
     mainPosition: null,
+    joinDate: "2025-09-01T00:00:00.000Z",
   },
 ];
 
@@ -77,6 +84,26 @@ describe("BulkEditPlayersDialog", () => {
     expect(firstNames[1]).toHaveValue("Zoe");
     expect(screen.queryByRole("button", { name: "Ajouter une ligne" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retirer cette ligne" })).not.toBeInTheDocument();
+  });
+
+  it("pré-remplit genre, date de naissance et date d'arrivée avec leurs vraies valeurs (régression 2026-07-10)", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await openDialog(user);
+
+    // Zoe (rows[1]) a un genre et des dates réels — Karim (rows[0]) sert de
+    // témoin "tout est null" pour vérifier qu'on ne force jamais une valeur.
+    const genderSelects = screen.getAllByRole<HTMLElement>("combobox", { name: "Genre" });
+    expect(genderSelects[0]).toHaveTextContent("Non renseigné");
+    expect(genderSelects[1]).toHaveTextContent("Femme");
+
+    const birthDates = screen.getAllByLabelText<HTMLInputElement>("Date de naissance");
+    expect(birthDates[0]).toHaveValue("");
+    expect(birthDates[1]).toHaveValue("2011-03-04");
+
+    const joinDates = screen.getAllByLabelText<HTMLInputElement>("Date d'arrivée dans l'équipe");
+    expect(joinDates[0]).toHaveValue("");
+    expect(joinDates[1]).toHaveValue("2025-09-01");
   });
 
   it("affiche la note limitant la portée aux lignes actuellement affichées", async () => {

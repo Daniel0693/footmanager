@@ -107,6 +107,26 @@ describe("StaffFormDialog", () => {
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
+  it("pré-remplit la date de naissance même quand l'API renvoie une date ISO complète (régression 2026-07-10)", async () => {
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <StaffFormDialog
+        clubId="1"
+        teamId="5"
+        staff={{ ...existingStaff, birthDate: "1985-04-12T00:00:00.000Z" }}
+        onSuccess={jest.fn()}
+        trigger={<Button>Modifier</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+
+    expect(await screen.findByLabelText<HTMLInputElement>("Date de naissance")).toHaveValue(
+      "1985-04-12",
+    );
+  });
+
   it("mode contrôlé : s'ouvre déjà pré-rempli via open=true, sans trigger visible", async () => {
     renderWithIntl(
       <StaffFormDialog

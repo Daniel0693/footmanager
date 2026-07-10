@@ -25,9 +25,10 @@
 > (`RosterRow` : `id` de l'affectation sous-jacente, `memberId`, `playerId` — id du
 > `PlayerProfile`, `null` pour une ligne staff, nécessaire au frontend pour rouvrir
 > `PlayerFormDialog` en édition (B5) —, `role` — `"PLAYER"` ou `TeamStaffRole` —,
-> `firstName`/`lastName`/`phone`/`email`/`birthDate` du `Member`/`User`
-> lié, `jerseyNumber`/`mainPosition`/`secondaryPositions` pour les joueurs uniquement,
-> `isArchived`), triée/paginée en mémoire (volume par équipe trop faible pour justifier une
+> `firstName`/`lastName`/`phone`/`email`/`gender`/`birthDate` du `Member`/`User` lié,
+> `jerseyNumber`/`mainPosition`/`secondaryPositions`/`joinDate` pour les joueurs uniquement
+> (`joinDate` toujours `null` pour le staff — n'existe pas sur `TeamStaff`), `isArchived`),
+> triée/paginée en mémoire (volume par équipe trop faible pour justifier une
 > jointure SQL unifiée). Query params : `status` (`ACTIVE` par défaut / `ARCHIVED` / `ALL`,
 > vérifie `roster_archive READ` seulement si différent de `ACTIVE`), `position` (si présent,
 > le staff — qui ne peut jamais y correspondre — est exclu du résultat plutôt que renvoyé
@@ -150,13 +151,25 @@
 >   "Retirer cette ligne" en retire (désactivé s'il n'en reste qu'une).
 > - **Éditer** : lignes FIGÉES, pré-remplies depuis le roster **actuellement affiché** (page
 >   et filtres en cours — note explicite dans la modale), chacune ciblant un `PlayerTeam`
->   existant par son `id` cette fois non modifiable. `gender` n'est pas dans `RosterRow`
->   (voir B1) : toujours "Non renseigné" au chargement, envoyé (donc modifié) seulement si
->   explicitement choisi.
+>   existant par son `id` cette fois non modifiable.
 >
 > Vérifié en live (création de deux lignes, édition en masse du nom d'une ligne, rollback
 > complet + modale qui reste ouverte sur un conflit de maillot volontairement provoqué) en
 > plus des tests unitaires.
+>
+> **Correctif 2026-07-10 — genre/date de naissance/date d'arrivée pas pré-remplis en édition
+> (signalé par l'utilisateur)** : deux bugs distincts.
+> 1. `gender`/`joinDate` étaient absents de `RosterRow` (B1) — déjà chargés côté backend
+>    (`Member.gender`, `PlayerTeam.joinDate`), juste jamais mappés dans la réponse. Désormais
+>    exposés, aucun coût réseau supplémentaire.
+> 2. `birthDate`/`joinDate` ne se pré-remplissaient dans AUCUN `<input type="date">` du module
+>    (`PlayerFormDialog`, `StaffFormDialog`, `bulk-edit-players-dialog.tsx`) dès que la valeur
+>    contenait un composant horaire — l'API sérialise toujours une date en ISO complet
+>    (`"2011-03-04T00:00:00.000Z"`), mais `<input type="date">` n'accepte que `"AAAA-MM-JJ"` et
+>    rejette silencieusement toute autre valeur (champ vide, aucune erreur visible). Corrigé en
+>    tronquant à `.slice(0, 10)` avant d'alimenter `defaultValues`/`toRowValues` — même
+>    correctif déjà appliqué ailleurs dans le projet (`absence-form-dialog.tsx`,
+>    `objective-form-dialog.tsx`, etc.), qui aurait dû être repris ici dès l'écriture initiale.
 
 Tableau par équipe (voir le tableau unifié Joueurs + Staff plus haut pour les colonnes
 actuelles). Deux filtres de poste combinables (en plus du filtre Statut) :
