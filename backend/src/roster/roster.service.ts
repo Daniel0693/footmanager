@@ -74,7 +74,14 @@ export class RosterService {
   async findAllByTeam(
     requester: RosterRequestContext,
     query: FindRosterQueryDto = {},
-  ): Promise<{ data: RosterRow[]; total: number }> {
+  ): Promise<{
+    data: RosterRow[];
+    total: number;
+    canViewArchived: boolean;
+    canCreate: boolean;
+    canEdit: boolean;
+    canDelete: boolean;
+  }> {
     const { clubId, teamId } = requester;
     await assertTeamInClub(
       this.prisma,
@@ -84,19 +91,48 @@ export class RosterService {
     );
 
     const status = query.status ?? 'ACTIVE';
-    if (status !== 'ACTIVE') {
-      const archiveScope = await this.permissionsService.can(
-        requester.memberId,
-        'READ',
-        'roster_archive',
-        { clubId, teamId },
-      );
-      if (!archiveScope) {
-        throw new AppException(
-          'ROSTER.ARCHIVE_FORBIDDEN',
-          HttpStatus.FORBIDDEN,
-        );
-      }
+    // Calculées une seule fois, réutilisées à la fois pour garder/refuser
+    // l'accès à status != ACTIVE ET pour indiquer au frontend quels
+    // contrôles afficher (docs/modules/effectif-joueurs.md) — sans exposer
+    // de nouvel endpoint "mes permissions", cohérent avec la convention du
+    // projet ("permission toujours évaluée backend").
+    const [archiveScope, createScope, editScope, deleteScope] =
+      await Promise.all([
+        this.permissionsService.can(
+          requester.memberId,
+          'READ',
+          'roster_archive',
+          {
+            clubId,
+            teamId,
+          },
+        ),
+        this.permissionsService.can(
+          requester.memberId,
+          'CREATE',
+          'player_team',
+          {
+            clubId,
+            teamId,
+          },
+        ),
+        this.permissionsService.can(
+          requester.memberId,
+          'UPDATE',
+          'player_team',
+          {
+            clubId,
+            teamId,
+          },
+        ),
+        this.permissionsService.can(requester.memberId, 'DELETE', 'member', {
+          clubId,
+          teamId,
+        }),
+      ]);
+
+    if (status !== 'ACTIVE' && !archiveScope) {
+      throw new AppException('ROSTER.ARCHIVE_FORBIDDEN', HttpStatus.FORBIDDEN);
     }
 
     // Un filtre par poste n'a de sens que pour les joueurs (voir DTO) : le
@@ -118,6 +154,10 @@ export class RosterService {
     return {
       data: merged.slice(start, start + pageSize),
       total: merged.length,
+      canViewArchived: !!archiveScope,
+      canCreate: !!createScope,
+      canEdit: !!editScope,
+      canDelete: !!deleteScope,
     };
   }
 

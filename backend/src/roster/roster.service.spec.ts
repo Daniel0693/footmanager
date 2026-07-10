@@ -204,6 +204,63 @@ describe('RosterService', () => {
     });
   });
 
+  describe('indicateurs de capacité (canViewArchived/canCreate/canEdit/canDelete)', () => {
+    // Le frontend n'a aucune infra de permission côté client : ces
+    // indicateurs, calculés ici via PermissionsService (déjà la source de
+    // vérité backend), lui indiquent quels contrôles afficher (filtre
+    // Archivé, boutons Créer/Éditer/Supprimer en masse) sans exposer de
+    // nouvel endpoint "mes permissions" — voir docs/modules/effectif-joueurs.md.
+    it('renvoie true pour les quatre indicateurs quand tout est accordé', async () => {
+      can.mockResolvedValue('TEAM');
+
+      const result = await service.findAllByTeam(requester);
+
+      expect(result).toMatchObject({
+        canViewArchived: true,
+        canCreate: true,
+        canEdit: true,
+        canDelete: true,
+      });
+    });
+
+    it('renvoie false par ressource quand la permission correspondante est refusée (ex. Player)', async () => {
+      can.mockImplementation(
+        (_memberId: number, action: string, resource: string) => {
+          if (resource === 'player_team' && action === 'READ') {
+            return Promise.resolve('TEAM'); // déjà requis par le guard
+          }
+          return Promise.resolve(null); // ni roster_archive, ni player_team CREATE/UPDATE, ni member DELETE
+        },
+      );
+
+      const result = await service.findAllByTeam(requester);
+
+      expect(result).toMatchObject({
+        canViewArchived: false,
+        canCreate: false,
+        canEdit: false,
+        canDelete: false,
+      });
+    });
+
+    it('canDelete reflète member DELETE indépendamment de canEdit/canCreate (ex. Coach : édite mais ne supprime jamais)', async () => {
+      can.mockImplementation(
+        (_memberId: number, action: string, resource: string) =>
+          Promise.resolve(
+            resource === 'member' && action === 'DELETE' ? null : 'TEAM',
+          ),
+      );
+
+      const result = await service.findAllByTeam(requester);
+
+      expect(result).toMatchObject({
+        canEdit: true,
+        canCreate: true,
+        canDelete: false,
+      });
+    });
+  });
+
   describe('staff dégradé silencieusement sans team_staff READ', () => {
     it("omet le staff (pas de 403) si l'appelant n'a pas team_staff READ", async () => {
       ptFindMany.mockResolvedValue([playerTeamRow()]);

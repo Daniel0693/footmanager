@@ -36,6 +36,14 @@
 > restreint), le staff est silencieusement omis plutôt que de renvoyer un 403 — un roster
 > partiel plutôt qu'une erreur.
 >
+> **Indicateurs de capacité (B5)** : la réponse inclut aussi `canViewArchived`
+> (`roster_archive READ`), `canCreate`/`canEdit` (`player_team CREATE`/`UPDATE`) et
+> `canDelete` (`member DELETE`) — calculés via `PermissionsService`, jamais un nouvel
+> endpoint "mes permissions". Le frontend n'a aucune infrastructure de permission côté
+> client ; il se contente d'afficher/cacher le filtre Actif/Archivé et les boutons Créer/
+> Éditer/Supprimer en masse selon ces booléens, la décision d'autorisation réelle restant
+> entièrement backend (règle d'or, `docs/modules/auth-roles.md`).
+>
 > **B2 — action Archiver (implémentée)** : `PATCH .../players/:id/archive` sur
 > `PlayerTeamsService.archive` (fixe `leaveDate`) et `PATCH .../staff/:id/archive` sur
 > `TeamStaffService.archive` (fixe `endDate`) — deux endpoints minces qui délèguent
