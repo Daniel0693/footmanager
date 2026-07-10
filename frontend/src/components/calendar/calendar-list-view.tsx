@@ -114,7 +114,16 @@ export function CalendarListView({
   const [hasError, setHasError] = useState(false);
   const [pastBoundary, setPastBoundary] = useState<Date | null>(null);
   const [futureBoundary, setFutureBoundary] = useState<Date | null>(null);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // Verrou anti-concurrence en ref, pas en state (correctif 2026-07-10) : un
+  // geste `wheel` déclenche des dizaines d'événements très rapprochés — un
+  // `useState` ne se met à jour qu'au rendu suivant, donc plusieurs appels
+  // à loadOlder/loadNewer passaient tous le garde-fou avant qu'aucun n'ait
+  // eu le temps de le poser (chacun avec sa propre fermeture, pastBoundary/
+  // futureBoundary encore périmés), mutant les bornes et les événements de
+  // façon concurrente — d'où des événements qui apparaissaient puis
+  // disparaissaient. Une ref est lue/écrite de façon synchrone, identique
+  // pour toutes les fermetures, quel que soit le rendu qui les a créées.
+  const isLoadingMoreRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Miroirs en ref des bornes : lus par l'effet de (re)chargement sans y
   // être une dépendance, pour ne pas redéclencher un chargement complet à
@@ -239,7 +248,8 @@ export function CalendarListView({
   }, [clubId, accessToken, filters.showBirthdays, filters.teamIds, pastBoundary, futureBoundary]);
 
   const loadOlder = useCallback(async () => {
-    if (!pastBoundary || !futureBoundary || isLoadingMore) return;
+    if (!pastBoundary || !futureBoundary || isLoadingMoreRef.current) return;
+    isLoadingMoreRef.current = true;
     // Fige la génération au moment de l'appel : si un nouveau cycle démarre
     // (recentrage, changement de filtres) avant que cet appel ne se termine,
     // son résultat est ignoré plutôt qu'appliqué sur un état déjà périmé.
@@ -251,9 +261,9 @@ export function CalendarListView({
     // profite.
     if (isEmptyFilterSelection(filters)) {
       if (generationRef.current === myGeneration) setPastBoundary(newBoundary);
+      isLoadingMoreRef.current = false;
       return;
     }
-    setIsLoadingMore(true);
     try {
       const data = await fetchCalendarEvents(clubId, accessToken, filters, {
         dateFrom: newBoundary,
@@ -286,22 +296,23 @@ export function CalendarListView({
       if (generationRef.current === myGeneration) toast.error(t("loadFailed"));
     } finally {
       // Toujours réinitialisé, même si le résultat a été ignoré (génération
-      // périmée) : ce flag verrouille les appels loadOlder/loadNewer du
+      // périmée) : ce verrou protège les appels loadOlder/loadNewer du
       // cycle ACTUEL, pas seulement de celui qui l'a posé — le laisser à
       // `true` bloquerait indéfiniment le nouveau cycle.
-      setIsLoadingMore(false);
+      isLoadingMoreRef.current = false;
     }
-  }, [clubId, accessToken, filters, pastBoundary, futureBoundary, isLoadingMore, t]);
+  }, [clubId, accessToken, filters, pastBoundary, futureBoundary, t]);
 
   const loadNewer = useCallback(async () => {
-    if (!pastBoundary || !futureBoundary || isLoadingMore) return;
+    if (!pastBoundary || !futureBoundary || isLoadingMoreRef.current) return;
+    isLoadingMoreRef.current = true;
     const myGeneration = generationRef.current;
     const newBoundary = endOfDay(addDays(futureBoundary, CHUNK_DAYS));
     if (isEmptyFilterSelection(filters)) {
       if (generationRef.current === myGeneration) setFutureBoundary(newBoundary);
+      isLoadingMoreRef.current = false;
       return;
     }
-    setIsLoadingMore(true);
     try {
       const data = await fetchCalendarEvents(clubId, accessToken, filters, {
         dateFrom: addDays(futureBoundary, 1),
@@ -322,16 +333,16 @@ export function CalendarListView({
     } catch {
       if (generationRef.current === myGeneration) toast.error(t("loadFailed"));
     } finally {
-      setIsLoadingMore(false);
+      isLoadingMoreRef.current = false;
     }
-  }, [clubId, accessToken, filters, pastBoundary, futureBoundary, isLoadingMore, t]);
+  }, [clubId, accessToken, filters, pastBoundary, futureBoundary, t]);
 
   // Extension automatique tant que la fenêtre affiche trop peu d'éléments
   // pour remplir la zone visible (voir MIN_TIMELINE_ITEMS ci-dessus) — sans
   // ça, une liste trop courte pour déborder ne peut jamais déclencher
   // handleScroll, laissant un anniversaire juste hors fenêtre introuvable.
   // Alterne passé/futur à chaque extension plutôt que les deux à la fois,
-  // pour ne jamais chevaucher avec le flag isLoadingMore partagé.
+  // pour ne jamais chevaucher avec le verrou isLoadingMoreRef partagé.
   //
   // Portée volontairement restreinte à la sélection de types/équipes vide
   // (le bug réellement signalé : seul le filtre "Anniversaires" actif, 0
@@ -339,12 +350,12 @@ export function CalendarListView({
   // événements réels : dans ce cas précis, loadOlder/loadNewer n'appellent
   // jamais fetchCalendarEvents (voir plus haut), donc aucun risque de
   // chevauchement avec un chargement au scroll déclenché par l'utilisateur
-  // (isLoadingMore n'est jamais posé sur ce chemin). Étendre au cas général
+  // (isLoadingMoreRef n'est jamais posé sur ce chemin). Étendre au cas général
   // impliquerait ce risque de chevauchement bien réel avec le scroll manuel
   // — à revisiter si un besoin similaire est signalé avec de vrais
   // événements, pas seulement des anniversaires.
   useEffect(() => {
-    if (events === null || hasError || isLoadingMore) return;
+    if (events === null || hasError || isLoadingMoreRef.current) return;
     if (!isFiltersReady(filters)) return;
     if (!isEmptyFilterSelection(filters) || !filters.showBirthdays) return;
     if (birthdays.length >= MIN_TIMELINE_ITEMS) return;
@@ -355,7 +366,7 @@ export function CalendarListView({
     } else {
       void loadNewer();
     }
-  }, [events, birthdays, hasError, isLoadingMore, filters, loadOlder, loadNewer]);
+  }, [events, birthdays, hasError, filters, loadOlder, loadNewer]);
 
   const handleScroll = () => {
     const container = scrollRef.current;

@@ -202,6 +202,31 @@ describe("CalendarListView", () => {
     expect(await screen.findByText("Ancien match")).toBeInTheDocument();
   });
 
+  it("une rafale de wheel très rapprochés (un seul geste physique en émet des dizaines) ne déclenche qu'un seul appel réseau, pas un par événement (bug : événements qui apparaissaient puis disparaissaient)", async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
+    );
+    await screen.findByText("Match amical");
+    mockApiFetch.mockClear();
+    mockApiFetch.mockResolvedValue(jsonResponse([eventItem({ id: 2, title: "Ancien match" })]));
+
+    const container = screen.getByTestId("calendar-list-scroll");
+    Object.defineProperty(container, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(container, "clientHeight", { value: 400, configurable: true });
+
+    // Sans verrou synchrone (une ref, pas un state), chacun de ces 10
+    // événements — dispatchés avant qu'aucun rendu n'ait eu lieu entre eux —
+    // passerait le garde-fou et déclencherait son propre appel réseau
+    // concurrent, chacun mutant les bornes/événements indépendamment.
+    for (let i = 0; i < 10; i++) {
+      fireEvent.wheel(container, { deltaY: -100 });
+    }
+
+    expect(await screen.findByText("Ancien match")).toBeInTheDocument();
+    expect(mockApiFetch).toHaveBeenCalledTimes(1);
+  });
+
   it("un geste de scroll vers le bas (wheel) déclenche loadNewer près du bas, mais pas ailleurs dans la liste", async () => {
     mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
     renderWithIntl(
