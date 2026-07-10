@@ -371,17 +371,26 @@ export function CalendarListView({
   };
 
   // Le navigateur ne déclenche jamais d'événement `scroll` quand la position
-  // ne change pas (`scrollTop` déjà à 0, ce qui est systématiquement le cas
-  // juste après le montage ou "Aujourd'hui" — voir plus haut) : sans ce
-  // contrôle sur le geste `wheel` lui-même, remonter alors qu'on est déjà en
-  // haut de la liste ne déclenche jamais `handleScroll`, et l'utilisateur ne
-  // peut charger les événements plus anciens qu'en scrollant d'abord vers le
-  // bas puis en remontant (bug signalé). `deltaY < 0` = geste vers le haut.
+  // ne change pas — ni juste après le montage/"Aujourd'hui" (`scrollTop`
+  // déjà à 0), ni surtout quand la fenêtre chargée contient trop peu
+  // d'éléments pour dépasser la hauteur du conteneur (`scrollHeight <=
+  // clientHeight` : rien à scroller, `scrollTop` reste bloqué à 0 dans les
+  // DEUX sens). Sans ce contrôle sur le geste `wheel` lui-même — qui se
+  // déclenche quel que soit le débordement réel du conteneur — l'utilisateur
+  // reste bloqué dès que la timeline est trop courte pour déborder, incapable
+  // d'avancer ou de reculer dans le temps (bug signalé). `deltaY < 0` = geste
+  // vers le haut, `deltaY > 0` = geste vers le bas.
   const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     const container = scrollRef.current;
-    if (!container || event.deltaY >= 0) return;
-    if (container.scrollTop < SCROLL_THRESHOLD_PX) {
+    if (!container) return;
+    if (event.deltaY < 0 && container.scrollTop < SCROLL_THRESHOLD_PX) {
       void loadOlder();
+    } else if (
+      event.deltaY > 0 &&
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+        SCROLL_THRESHOLD_PX
+    ) {
+      void loadNewer();
     }
   };
 

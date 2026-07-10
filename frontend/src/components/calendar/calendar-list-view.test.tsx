@@ -202,7 +202,7 @@ describe("CalendarListView", () => {
     expect(await screen.findByText("Ancien match")).toBeInTheDocument();
   });
 
-  it("un geste de scroll vers le bas (wheel) ne déclenche jamais loadOlder", async () => {
+  it("un geste de scroll vers le bas (wheel) déclenche loadNewer près du bas, mais pas ailleurs dans la liste", async () => {
     mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
     renderWithIntl(
       <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
@@ -213,9 +213,34 @@ describe("CalendarListView", () => {
     const container = screen.getByTestId("calendar-list-scroll");
     Object.defineProperty(container, "scrollHeight", { value: 1000, configurable: true });
     Object.defineProperty(container, "clientHeight", { value: 400, configurable: true });
+    container.scrollTop = 300; // loin du bas (1000 - 300 - 400 = 300 >= seuil)
     fireEvent.wheel(container, { deltaY: 100 });
 
     expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+
+  it("timeline trop courte pour déborder du conteneur : le wheel charge quand même dans les deux sens (bug signalé — plus aucun moyen d'avancer/reculer sinon)", async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
+    );
+    await screen.findByText("Match amical");
+    mockApiFetch.mockClear();
+
+    const container = screen.getByTestId("calendar-list-scroll");
+    // Contenu plus court que le conteneur : rien à scroller, scrollTop reste
+    // bloqué à 0 quel que soit le sens du geste.
+    Object.defineProperty(container, "scrollHeight", { value: 300, configurable: true });
+    Object.defineProperty(container, "clientHeight", { value: 400, configurable: true });
+
+    mockApiFetch.mockResolvedValue(jsonResponse([eventItem({ id: 2, title: "Événement futur" })]));
+    fireEvent.wheel(container, { deltaY: 100 });
+    expect(await screen.findByText("Événement futur")).toBeInTheDocument();
+
+    mockApiFetch.mockClear();
+    mockApiFetch.mockResolvedValue(jsonResponse([eventItem({ id: 3, title: "Événement passé" })]));
+    fireEvent.wheel(container, { deltaY: -100 });
+    expect(await screen.findByText("Événement passé")).toBeInTheDocument();
   });
 
   it("scroll près du bas charge les événements futurs et les ajoute à la fin", async () => {
