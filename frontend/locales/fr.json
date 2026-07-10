@@ -537,6 +537,10 @@
       "JERSEY_NUMBER_TAKEN": "Ce numéro de maillot est déjà attribué dans cette équipe",
       "NOT_FOUND": "Affectation introuvable"
     },
+    "ROSTER": {
+      "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
+      "ARCHIVE_FORBIDDEN": "Vous n'avez pas les droits pour consulter les membres archivés"
+    },
     "PLAYER_MEASUREMENTS": {
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
       "NOT_FOUND": "Mesure introuvable"

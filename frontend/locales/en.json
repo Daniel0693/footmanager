@@ -537,6 +537,10 @@
       "JERSEY_NUMBER_TAKEN": "This jersey number is already taken in this team",
       "NOT_FOUND": "Assignment not found"
     },
+    "ROSTER": {
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "ARCHIVE_FORBIDDEN": "You don't have permission to view archived members"
+    },
     "PLAYER_MEASUREMENTS": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
       "NOT_FOUND": "Measurement not found"

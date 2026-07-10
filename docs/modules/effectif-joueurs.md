@@ -13,14 +13,29 @@
 ## Liste de l'effectif — filtres par poste
 
 > **En cours (branche `feature/effectif-tableau-avance`)** : refonte vers un tableau unifié
-> Joueurs + Staff (tri, pagination, filtre Actif/Archivé, actions Éditer/Archiver/Supprimer,
-> édition/création en masse) — voir le plan associé. Prérequis déjà en place : nouvelle
-> permission `roster_archive READ` (scope TEAM pour Coach, CLUB pour AdminClub, ALL pour
-> SuperAdmin/Proprietaire — jamais Player) pour gater le futur filtre Actif/Archivé
-> indépendamment du scope `player_team`/`team_staff` déjà partagé par Coach et Player ;
-> `team_staff READ TEAM` étendu au rôle Player (absent jusqu'ici) pour qu'il puisse voir le
-> staff dans le tableau unifié à venir. Cette section sera complétée au fil des incréments
-> (B1-B5).
+> Joueurs + Staff — voir le plan associé. Prérequis déjà en place : nouvelle permission
+> `roster_archive READ` (scope TEAM pour Coach, CLUB pour AdminClub, ALL pour
+> SuperAdmin/Proprietaire — jamais Player) pour gater le filtre Actif/Archivé indépendamment
+> du scope `player_team`/`team_staff` déjà partagé par Coach et Player ; `team_staff READ
+> TEAM` étendu au rôle Player (absent jusqu'ici) pour qu'il puisse voir le staff dans le
+> tableau unifié. Restent à faire : B2 (archiver), B3 (suppression RGPD), B4 (bulk), B5
+> (frontend).
+>
+> **B1 — `GET /clubs/:clubId/teams/:teamId/roster` (implémenté)** : lecture unifiée
+> `backend/src/roster/`. Fusionne `PlayerTeam` et `TeamStaff` en une forme commune
+> (`RosterRow` : `id` de l'affectation sous-jacente, `memberId`, `role` — `"PLAYER"` ou
+> `TeamStaffRole` —, `firstName`/`lastName`/`phone`/`email`/`birthDate` du `Member`/`User`
+> lié, `jerseyNumber`/`mainPosition`/`secondaryPositions` pour les joueurs uniquement,
+> `isArchived`), triée/paginée en mémoire (volume par équipe trop faible pour justifier une
+> jointure SQL unifiée). Query params : `status` (`ACTIVE` par défaut / `ARCHIVED` / `ALL`,
+> vérifie `roster_archive READ` seulement si différent de `ACTIVE`), `position` (si présent,
+> le staff — qui ne peut jamais y correspondre — est exclu du résultat plutôt que renvoyé
+> puis filtré), `sortBy` (`jerseyNumber`/`lastName`/`phone`/`email`/`birthDate`/`role` — les
+> valeurs nulles sont toujours reléguées en fin de liste, quel que soit le sens de tri),
+> `sortOrder`, `page`, `pageSize` (20/50/100, défaut 20). Gardé par `player_team READ`
+> (ressource principale) ; si l'appelant n'a pas `team_staff READ` (rôle personnalisé
+> restreint), le staff est silencieusement omis plutôt que de renvoyer un 403 — un roster
+> partiel plutôt qu'une erreur.
 
 Table par équipe : numéro de maillot, nom, poste principal (badge), poste(s) secondaire(s). Deux
 filtres combinables :
