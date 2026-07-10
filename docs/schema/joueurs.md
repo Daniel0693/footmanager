@@ -228,10 +228,17 @@ partielle.
 |---|---|---|
 | `id` | PK | |
 | `playerId` | FK → PlayerProfile | |
-| `authorId` | FK → Member | assigné automatiquement au membre à l'origine de la création, jamais choisi dans un sélecteur (même pattern que `PlayerInterview.staffId`) |
+| `authorId` | FK → Member, **nullable** | assigné automatiquement au membre à l'origine de la création, jamais choisi dans un sélecteur (même pattern que `PlayerInterview.staffId`) |
 | `visibility` | enum `NoteVisibility` | voir `index.md` |
 | `title` | String, nullable | |
 | `content` | Text | |
+
+**`authorId` nullable (docs/decisions-ouvertes-et-rgpd.md, suppression RGPD d'un membre du
+STAFF)** : seul champ auteur non nullable jusqu'ici (contrairement à `PlayerInterview.staffId`,
+`PlayerObjective.assignedById`, `PlayerAbsence.reportedById`, `PlayerEvaluation.evaluatorId`) —
+aligné pour permettre l'anonymisation (`authorId = null`, `ON DELETE SET NULL`) plutôt que de
+bloquer ou de supprimer la note quand un membre du STAFF demande la suppression complète de son
+compte plutôt qu'un simple archivage (module Effectif, flux "bloquer sauf confirmation explicite").
 
 **`trainingSessionId` (lien optionnel vers une séance) différé à la Phase 5** : `TrainingSession`
 n'existe pas encore (module Entraînement non implémenté) — champ ajouté par migration une fois

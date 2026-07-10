@@ -80,16 +80,47 @@
     "backToTeams": "Back to teams",
     "jerseyNumber": "No.",
     "name": "Name",
+    "lastName": "Last name",
+    "firstName": "First name",
+    "phone": "Phone",
+    "email": "Email",
+    "birthDateColumn": "Date of birth",
+    "roleColumn": "Role",
     "mainPosition": "Main position",
     "secondaryPosition": "Secondary positions",
     "emptyValue": "—",
-    "empty": "No players in this team",
+    "empty": "No members in this team",
     "loadFailed": "Failed to load the roster",
     "filterByLine": "Filter by line",
     "filterByPosition": "Filter by position",
     "allLines": "All lines",
     "allPositions": "All positions",
-    "addPlayer": "Add a player"
+    "statusFilter": "Status",
+    "statusActive": "Active",
+    "statusArchived": "Archived",
+    "statusAll": "All",
+    "addPlayer": "Add a player",
+    "actions": "Actions",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "archive": "Archive",
+    "delete": "Delete",
+    "archiveConfirmTitle": "Archive this member?",
+    "archiveConfirmDescription": "The member will no longer appear in the active roster, but their data is kept and remains viewable via the \"Archived\" filter.",
+    "archiveConfirm": "Archive",
+    "archived": "Member archived successfully",
+    "deleteConfirmTitle": "Permanently delete this member?",
+    "deleteConfirmDescription": "This action cannot be undone: all of this member's data (measurements, notes, evaluations, interviews, absences, assignments) will be deleted. Their login account, if any, is never deleted.",
+    "deleteConfirm": "Delete",
+    "deleted": "Member deleted successfully",
+    "forceAnonymizeTitle": "Confirm full deletion?",
+    "forceAnonymizeConfirm": "Confirm and anonymize"
+  },
+  "rosterRoles": {
+    "PLAYER": "Player",
+    "PRINCIPAL": "Head coach",
+    "CO_ENTRAINEUR": "Co-coach",
+    "ADJOINT": "Assistant coach"
   },
   "positionLines": {
     "GK": "Goalkeeper",
@@ -513,6 +544,47 @@
     "firstNameRequired": "First name is required",
     "lastNameRequired": "Last name is required"
   },
+  "staffForm": {
+    "editTitle": "Edit staff member",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "phone": "Phone",
+    "birthDate": "Date of birth",
+    "role": "Role",
+    "submitEdit": "Save",
+    "updated": "Staff member updated successfully",
+    "firstNameRequired": "First name is required",
+    "lastNameRequired": "Last name is required"
+  },
+  "bulkPlayers": {
+    "createTitle": "Bulk create players",
+    "editTitle": "Bulk edit players",
+    "editScopeNote": "Only the rows currently shown in the table (current page and filters) can be edited here.",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "phone": "Phone",
+    "gender": "Gender",
+    "genderUnspecified": "Unspecified",
+    "birthDate": "Date of birth",
+    "jerseyNumber": "No.",
+    "mainPosition": "Main position",
+    "positionUnspecified": "None",
+    "joinDate": "Join date",
+    "addRow": "Add a row",
+    "removeRow": "Remove this row",
+    "submitCreate": "Save",
+    "submitEdit": "Save",
+    "createSuccess": "{count, plural, one {# player created successfully} other {# players created successfully}}",
+    "editSuccess": "{count, plural, one {# player updated successfully} other {# players updated successfully}}",
+    "firstNameRequired": "First name is required",
+    "lastNameRequired": "Last name is required"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "pageInfo": "Page {page} of {totalPages}",
+    "rowsPerPage": "Rows per page"
+  },
   "errors": {
     "AUTH": {
       "INVALID_CREDENTIALS": "Incorrect email or password",
@@ -523,7 +595,8 @@
       "UNKNOWN": "An unexpected error occurred"
     },
     "MEMBERS": {
-      "NOT_FOUND": "Member not found"
+      "NOT_FOUND": "Member not found",
+      "REFERENCED_ELSEWHERE": "This member left data on other players (notes, evaluations, interviews, absences, or objectives): archive them instead, or confirm full deletion to anonymize this data"
     },
     "PLAYERS": {
       "MEMBER_NOT_IN_CLUB": "This member does not belong to this club",
@@ -536,6 +609,12 @@
       "ALREADY_ACTIVE": "This player already has an active assignment in this team",
       "JERSEY_NUMBER_TAKEN": "This jersey number is already taken in this team",
       "NOT_FOUND": "Assignment not found"
+    },
+    "ROSTER": {
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "ARCHIVE_FORBIDDEN": "You don't have permission to view archived members",
+      "PLAYER_TEAM_NOT_FOUND": "One of the rows doesn't match any existing assignment in this team",
+      "JERSEY_NUMBER_TAKEN": "Two rows use the same jersey number, or this number is already taken in this team"
     },
     "PLAYER_MEASUREMENTS": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",

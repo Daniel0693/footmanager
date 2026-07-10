@@ -54,6 +54,130 @@ export class MembersService {
     return this.prisma.member.update({ where: { id }, data });
   }
 
+  /**
+   * Suppression RGPD en cascade (docs/decisions-ouvertes-et-rgpd.md,
+   * docs/modules/effectif-joueurs.md) : supprime le Member de CE club et
+   * toutes ses données scopées club (jamais le User — identifiants de
+   * connexion partagés entre clubs, voir la règle du plan).
+   *
+   * Flux en deux temps pour un membre du STAFF référencé comme auteur/
+   * évaluateur/référent sur les données d'AUTRES joueurs (notes,
+   * évaluations, entretiens, absences, objectifs) :
+   * 1. Par défaut, bloqué (409 MEMBERS.REFERENCED_ELSEWHERE, détail des
+   *    compteurs) — archiver est le chemin recommandé dans l'immense
+   *    majorité des cas.
+   * 2. Si `forceAnonymize` est explicitement transmis, ces références sont
+   *    anonymisées (champ auteur mis à `null`) plutôt que de bloquer — le
+   *    membre du STAFF a le droit de faire disparaître complètement ses
+   *    données en cas de conflit.
+   *
+   * Les données dont CE membre est lui-même le SUJET (ses propres notes,
+   * évaluations, absences...) sont toujours supprimées, jamais anonymisées
+   * — l'auto-référencement (ce membre auteur d'une donnée sur lui-même) est
+   * donc exclu du comptage ci-dessus, il disparaît de toute façon avec le
+   * reste de ses données.
+   */
+  async remove(
+    clubId: number,
+    id: number,
+    options: { forceAnonymize?: boolean } = {},
+  ) {
+    const member = await this.prisma.member.findFirst({
+      where: { id, clubId },
+      include: { playerProfile: true },
+    });
+    if (!member) {
+      throw new AppException('MEMBERS.NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+
+    const referenced = await this.countReferencedElsewhere(id);
+    if (referenced.total > 0 && !options.forceAnonymize) {
+      throw new AppException(
+        'MEMBERS.REFERENCED_ELSEWHERE',
+        HttpStatus.CONFLICT,
+        referenced,
+      );
+    }
+
+    const playerId = member.playerProfile?.id;
+
+    await this.prisma.$transaction(async (tx) => {
+      if (referenced.total > 0) {
+        const notInSelf = { player: { memberId: { not: id } } };
+        await tx.playerNote.updateMany({
+          where: { authorId: id, ...notInSelf },
+          data: { authorId: null },
+        });
+        await tx.playerEvaluation.updateMany({
+          where: { evaluatorId: id, ...notInSelf },
+          data: { evaluatorId: null },
+        });
+        await tx.playerInterview.updateMany({
+          where: { staffId: id, ...notInSelf },
+          data: { staffId: null },
+        });
+        await tx.playerAbsence.updateMany({
+          where: { reportedById: id, ...notInSelf },
+          data: { reportedById: null },
+        });
+        await tx.playerObjective.updateMany({
+          where: { assignedById: id, ...notInSelf },
+          data: { assignedById: null },
+        });
+      }
+
+      // Ordre imposé par les contraintes FK : tout ce qui référence
+      // PlayerProfile/Member doit disparaître avant eux. PlayerEvaluationScore
+      // n'a pas besoin d'une suppression explicite (onDelete: Cascade via
+      // PlayerEvaluation, voir schema.prisma).
+      if (playerId) {
+        await tx.playerEvaluation.deleteMany({ where: { playerId } });
+        await tx.playerMeasurement.deleteMany({ where: { playerId } });
+        await tx.playerNote.deleteMany({ where: { playerId } });
+        await tx.playerObjective.deleteMany({ where: { playerId } });
+        await tx.playerInterview.deleteMany({ where: { playerId } });
+        await tx.playerAbsence.deleteMany({ where: { playerId } });
+        await tx.playerTeam.deleteMany({ where: { playerId } });
+      }
+      await tx.teamStaff.deleteMany({ where: { memberId: id } });
+      await tx.memberRole.deleteMany({ where: { memberId: id } });
+      if (playerId) {
+        await tx.playerProfile.delete({ where: { id: playerId } });
+      }
+      await tx.member.delete({ where: { id } });
+    });
+  }
+
+  private async countReferencedElsewhere(memberId: number) {
+    const notInSelf = { memberId: { not: memberId } };
+    const [notes, evaluations, interviews, absences, objectives] =
+      await Promise.all([
+        this.prisma.playerNote.count({
+          where: { authorId: memberId, player: notInSelf },
+        }),
+        this.prisma.playerEvaluation.count({
+          where: { evaluatorId: memberId, player: notInSelf },
+        }),
+        this.prisma.playerInterview.count({
+          where: { staffId: memberId, player: notInSelf },
+        }),
+        this.prisma.playerAbsence.count({
+          where: { reportedById: memberId, player: notInSelf },
+        }),
+        this.prisma.playerObjective.count({
+          where: { assignedById: memberId, player: notInSelf },
+        }),
+      ]);
+    return {
+      notes,
+      evaluations,
+      interviews,
+      absences,
+      objectives,
+      total: notes + evaluations + interviews + absences + objectives,
+    };
+  }
+
   findByUserAndClub(userId: number, clubId: number) {
     return this.prisma.member.findUnique({
       where: { userId_clubId: { userId, clubId } },

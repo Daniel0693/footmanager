@@ -15,6 +15,7 @@ import { CurrentPermissionScope } from '../auth/decorators/current-permission-sc
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { ArchiveTeamStaffDto } from './dto/archive-team-staff.dto';
 import { CreateTeamStaffDto } from './dto/create-team-staff.dto';
 import { UpdateTeamStaffDto } from './dto/update-team-staff.dto';
 import { TeamStaffService } from './team-staff.service';
@@ -57,6 +58,25 @@ export class TeamStaffController {
       memberId: member.id,
       scope,
     });
+  }
+
+  @RequirePermission('team_staff', 'UPDATE')
+  @Patch(':id/archive')
+  archive(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ArchiveTeamStaffDto,
+    @CurrentMember() member: Member,
+    @CurrentPermissionScope() scope: PermissionScope,
+  ) {
+    return this.teamStaffService.archive(
+      clubId,
+      teamId,
+      id,
+      { memberId: member.id, scope },
+      dto.endDate,
+    );
   }
 
   @RequirePermission('team_staff', 'DELETE')

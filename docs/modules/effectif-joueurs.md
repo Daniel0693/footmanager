@@ -12,8 +12,167 @@
 
 ## Liste de l'effectif — filtres par poste
 
-Table par équipe : numéro de maillot, nom, poste principal (badge), poste(s) secondaire(s). Deux
-filtres combinables :
+> **En cours (branche `feature/effectif-tableau-avance`)** : refonte vers un tableau unifié
+> Joueurs + Staff — voir le plan associé. Prérequis déjà en place : nouvelle permission
+> `roster_archive READ` (scope TEAM pour Coach, CLUB pour AdminClub, ALL pour
+> SuperAdmin/Proprietaire — jamais Player) pour gater le filtre Actif/Archivé indépendamment
+> du scope `player_team`/`team_staff` déjà partagé par Coach et Player ; `team_staff READ
+> TEAM` étendu au rôle Player (absent jusqu'ici) pour qu'il puisse voir le staff dans le
+> tableau unifié. B5 (frontend) en cours d'implémentation, par incréments (voir plus bas).
+>
+> **B1 — `GET /clubs/:clubId/teams/:teamId/roster` (implémenté)** : lecture unifiée
+> `backend/src/roster/`. Fusionne `PlayerTeam` et `TeamStaff` en une forme commune
+> (`RosterRow` : `id` de l'affectation sous-jacente, `memberId`, `playerId` — id du
+> `PlayerProfile`, `null` pour une ligne staff, nécessaire au frontend pour rouvrir
+> `PlayerFormDialog` en édition (B5) —, `role` — `"PLAYER"` ou `TeamStaffRole` —,
+> `firstName`/`lastName`/`phone`/`email`/`gender`/`birthDate` du `Member`/`User` lié,
+> `jerseyNumber`/`mainPosition`/`secondaryPositions`/`joinDate` pour les joueurs uniquement
+> (`joinDate` toujours `null` pour le staff — n'existe pas sur `TeamStaff`), `isArchived`),
+> triée/paginée en mémoire (volume par équipe trop faible pour justifier une
+> jointure SQL unifiée). Query params : `status` (`ACTIVE` par défaut / `ARCHIVED` / `ALL`,
+> vérifie `roster_archive READ` seulement si différent de `ACTIVE`), `position` (si présent,
+> le staff — qui ne peut jamais y correspondre — est exclu du résultat plutôt que renvoyé
+> puis filtré), `sortBy` (`jerseyNumber`/`lastName`/`phone`/`email`/`birthDate`/`role` — les
+> valeurs nulles sont toujours reléguées en fin de liste, quel que soit le sens de tri),
+> `sortOrder`, `page`, `pageSize` (20/50/100, défaut 20). Gardé par `player_team READ`
+> (ressource principale) ; si l'appelant n'a pas `team_staff READ` (rôle personnalisé
+> restreint), le staff est silencieusement omis plutôt que de renvoyer un 403 — un roster
+> partiel plutôt qu'une erreur.
+>
+> **Indicateurs de capacité (B5)** : la réponse inclut aussi `canViewArchived`
+> (`roster_archive READ`), `canCreate`/`canEdit` (`player_team CREATE`/`UPDATE`) et
+> `canDelete` (`member DELETE`) — calculés via `PermissionsService`, jamais un nouvel
+> endpoint "mes permissions". Le frontend n'a aucune infrastructure de permission côté
+> client ; il se contente d'afficher/cacher le filtre Actif/Archivé et les boutons Créer/
+> Éditer/Supprimer en masse selon ces booléens, la décision d'autorisation réelle restant
+> entièrement backend (règle d'or, `docs/modules/auth-roles.md`).
+>
+> **B2 — action Archiver (implémentée)** : `PATCH .../players/:id/archive` sur
+> `PlayerTeamsService.archive` (fixe `leaveDate`) et `PATCH .../staff/:id/archive` sur
+> `TeamStaffService.archive` (fixe `endDate`) — deux endpoints minces qui délèguent
+> entièrement à `update()` existant (corps optionnel `{ leaveDate }`/`{ endDate }`, défaut
+> aujourd'hui si omis). Aucune permission nouvelle : réutilise `player_team UPDATE`/
+> `team_staff UPDATE` déjà seedées, y compris `assertCanModifyPrincipal` côté staff (un
+> Adjoint/Co-entraîneur ne peut pas archiver la fiche d'un *autre* Principal).
+>
+> **B3 — suppression RGPD en cascade (implémentée)** : `DELETE /clubs/:clubId/members/:id`
+> sur `MembersController`/`MembersService.remove` (permission `member DELETE`, réservée
+> AdminClub/SuperAdmin/Proprietaire — absente du Coach dans le seed, qui garde le droit
+> d'archiver, pas de supprimer définitivement). Corps optionnel `{ forceAnonymize?: boolean }`.
+> Ne supprime jamais le `User` lié (identifiants de connexion). Flux en deux temps pour un
+> membre référencé comme auteur/évaluateur/référent (`PlayerNote.authorId`,
+> `PlayerEvaluation.evaluatorId`, `PlayerInterview.staffId`, `PlayerAbsence.reportedById`,
+> `PlayerObjective.assignedById`) sur des données d'**autres** joueurs (l'auto-référencement
+> est exclu du comptage, il disparaît de toute façon avec le reste des données du membre) :
+> - Par défaut, bloqué (409 `MEMBERS.REFERENCED_ELSEWHERE`, `details` = compteur par type +
+>   total) — archiver est le chemin recommandé.
+> - Avec `forceAnonymize: true`, ces références sont anonymisées (`authorId`/`evaluatorId`/...
+>   mis à `null`, colonnes désormais nullables — voir `docs/schema/joueurs.md` §PlayerNote)
+>   plutôt que de bloquer, puis la suppression se poursuit normalement.
+>
+> Une seule transaction Prisma supprime ensuite, dans l'ordre imposé par les contraintes FK,
+> tout ce dont ce membre est le SUJET : `PlayerEvaluation` (cascade `PlayerEvaluationScore`),
+> `PlayerMeasurement`, `PlayerNote`, `PlayerObjective`, `PlayerInterview`, `PlayerAbsence`,
+> `PlayerTeam`, puis `TeamStaff`/`MemberRole`, puis `PlayerProfile`, puis `Member`.
+>
+> **B4 — création/édition en masse (implémentée, joueurs uniquement)** :
+> `POST`/`PATCH /clubs/:clubId/teams/:teamId/roster/bulk` sur `RosterController`/
+> `RosterService.bulkCreate`/`bulkUpdate`. Une seule transaction Prisma par requête,
+> tout-ou-rien (décision produit) : `POST` crée `Member` + `PlayerProfile` + `PlayerTeam`
+> pour chaque ligne (`CreateRosterRowDto` : identité + `jerseyNumber`/`mainPosition`/
+> `secondaryPositions`/`joinDate`) ; `PATCH` cible un `PlayerTeam` existant par `id`
+> (`UpdateRosterRowDto`, mêmes champs + `leaveDate`) et met à jour `Member`+`PlayerTeam`.
+> L'unicité du numéro de maillot est vérifiée ligne par ligne **dans** la transaction : une
+> insertion devient visible aux vérifications suivantes de la même transaction, ce qui
+> détecte aussi bien un conflit avec une affectation déjà active qu'un doublon entre deux
+> lignes du même envoi, sans logique dédiée aux doublons intra-lot. Scope volontairement
+> limité aux joueurs (pas de bulk staff) — non demandé par le plan initial, à étendre si le
+> besoin se confirme. Permission `player_team CREATE`/`UPDATE` déjà seedée TEAM (Coach) /
+> CLUB/ALL (AdminClub/SuperAdmin/Proprietaire) — aucun changement de seed nécessaire.
+>
+> **B5.1/B5.2 — tableau unifié : lecture, tri, pagination, filtre statut (implémenté)** :
+> `frontend/.../teams/[teamId]/players/page.tsx` consomme désormais `GET .../roster` au lieu
+> de `GET .../players`. Nouveau composant réutilisable `components/ui/pagination.tsx`
+> (`Pagination` + `PageSizeSelect`, tailles 20/50/100). Colonnes : N°, Nom, Prénom,
+> Téléphone, Email, Date de naissance, Poste principal (badge), Postes secondaires (badges
+> `variant="outline"`), Rôle (badge — nouvelle table de traduction `rosterRoles`,
+> première apparition du staff dans le frontend). En-têtes triables (N°/Nom/Téléphone/Email/
+> Date de naissance/Rôle) : un clic trie ascendant, un second clic sur la même colonne
+> inverse le sens (icônes `lucide-react` `ArrowUp`/`ArrowDown`/`ArrowUpDown`). Filtre Statut
+> (Actifs/Archivés/Tous) affiché seulement si `canViewArchived` ; bouton "Ajouter un joueur"
+> affiché seulement si `canCreate` — aucune infrastructure de permission côté client,
+> uniquement ces deux booléens transmis par le backend (voir "Indicateurs de capacité"
+> ci-dessus). Changer un filtre/tri/taille de page remet toujours la pagination à la page 1.
+> B5.4 (modales de création/édition en masse) implémenté, voir plus bas — le module Effectif
+> (Partie B du plan) est désormais complet.
+>
+> **B5.3 — colonne Actions : Éditer/Archiver/Supprimer (implémenté)** :
+> `components/players/roster-row-actions.tsx` (menu `dropdown-menu.tsx`), affiché seulement
+> si `canEdit || canDelete` (colonne entière masquée sinon). "Éditer" diverge selon le rôle
+> de la ligne :
+> - **Joueur** : va chercher le détail complet via `GET /clubs/:clubId/players/:playerId`
+>   (licenseNumber/nationality/preferredFoot/gender/joinDate, absents du `RosterRow` léger
+>   de la liste), puis ouvre `PlayerFormDialog` existant pré-rempli. `PlayerFormDialog` a été
+>   étendu (props `open`/`onOpenChange` optionnelles, `trigger` devenu optionnel) pour
+>   supporter ce mode contrôlé sans trigger visible, en plus de son usage historique
+>   self-managé (inchangé, entièrement rétrocompatible).
+> - **Staff** : ouvre `staff-form-dialog.tsx` (nouveau, édition seulement — aucun bouton de
+>   création de membre du staff, hors périmètre du plan). Ne couvre que les champs déjà
+>   présents sur `RosterRow` (nom/prénom/téléphone/date de naissance/rôle) : aucun fetch
+>   supplémentaire, contrairement au joueur. `gender` et `TeamStaff.startDate` restent hors
+>   de ce formulaire (jamais envoyés dans les PATCH, donc jamais modifiés).
+>
+> "Archiver" (`archive-row-dialog.tsx`, confirmation simple) appelle le bon endpoint B2 selon
+> le rôle (`.../players/:id/archive` ou `.../staff/:id/archive`). "Supprimer" (visible
+> seulement si `canDelete`) ouvre `delete-member-dialog.tsx` : confirmation, puis sur 409
+> `MEMBERS.REFERENCED_ELSEWHERE` bascule vers une seconde confirmation renforcée avant de
+> renvoyer `forceAnonymize: true` (flux B3 complet).
+>
+> **Compromis délibéré** : pas de vérification côté client de la règle "un Adjoint/Co-
+> entraîneur ne peut pas modifier la fiche d'un *autre* Principal" (`assertCanModifyPrincipal`)
+> — `canEdit` reflète le scope UPDATE général, pas ce cas précis par ligne (nécessiterait de
+> connaître le memberId ET le scope exact de l'appelant, non exposés aujourd'hui). Les boutons
+> restent affichés ; le backend refuse (403) le cas échéant, affiché via un simple toast
+> d'erreur plutôt qu'un masquage préventif — jamais un risque de sécurité, la règle d'or reste
+> appliquée côté backend.
+>
+> **B5.4 — création/édition en masse, joueurs uniquement (implémenté)** : deux boutons
+> ("Créer des joueurs en masse" / "Éditer des joueurs en masse") près de "Ajouter un joueur",
+> gardés respectivement par `canCreate`/`canEdit`, ouvrant une modale pleine largeur
+> (`bulk-create-players-dialog.tsx` / `bulk-edit-players-dialog.tsx`) avec un tableau éditable
+> — lignes de saisie partagées via `bulk-player-row-fields.tsx` (identité, téléphone, genre,
+> date de naissance, N°, poste principal, date d'arrivée ; un seul poste secondaire non
+> proposé ici, même simplification que `PlayerFormDialog`). Chaque appel `POST`/`PATCH
+> .../roster/bulk` (B4) envoie toutes les lignes en une fois, tout-ou-rien : une erreur
+> transactionnelle (ex. conflit de numéro de maillot) laisse la modale ouverte et affiche un
+> toast d'erreur global, jamais une erreur par ligne (la validation par ligne — champs requis
+> — reste, elle, `zod` côté client, avant tout envoi réseau).
+> - **Créer** : part d'une seule ligne vide, "Ajouter une ligne" en ajoute d'autres,
+>   "Retirer cette ligne" en retire (désactivé s'il n'en reste qu'une).
+> - **Éditer** : lignes FIGÉES, pré-remplies depuis le roster **actuellement affiché** (page
+>   et filtres en cours — note explicite dans la modale), chacune ciblant un `PlayerTeam`
+>   existant par son `id` cette fois non modifiable.
+>
+> Vérifié en live (création de deux lignes, édition en masse du nom d'une ligne, rollback
+> complet + modale qui reste ouverte sur un conflit de maillot volontairement provoqué) en
+> plus des tests unitaires.
+>
+> **Correctif 2026-07-10 — genre/date de naissance/date d'arrivée pas pré-remplis en édition
+> (signalé par l'utilisateur)** : deux bugs distincts.
+> 1. `gender`/`joinDate` étaient absents de `RosterRow` (B1) — déjà chargés côté backend
+>    (`Member.gender`, `PlayerTeam.joinDate`), juste jamais mappés dans la réponse. Désormais
+>    exposés, aucun coût réseau supplémentaire.
+> 2. `birthDate`/`joinDate` ne se pré-remplissaient dans AUCUN `<input type="date">` du module
+>    (`PlayerFormDialog`, `StaffFormDialog`, `bulk-edit-players-dialog.tsx`) dès que la valeur
+>    contenait un composant horaire — l'API sérialise toujours une date en ISO complet
+>    (`"2011-03-04T00:00:00.000Z"`), mais `<input type="date">` n'accepte que `"AAAA-MM-JJ"` et
+>    rejette silencieusement toute autre valeur (champ vide, aucune erreur visible). Corrigé en
+>    tronquant à `.slice(0, 10)` avant d'alimenter `defaultValues`/`toRowValues` — même
+>    correctif déjà appliqué ailleurs dans le projet (`absence-form-dialog.tsx`,
+>    `objective-form-dialog.tsx`, etc.), qui aurait dû être repris ici dès l'écriture initiale.
+
+Tableau par équipe (voir le tableau unifié Joueurs + Staff plus haut pour les colonnes
+actuelles). Deux filtres de poste combinables (en plus du filtre Statut) :
 - **Par ligne** (Gardien/Défense/Milieu/Attaque) — la ligne n'est pas stockée en base, elle est
   dérivée du poste précis en code (voir `docs/schema/index.md` §enum `Position`). Sélectionner
   une ligne réduit les postes proposés dans le second filtre à ceux de cette ligne.

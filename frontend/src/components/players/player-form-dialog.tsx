@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
-import { useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -87,7 +87,12 @@ function defaultValues(player?: ExistingPlayer): FormValues {
     gender: player?.gender ?? NONE,
     licenseNumber: player?.licenseNumber ?? "",
     nationality: player?.nationality ?? "",
-    birthDate: player?.birthDate ?? "",
+    // .slice(0, 10) : l'API renvoie une date ISO complète
+    // ("2011-03-04T00:00:00.000Z"), mais <input type="date"> n'accepte que
+    // "AAAA-MM-JJ" — sans ça, le navigateur rejette la valeur et affiche le
+    // champ vide (bug signalé 2026-07-10 ; même correctif déjà appliqué
+    // ailleurs dans le projet, voir absence-form-dialog.tsx/objective-form-dialog.tsx).
+    birthDate: player?.birthDate?.slice(0, 10) ?? "",
     preferredFoot: player?.preferredFoot ?? NONE,
     jerseyNumber: player?.jerseyNumber !== null && player?.jerseyNumber !== undefined
       ? String(player.jerseyNumber)
@@ -97,7 +102,7 @@ function defaultValues(player?: ExistingPlayer): FormValues {
     // tableau) : la sélection de plusieurs postes secondaires se fait via le
     // terrain interactif de la fiche joueur (décision du 2026-07-06).
     secondaryPosition: player?.secondaryPositions[0] ?? NONE,
-    joinDate: player?.joinDate ?? "",
+    joinDate: player?.joinDate?.slice(0, 10) ?? "",
   };
 }
 
@@ -107,12 +112,22 @@ export function PlayerFormDialog({
   trigger,
   player,
   onSuccess,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
 }: {
   clubId: string;
   teamId: string;
-  trigger: ReactElement;
+  trigger?: ReactElement;
   player?: ExistingPlayer;
   onSuccess: () => void;
+  // Mode contrôlé (colonne Actions du tableau roster, B5.3) : "Éditer" doit
+  // d'abord aller chercher les champs absents du RosterRow léger de la
+  // liste (licenseNumber/nationality/preferredFoot/gender/joinDate) avant
+  // d'ouvrir la modale — impossible avec le seul <DialogTrigger> déclenché
+  // au clic. Sans ces deux props, le composant reste self-managé (trigger
+  // visible + état interne), comportement inchangé pour les usages existants.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const mode = player ? "edit" : "create";
   const t = useTranslations("playerForm");
@@ -121,7 +136,9 @@ export function PlayerFormDialog({
   const tPositions = useTranslations("positions");
   const tErrors = useTranslations("errors");
   const { accessToken } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChangeProp ?? setInternalOpen;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -135,11 +152,17 @@ export function PlayerFormDialog({
     defaultValues: defaultValues(player),
   });
 
+  // Effet plutôt qu'un reset() dans handleOpenChange : en mode contrôlé, le
+  // parent fait souvent setPlayer(data) + setOpen(true) dans le même batch
+  // (après un fetch), donc `onOpenChange` du Dialog ne se déclenche jamais
+  // — seule la prop `open` change entre deux rendus. Un effet réagissant à
+  // `open`/`player` couvre les deux modes.
+  useEffect(() => {
+    if (open) reset(defaultValues(player));
+  }, [open, player, reset]);
+
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
-    if (nextOpen) {
-      reset(defaultValues(player));
-    }
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -245,7 +268,7 @@ export function PlayerFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={trigger} />
+      {trigger && <DialogTrigger render={trigger} />}
       <DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? t("createTitle") : t("editTitle")}</DialogTitle>

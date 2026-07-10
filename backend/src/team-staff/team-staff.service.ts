@@ -65,6 +65,27 @@ export class TeamStaffService {
     });
   }
 
+  // Action de premier ordre pour le bouton "Archiver" du tableau effectif
+  // (docs/modules/effectif-joueurs.md) plutôt qu'un PATCH générique — délègue
+  // entièrement à update() (mêmes vérifications, y compris
+  // assertCanModifyPrincipal), fixe juste endDate à aujourd'hui si aucune
+  // date n'est choisie.
+  async archive(
+    clubId: number,
+    teamId: number,
+    id: number,
+    requester: StaffRequestContext,
+    endDate?: Date,
+  ) {
+    return this.update(
+      clubId,
+      teamId,
+      id,
+      { endDate: endDate ?? new Date() },
+      requester,
+    );
+  }
+
   async update(
     clubId: number,
     teamId: number,
