@@ -102,7 +102,8 @@
 > affiché seulement si `canCreate` — aucune infrastructure de permission côté client,
 > uniquement ces deux booléens transmis par le backend (voir "Indicateurs de capacité"
 > ci-dessus). Changer un filtre/tri/taille de page remet toujours la pagination à la page 1.
-> Reste à faire : B5.4 (modales de création/édition en masse).
+> B5.4 (modales de création/édition en masse) implémenté, voir plus bas — le module Effectif
+> (Partie B du plan) est désormais complet.
 >
 > **B5.3 — colonne Actions : Éditer/Archiver/Supprimer (implémenté)** :
 > `components/players/roster-row-actions.tsx` (menu `dropdown-menu.tsx`), affiché seulement
@@ -133,6 +134,29 @@
 > restent affichés ; le backend refuse (403) le cas échéant, affiché via un simple toast
 > d'erreur plutôt qu'un masquage préventif — jamais un risque de sécurité, la règle d'or reste
 > appliquée côté backend.
+>
+> **B5.4 — création/édition en masse, joueurs uniquement (implémenté)** : deux boutons
+> ("Créer des joueurs en masse" / "Éditer des joueurs en masse") près de "Ajouter un joueur",
+> gardés respectivement par `canCreate`/`canEdit`, ouvrant une modale pleine largeur
+> (`bulk-create-players-dialog.tsx` / `bulk-edit-players-dialog.tsx`) avec un tableau éditable
+> — lignes de saisie partagées via `bulk-player-row-fields.tsx` (identité, téléphone, genre,
+> date de naissance, N°, poste principal, date d'arrivée ; un seul poste secondaire non
+> proposé ici, même simplification que `PlayerFormDialog`). Chaque appel `POST`/`PATCH
+> .../roster/bulk` (B4) envoie toutes les lignes en une fois, tout-ou-rien : une erreur
+> transactionnelle (ex. conflit de numéro de maillot) laisse la modale ouverte et affiche un
+> toast d'erreur global, jamais une erreur par ligne (la validation par ligne — champs requis
+> — reste, elle, `zod` côté client, avant tout envoi réseau).
+> - **Créer** : part d'une seule ligne vide, "Ajouter une ligne" en ajoute d'autres,
+>   "Retirer cette ligne" en retire (désactivé s'il n'en reste qu'une).
+> - **Éditer** : lignes FIGÉES, pré-remplies depuis le roster **actuellement affiché** (page
+>   et filtres en cours — note explicite dans la modale), chacune ciblant un `PlayerTeam`
+>   existant par son `id` cette fois non modifiable. `gender` n'est pas dans `RosterRow`
+>   (voir B1) : toujours "Non renseigné" au chargement, envoyé (donc modifié) seulement si
+>   explicitement choisi.
+>
+> Vérifié en live (création de deux lignes, édition en masse du nom d'une ligne, rollback
+> complet + modale qui reste ouverte sur un conflit de maillot volontairement provoqué) en
+> plus des tests unitaires.
 
 Tableau par équipe (voir le tableau unifié Joueurs + Staff plus haut pour les colonnes
 actuelles). Deux filtres de poste combinables (en plus du filtre Statut) :

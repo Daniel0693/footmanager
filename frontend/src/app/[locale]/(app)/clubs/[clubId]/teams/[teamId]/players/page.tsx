@@ -22,6 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { BulkCreatePlayersDialog } from "@/components/players/bulk-create-players-dialog";
+import { BulkEditPlayersDialog } from "@/components/players/bulk-edit-players-dialog";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { RosterRowActions } from "@/components/players/roster-row-actions";
 import { Link } from "@/i18n/navigation";
@@ -90,6 +92,7 @@ export function TeamPlayersPageContent({
   teamId: string;
 }) {
   const t = useTranslations("players");
+  const tBulk = useTranslations("bulkPlayers");
   const tRoles = useTranslations("rosterRoles");
   const tPositions = useTranslations("positions");
   const tPositionLines = useTranslations("positionLines");
@@ -187,6 +190,13 @@ export function TeamPlayersPageContent({
     [lineFilter],
   );
 
+  // Édition en masse (B4) : joueurs uniquement, limités aux lignes
+  // ACTUELLEMENT affichées (page/filtres en cours) — voir bulkPlayers.editScopeNote.
+  const playerRows = useMemo(
+    () => (rows ?? []).filter((row) => row.role === "PLAYER"),
+    [rows],
+  );
+
   const handleLineChange = useCallback((value: PositionLine | typeof ALL | null) => {
     setLineFilter(value ?? ALL);
     setPositionFilter(ALL);
@@ -249,14 +259,33 @@ export function TeamPlayersPageContent({
       </Link>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
-        {capabilities.canCreate && (
-          <PlayerFormDialog
-            clubId={clubId}
-            teamId={teamId}
-            onSuccess={loadRoster}
-            trigger={<Button>{t("addPlayer")}</Button>}
-          />
-        )}
+        <div className="flex gap-2">
+          {capabilities.canCreate && (
+            <BulkCreatePlayersDialog
+              clubId={clubId}
+              teamId={teamId}
+              onSuccess={loadRoster}
+              trigger={<Button variant="outline">{tBulk("createTitle")}</Button>}
+            />
+          )}
+          {capabilities.canEdit && playerRows.length > 0 && (
+            <BulkEditPlayersDialog
+              clubId={clubId}
+              teamId={teamId}
+              rows={playerRows}
+              onSuccess={loadRoster}
+              trigger={<Button variant="outline">{tBulk("editTitle")}</Button>}
+            />
+          )}
+          {capabilities.canCreate && (
+            <PlayerFormDialog
+              clubId={clubId}
+              teamId={teamId}
+              onSuccess={loadRoster}
+              trigger={<Button>{t("addPlayer")}</Button>}
+            />
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-4">
