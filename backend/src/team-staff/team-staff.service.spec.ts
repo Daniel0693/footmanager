@@ -234,6 +234,60 @@ describe('TeamStaffService', () => {
     });
   });
 
+  describe('archive — action de premier ordre, délègue à update()', () => {
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-07-10T12:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("fixe endDate à aujourd'hui quand aucune date n'est transmise", async () => {
+      tsFindFirst.mockResolvedValue(adjointAssignment);
+      tsUpdate.mockResolvedValue({ ...adjointAssignment, endDate: new Date() });
+
+      await service.archive(1, 5, 301, { memberId: 99, scope: 'CLUB' });
+
+      expect(tsUpdate).toHaveBeenCalledWith({
+        where: { id: 301 },
+        data: {
+          staffRole: undefined,
+          startDate: undefined,
+          endDate: new Date('2026-07-10T12:00:00.000Z'),
+        },
+      });
+    });
+
+    it('utilise la date choisie si elle est transmise', async () => {
+      tsFindFirst.mockResolvedValue(adjointAssignment);
+      const endDate = new Date('2026-08-31');
+      tsUpdate.mockResolvedValue({ ...adjointAssignment, endDate });
+
+      await service.archive(
+        1,
+        5,
+        301,
+        { memberId: 99, scope: 'CLUB' },
+        endDate,
+      );
+
+      expect(tsUpdate).toHaveBeenCalledWith({
+        where: { id: 301 },
+        data: { staffRole: undefined, startDate: undefined, endDate },
+      });
+    });
+
+    it("respecte assertCanModifyPrincipal : un scope TEAM ne peut pas archiver la fiche d'un AUTRE Principal", async () => {
+      tsFindFirst.mockResolvedValue(principalAssignment);
+
+      await expect(
+        service.archive(1, 5, 300, { memberId: 42, scope: 'TEAM' }),
+      ).rejects.toMatchObject({ status: HttpStatus.FORBIDDEN });
+      expect(tsUpdate).not.toHaveBeenCalled();
+    });
+  });
+
   describe('remove — même exception que update', () => {
     it("un scope TEAM ne peut pas retirer la fiche d'un AUTRE membre Principal", async () => {
       tsFindFirst.mockResolvedValue(principalAssignment);

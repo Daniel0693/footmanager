@@ -18,8 +18,7 @@
 > SuperAdmin/Proprietaire — jamais Player) pour gater le filtre Actif/Archivé indépendamment
 > du scope `player_team`/`team_staff` déjà partagé par Coach et Player ; `team_staff READ
 > TEAM` étendu au rôle Player (absent jusqu'ici) pour qu'il puisse voir le staff dans le
-> tableau unifié. Restent à faire : B2 (archiver), B3 (suppression RGPD), B4 (bulk), B5
-> (frontend).
+> tableau unifié. Restent à faire : B3 (suppression RGPD), B4 (bulk), B5 (frontend).
 >
 > **B1 — `GET /clubs/:clubId/teams/:teamId/roster` (implémenté)** : lecture unifiée
 > `backend/src/roster/`. Fusionne `PlayerTeam` et `TeamStaff` en une forme commune
@@ -36,6 +35,14 @@
 > (ressource principale) ; si l'appelant n'a pas `team_staff READ` (rôle personnalisé
 > restreint), le staff est silencieusement omis plutôt que de renvoyer un 403 — un roster
 > partiel plutôt qu'une erreur.
+>
+> **B2 — action Archiver (implémentée)** : `PATCH .../players/:id/archive` sur
+> `PlayerTeamsService.archive` (fixe `leaveDate`) et `PATCH .../staff/:id/archive` sur
+> `TeamStaffService.archive` (fixe `endDate`) — deux endpoints minces qui délèguent
+> entièrement à `update()` existant (corps optionnel `{ leaveDate }`/`{ endDate }`, défaut
+> aujourd'hui si omis). Aucune permission nouvelle : réutilise `player_team UPDATE`/
+> `team_staff UPDATE` déjà seedées, y compris `assertCanModifyPrincipal` côté staff (un
+> Adjoint/Co-entraîneur ne peut pas archiver la fiche d'un *autre* Principal).
 
 Table par équipe : numéro de maillot, nom, poste principal (badge), poste(s) secondaire(s). Deux
 filtres combinables :

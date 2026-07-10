@@ -83,6 +83,16 @@ export class PlayerTeamsService {
     });
   }
 
+  // Action de premier ordre pour le bouton "Archiver" du tableau effectif
+  // (docs/modules/effectif-joueurs.md) plutôt qu'un PATCH générique — délègue
+  // entièrement à update() (même vérifications, même permission player_team
+  // UPDATE), fixe juste leaveDate à aujourd'hui si aucune date n'est choisie.
+  async archive(clubId: number, teamId: number, id: number, leaveDate?: Date) {
+    return this.update(clubId, teamId, id, {
+      leaveDate: leaveDate ?? new Date(),
+    });
+  }
+
   async update(
     clubId: number,
     teamId: number,

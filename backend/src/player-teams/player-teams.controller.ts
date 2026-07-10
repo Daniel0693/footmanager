@@ -13,6 +13,7 @@ import {
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { ArchivePlayerTeamDto } from './dto/archive-player-team.dto';
 import { CreatePlayerTeamDto } from './dto/create-player-team.dto';
 import { FindPlayerTeamsQueryDto } from './dto/find-player-teams-query.dto';
 import { UpdatePlayerTeamDto } from './dto/update-player-team.dto';
@@ -52,6 +53,17 @@ export class PlayerTeamsController {
     @Body() dto: UpdatePlayerTeamDto,
   ) {
     return this.playerTeamsService.update(clubId, teamId, id, dto);
+  }
+
+  @RequirePermission('player_team', 'UPDATE')
+  @Patch(':id/archive')
+  archive(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ArchivePlayerTeamDto,
+  ) {
+    return this.playerTeamsService.archive(clubId, teamId, id, dto.leaveDate);
   }
 
   @RequirePermission('player_team', 'DELETE')

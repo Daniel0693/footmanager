@@ -206,6 +206,62 @@ describe('PlayerTeamsService', () => {
     });
   });
 
+  describe('archive — action de premier ordre, délègue à update()', () => {
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-07-10T12:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("fixe leaveDate à aujourd'hui quand aucune date n'est transmise", async () => {
+      ptFindFirst.mockResolvedValue(assignment);
+      ptUpdate.mockResolvedValue({ ...assignment, leaveDate: new Date() });
+
+      await service.archive(1, 5, 200);
+
+      expect(ptUpdate).toHaveBeenCalledWith({
+        where: { id: 200 },
+        data: {
+          jerseyNumber: undefined,
+          mainPosition: undefined,
+          secondaryPositions: undefined,
+          joinDate: undefined,
+          leaveDate: new Date('2026-07-10T12:00:00.000Z'),
+        },
+      });
+    });
+
+    it('utilise la date choisie si elle est transmise', async () => {
+      ptFindFirst.mockResolvedValue(assignment);
+      const leaveDate = new Date('2026-08-31');
+      ptUpdate.mockResolvedValue({ ...assignment, leaveDate });
+
+      await service.archive(1, 5, 200, leaveDate);
+
+      expect(ptUpdate).toHaveBeenCalledWith({
+        where: { id: 200 },
+        data: {
+          jerseyNumber: undefined,
+          mainPosition: undefined,
+          secondaryPositions: undefined,
+          joinDate: undefined,
+          leaveDate,
+        },
+      });
+    });
+
+    it("renvoie 404 si l'affectation est introuvable (même vérification que update)", async () => {
+      ptFindFirst.mockResolvedValue(null);
+
+      await expect(service.archive(1, 5, 200)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+      });
+      expect(ptUpdate).not.toHaveBeenCalled();
+    });
+  });
+
   describe('update', () => {
     it('renvoie 404 si l’affectation est introuvable dans cette équipe/club', async () => {
       ptFindFirst.mockResolvedValue(null);
