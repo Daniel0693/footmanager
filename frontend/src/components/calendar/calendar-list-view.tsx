@@ -58,11 +58,18 @@ const MAX_AUTO_EXPANSIONS = 6;
 // accumulaient indéfiniment (spread sans jamais retirer les événements déjà
 // chargés) — un scroll prolongé grossissait le DOM/la mémoire sans limite.
 // Chaque extension purge maintenant l'extrémité opposée au-delà de cette
-// largeur totale (fenêtre initiale + une marge d'un CHUNK_DAYS, pour ne pas
-// purger dès la première extension). Les anniversaires n'ont pas besoin de
-// cette purge : ils sont déjà rechargés en entier à chaque changement de
-// borne (voir l'effet plus bas), jamais accumulés.
-const MAX_WINDOW_DAYS = INITIAL_PAST_DAYS + INITIAL_FUTURE_DAYS + CHUNK_DAYS;
+// largeur totale. Les anniversaires n'ont pas besoin de cette purge : ils
+// sont déjà rechargés en entier à chaque changement de borne (voir l'effet
+// plus bas), jamais accumulés.
+//
+// Valeur volontairement généreuse (~13 mois, pas juste "fenêtre initiale +
+// une marge") : un premier plafond à 104 jours (correctif initial) purgeait
+// l'extrémité opposée après seulement quelques secondes de scroll continu
+// dans un sens, ce qui faisait "disparaître" un événement lointain déjà vu
+// dès qu'on remontait puis redescendait — le mécanisme de purge fonctionnait
+// comme prévu, mais le plafond était trop serré pour une session
+// d'exploration normale. Reste fini (donc borné en mémoire), juste large.
+const MAX_WINDOW_DAYS = 400;
 
 // Calcule la borne opposée à imposer après l'extension d'un côté de la
 // fenêtre : inchangée si la largeur totale reste sous MAX_WINDOW_DAYS,

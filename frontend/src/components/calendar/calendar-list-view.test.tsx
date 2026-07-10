@@ -289,42 +289,73 @@ describe("CalendarListView", () => {
   });
 
   it("fenêtre glissante bornée : un scroll prolongé vers le passé purge le futur au-delà de MAX_WINDOW_DAYS (pas d'accumulation infinie)", async () => {
-    // Événement à aujourd'hui + 45j : dans la fenêtre initiale (+60j), et
-    // toujours dans la fenêtre après un premier loadOlder (span = 104j =
-    // MAX_WINDOW_DAYS, pas encore dépassé), mais hors fenêtre après un
-    // second loadOlder (span dépasse 104j, le futur se referme à +30j).
+    // Événement à aujourd'hui + 58j : dans la fenêtre initiale (+60j).
+    // MAX_WINDOW_DAYS = 400j (plafond volontairement généreux, voir le
+    // commentaire dans calendar-list-view.tsx — un plafond trop serré
+    // purgeait le futur après seulement quelques secondes de scroll vers le
+    // passé). Avec une extension de CHUNK_DAYS=30j par scroll, span =
+    // 74 + 30*i tant que le futur n'a jamais été replié : dépasse 400 au
+    // 11e scroll (74 + 330 = 404), qui referme alors le futur à
+    // -344 + 400 = +56j — sous les +58j de l'événement, qui disparaît.
     mockApiFetch.mockResolvedValueOnce(
-      jsonResponse([eventItem({ id: 1, title: "Événement lointain", startAt: "2026-08-24T10:00:00.000Z" })]),
+      jsonResponse([eventItem({ id: 1, title: "Événement lointain", startAt: "2026-09-06T10:00:00.000Z" })]),
     );
     renderWithIntl(
       <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
     await screen.findByText("Événement lointain");
+    // La suite du test n'a plus besoin d'une horloge figée (aucun nouvel
+    // appel à `new Date()` après le montage — les extensions suivantes se
+    // basent sur pastBoundary/futureBoundary déjà en state) : on repasse en
+    // horloge réelle pour que le planificateur de React puisse effectivement
+    // committer chaque mise à jour d'état entre deux scrolls successifs —
+    // sous horloge simulée, les scrolls suivants recalculaient tous la même
+    // fenêtre (React ne re-rendait jamais entre deux appels imperatifs).
+    jest.useRealTimers();
 
     const container = screen.getByTestId("calendar-list-scroll");
     Object.defineProperty(container, "scrollHeight", { value: 1000, configurable: true });
     Object.defineProperty(container, "clientHeight", { value: 400, configurable: true });
-    container.scrollTop = 50;
 
-    // Premier scroll vers le passé : span = 44 + 60 = 104 = MAX_WINDOW_DAYS,
-    // pas de purge — l'événement lointain reste visible.
+    // 10 scrolls vers le passé : span reste sous 400j (74 + 300 = 374), pas
+    // de purge — l'événement lointain reste visible. On attend, à chaque
+    // itération, que la borne passée affichée reflète bien ce scroll précis
+    // (pas seulement que l'appel réseau ait été émis) : entre deux scrolls
+    // imperatifs, React ne recommite pas forcément l'état avant que le verrou
+    // isLoadingMoreRef ne se libère — se fier au seul nombre d'appels laisse
+    // le rendu "en retard" d'un cran, ce qui décale artificiellement toute la
+    // séquence.
+    const expectedPastLabels = [
+      "27 mai", "27 avr.", "28 mars", "26 févr.", "27 janv.",
+      "28 déc.", "28 nov.", "29 oct.", "29 sept.", "30 août",
+    ];
     mockApiFetch.mockClear();
-    mockApiFetch.mockResolvedValue(jsonResponse([eventItem({ id: 2, title: "Ancien match 1" })]));
-    fireEvent.scroll(container);
-    await screen.findByText("Ancien match 1");
+    mockApiFetch.mockResolvedValue(jsonResponse([]));
+    for (const expectedLabel of expectedPastLabels) {
+      container.scrollTop = 50;
+      fireEvent.scroll(container);
+      await waitFor(() =>
+        expect(screen.getByTestId("calendar-list-visible-range").textContent).toContain(
+          expectedLabel,
+        ),
+      );
+    }
+    expect(mockApiFetch).toHaveBeenCalledTimes(10);
     expect(screen.getByText("Événement lointain")).toBeInTheDocument();
 
-    // Second scroll vers le passé : span = 74 + 60 = 134 > 104 — le futur
-    // se referme à +30j, l'événement à +45j sort de la fenêtre et disparaît.
-    mockApiFetch.mockClear();
-    mockApiFetch.mockResolvedValue(jsonResponse([eventItem({ id: 3, title: "Ancien match 2" })]));
+    // 11e scroll : span dépasse 400j, le futur se referme à +56j (04 sept.
+    // 2026) — l'événement à +58j (06 sept. 2026) sort de la fenêtre et
+    // disparaît.
     container.scrollTop = 50;
     fireEvent.scroll(container);
-    await screen.findByText("Ancien match 2");
+    await waitFor(() =>
+      expect(screen.getByTestId("calendar-list-visible-range").textContent).toContain(
+        "04 sept. 2026",
+      ),
+    );
+    expect(mockApiFetch).toHaveBeenCalledTimes(11);
 
     expect(screen.queryByText("Événement lointain")).not.toBeInTheDocument();
-    // Les deux événements anciens, dans la fenêtre bornée courante, restent.
-    expect(screen.getByText("Ancien match 1")).toBeInTheDocument();
   });
 
   it("supprime un événement de la liste sans recharger toute la fenêtre", async () => {
