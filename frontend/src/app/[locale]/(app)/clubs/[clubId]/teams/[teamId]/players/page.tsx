@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
+import { RosterRowActions } from "@/components/players/roster-row-actions";
 import { Link } from "@/i18n/navigation";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -344,6 +345,9 @@ export function TeamPlayersPageContent({
                 <TableHead>{t("mainPosition")}</TableHead>
                 <TableHead>{t("secondaryPosition")}</TableHead>
                 {sortableHead("role", t("roleColumn"))}
+                {(capabilities.canEdit || capabilities.canDelete) && (
+                  <TableHead className="text-right">{t("actions")}</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -389,6 +393,18 @@ export function TeamPlayersPageContent({
                   <TableCell>
                     <Badge variant="outline">{tRoles(row.role)}</Badge>
                   </TableCell>
+                  {(capabilities.canEdit || capabilities.canDelete) && (
+                    <TableCell className="text-right">
+                      <RosterRowActions
+                        clubId={clubId}
+                        teamId={teamId}
+                        row={row}
+                        canEdit={capabilities.canEdit}
+                        canDelete={capabilities.canDelete}
+                        onSuccess={loadRoster}
+                      />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

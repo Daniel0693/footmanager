@@ -99,7 +99,22 @@
     "statusActive": "Actifs",
     "statusArchived": "Archivés",
     "statusAll": "Tous",
-    "addPlayer": "Ajouter un joueur"
+    "addPlayer": "Ajouter un joueur",
+    "actions": "Actions",
+    "cancel": "Annuler",
+    "edit": "Éditer",
+    "archive": "Archiver",
+    "delete": "Supprimer",
+    "archiveConfirmTitle": "Archiver ce membre ?",
+    "archiveConfirmDescription": "Le membre n'apparaîtra plus dans l'effectif actif, mais ses données sont conservées et restent consultables via le filtre \"Archivés\".",
+    "archiveConfirm": "Archiver",
+    "archived": "Membre archivé avec succès",
+    "deleteConfirmTitle": "Supprimer définitivement ce membre ?",
+    "deleteConfirmDescription": "Cette action est irréversible : toutes les données de ce membre (mesures, notes, évaluations, entretiens, absences, affectations) seront supprimées. Le compte de connexion, s'il existe, n'est jamais supprimé.",
+    "deleteConfirm": "Supprimer",
+    "deleted": "Membre supprimé avec succès",
+    "forceAnonymizeTitle": "Confirmer la suppression complète ?",
+    "forceAnonymizeConfirm": "Confirmer et anonymiser"
   },
   "rosterRoles": {
     "PLAYER": "Joueur",
@@ -526,6 +541,18 @@
     "updated": "Joueur modifié avec succès",
     "createFailed": "Échec de l'ajout du joueur",
     "updateFailed": "Échec de la modification du joueur",
+    "firstNameRequired": "Le prénom est requis",
+    "lastNameRequired": "Le nom est requis"
+  },
+  "staffForm": {
+    "editTitle": "Modifier le membre du staff",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "phone": "Téléphone",
+    "birthDate": "Date de naissance",
+    "role": "Rôle",
+    "submitEdit": "Enregistrer",
+    "updated": "Membre du staff modifié avec succès",
     "firstNameRequired": "Le prénom est requis",
     "lastNameRequired": "Le nom est requis"
   },

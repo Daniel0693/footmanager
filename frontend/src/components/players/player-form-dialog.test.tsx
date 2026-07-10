@@ -188,4 +188,80 @@ describe("PlayerFormDialog", () => {
       expect.objectContaining({ method: "PATCH" }),
     );
   });
+
+  describe("mode contrôlé (open/onOpenChange externes, sans trigger visible)", () => {
+    it("s'ouvre déjà pré-rempli quand open=true est transmis dès le premier rendu (colonne Actions, B5.3)", async () => {
+      renderWithIntl(
+        <PlayerFormDialog
+          clubId="1"
+          teamId="5"
+          player={existingPlayer}
+          open={true}
+          onOpenChange={jest.fn()}
+          onSuccess={jest.fn()}
+        />,
+      );
+
+      const firstNameInput = await screen.findByLabelText<HTMLInputElement>("Prénom");
+      expect(firstNameInput).toHaveValue("Tom");
+      // Aucun trigger fourni (mode contrôlé) : la modale s'ouvre directement,
+      // sans bouton "Modifier"/"Ajouter" distinct du bouton "Enregistrer".
+      expect(screen.queryByRole("button", { name: "Modifier" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ajouter un joueur" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Enregistrer" })).toBeInTheDocument();
+    });
+
+    it("appelle onOpenChange(false) après une sauvegarde réussie, plutôt que de gérer un état interne", async () => {
+      mockApiFetch
+        .mockResolvedValueOnce(jsonResponse({ id: 6 }))
+        .mockResolvedValueOnce(jsonResponse({ id: 1 }))
+        .mockResolvedValueOnce(jsonResponse({ id: 9 }));
+      const onOpenChange = jest.fn();
+      const onSuccess = jest.fn();
+      const user = userEvent.setup();
+
+      renderWithIntl(
+        <PlayerFormDialog
+          clubId="1"
+          teamId="5"
+          player={existingPlayer}
+          open={true}
+          onOpenChange={onOpenChange}
+          onSuccess={onSuccess}
+        />,
+      );
+
+      await user.click(await screen.findByRole("button", { name: "Enregistrer" }));
+
+      await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it("se met à jour si le parent change la ligne éditée (nouveau memberId) pendant que open reste true", async () => {
+      const { rerender } = renderWithIntl(
+        <PlayerFormDialog
+          clubId="1"
+          teamId="5"
+          player={existingPlayer}
+          open={true}
+          onOpenChange={jest.fn()}
+          onSuccess={jest.fn()}
+        />,
+      );
+      expect(await screen.findByLabelText<HTMLInputElement>("Prénom")).toHaveValue("Tom");
+
+      rerender(
+        <PlayerFormDialog
+          clubId="1"
+          teamId="5"
+          player={{ ...existingPlayer, firstName: "Autre" }}
+          open={true}
+          onOpenChange={jest.fn()}
+          onSuccess={jest.fn()}
+        />,
+      );
+
+      expect(await screen.findByLabelText<HTMLInputElement>("Prénom")).toHaveValue("Autre");
+    });
+  });
 });

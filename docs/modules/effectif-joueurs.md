@@ -102,8 +102,37 @@
 > affiché seulement si `canCreate` — aucune infrastructure de permission côté client,
 > uniquement ces deux booléens transmis par le backend (voir "Indicateurs de capacité"
 > ci-dessus). Changer un filtre/tri/taille de page remet toujours la pagination à la page 1.
-> Restent à faire : B5.3 (colonne Actions — Éditer/Archiver/Supprimer, y compris un nouveau
-> formulaire d'édition staff) et B5.4 (modales de création/édition en masse).
+> Reste à faire : B5.4 (modales de création/édition en masse).
+>
+> **B5.3 — colonne Actions : Éditer/Archiver/Supprimer (implémenté)** :
+> `components/players/roster-row-actions.tsx` (menu `dropdown-menu.tsx`), affiché seulement
+> si `canEdit || canDelete` (colonne entière masquée sinon). "Éditer" diverge selon le rôle
+> de la ligne :
+> - **Joueur** : va chercher le détail complet via `GET /clubs/:clubId/players/:playerId`
+>   (licenseNumber/nationality/preferredFoot/gender/joinDate, absents du `RosterRow` léger
+>   de la liste), puis ouvre `PlayerFormDialog` existant pré-rempli. `PlayerFormDialog` a été
+>   étendu (props `open`/`onOpenChange` optionnelles, `trigger` devenu optionnel) pour
+>   supporter ce mode contrôlé sans trigger visible, en plus de son usage historique
+>   self-managé (inchangé, entièrement rétrocompatible).
+> - **Staff** : ouvre `staff-form-dialog.tsx` (nouveau, édition seulement — aucun bouton de
+>   création de membre du staff, hors périmètre du plan). Ne couvre que les champs déjà
+>   présents sur `RosterRow` (nom/prénom/téléphone/date de naissance/rôle) : aucun fetch
+>   supplémentaire, contrairement au joueur. `gender` et `TeamStaff.startDate` restent hors
+>   de ce formulaire (jamais envoyés dans les PATCH, donc jamais modifiés).
+>
+> "Archiver" (`archive-row-dialog.tsx`, confirmation simple) appelle le bon endpoint B2 selon
+> le rôle (`.../players/:id/archive` ou `.../staff/:id/archive`). "Supprimer" (visible
+> seulement si `canDelete`) ouvre `delete-member-dialog.tsx` : confirmation, puis sur 409
+> `MEMBERS.REFERENCED_ELSEWHERE` bascule vers une seconde confirmation renforcée avant de
+> renvoyer `forceAnonymize: true` (flux B3 complet).
+>
+> **Compromis délibéré** : pas de vérification côté client de la règle "un Adjoint/Co-
+> entraîneur ne peut pas modifier la fiche d'un *autre* Principal" (`assertCanModifyPrincipal`)
+> — `canEdit` reflète le scope UPDATE général, pas ce cas précis par ligne (nécessiterait de
+> connaître le memberId ET le scope exact de l'appelant, non exposés aujourd'hui). Les boutons
+> restent affichés ; le backend refuse (403) le cas échéant, affiché via un simple toast
+> d'erreur plutôt qu'un masquage préventif — jamais un risque de sécurité, la règle d'or reste
+> appliquée côté backend.
 
 Tableau par équipe (voir le tableau unifié Joueurs + Staff plus haut pour les colonnes
 actuelles). Deux filtres de poste combinables (en plus du filtre Statut) :

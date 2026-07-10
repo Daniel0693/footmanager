@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
-import { useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -107,12 +107,22 @@ export function PlayerFormDialog({
   trigger,
   player,
   onSuccess,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
 }: {
   clubId: string;
   teamId: string;
-  trigger: ReactElement;
+  trigger?: ReactElement;
   player?: ExistingPlayer;
   onSuccess: () => void;
+  // Mode contrôlé (colonne Actions du tableau roster, B5.3) : "Éditer" doit
+  // d'abord aller chercher les champs absents du RosterRow léger de la
+  // liste (licenseNumber/nationality/preferredFoot/gender/joinDate) avant
+  // d'ouvrir la modale — impossible avec le seul <DialogTrigger> déclenché
+  // au clic. Sans ces deux props, le composant reste self-managé (trigger
+  // visible + état interne), comportement inchangé pour les usages existants.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const mode = player ? "edit" : "create";
   const t = useTranslations("playerForm");
@@ -121,7 +131,9 @@ export function PlayerFormDialog({
   const tPositions = useTranslations("positions");
   const tErrors = useTranslations("errors");
   const { accessToken } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChangeProp ?? setInternalOpen;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -135,11 +147,17 @@ export function PlayerFormDialog({
     defaultValues: defaultValues(player),
   });
 
+  // Effet plutôt qu'un reset() dans handleOpenChange : en mode contrôlé, le
+  // parent fait souvent setPlayer(data) + setOpen(true) dans le même batch
+  // (après un fetch), donc `onOpenChange` du Dialog ne se déclenche jamais
+  // — seule la prop `open` change entre deux rendus. Un effet réagissant à
+  // `open`/`player` couvre les deux modes.
+  useEffect(() => {
+    if (open) reset(defaultValues(player));
+  }, [open, player, reset]);
+
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
-    if (nextOpen) {
-      reset(defaultValues(player));
-    }
   };
 
   const onSubmit = async (values: FormValues) => {
@@ -245,7 +263,7 @@ export function PlayerFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={trigger} />
+      {trigger && <DialogTrigger render={trigger} />}
       <DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? t("createTitle") : t("editTitle")}</DialogTitle>

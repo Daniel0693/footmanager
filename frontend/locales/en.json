@@ -99,7 +99,22 @@
     "statusActive": "Active",
     "statusArchived": "Archived",
     "statusAll": "All",
-    "addPlayer": "Add a player"
+    "addPlayer": "Add a player",
+    "actions": "Actions",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "archive": "Archive",
+    "delete": "Delete",
+    "archiveConfirmTitle": "Archive this member?",
+    "archiveConfirmDescription": "The member will no longer appear in the active roster, but their data is kept and remains viewable via the \"Archived\" filter.",
+    "archiveConfirm": "Archive",
+    "archived": "Member archived successfully",
+    "deleteConfirmTitle": "Permanently delete this member?",
+    "deleteConfirmDescription": "This action cannot be undone: all of this member's data (measurements, notes, evaluations, interviews, absences, assignments) will be deleted. Their login account, if any, is never deleted.",
+    "deleteConfirm": "Delete",
+    "deleted": "Member deleted successfully",
+    "forceAnonymizeTitle": "Confirm full deletion?",
+    "forceAnonymizeConfirm": "Confirm and anonymize"
   },
   "rosterRoles": {
     "PLAYER": "Player",
@@ -526,6 +541,18 @@
     "updated": "Player updated successfully",
     "createFailed": "Failed to add the player",
     "updateFailed": "Failed to update the player",
+    "firstNameRequired": "First name is required",
+    "lastNameRequired": "Last name is required"
+  },
+  "staffForm": {
+    "editTitle": "Edit staff member",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "phone": "Phone",
+    "birthDate": "Date of birth",
+    "role": "Role",
+    "submitEdit": "Save",
+    "updated": "Staff member updated successfully",
     "firstNameRequired": "First name is required",
     "lastNameRequired": "Last name is required"
   },
