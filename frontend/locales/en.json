@@ -432,6 +432,31 @@
       }
     }
   },
+  "seasonDetail": {
+    "backToSeasons": "Back to seasons",
+    "loadFailed": "Unable to load the season",
+    "archivedNotice": "This season is archived. Changes below affect statistics already computed for this period — this is expected, not an error.",
+    "tabs": {
+      "info": "Information",
+      "championships": "Championships"
+    },
+    "name": "Season name",
+    "nameRequired": "Name is required",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "dateRequired": "Date is required",
+    "save": "Save",
+    "updated": "Season updated successfully",
+    "updateFailed": "Failed to update season",
+    "delete": "Delete",
+    "deleteDialogTitle": "Delete this season?",
+    "deleteDialogDescription": "This season is a draft and will be permanently deleted. This action cannot be undone.",
+    "cancel": "Cancel",
+    "deleteConfirm": "Delete permanently",
+    "deleted": "Season deleted successfully",
+    "deleteFailed": "Failed to delete season",
+    "championshipsComingSoon": "Championship management is coming in a future phase."
+  },
   "objectives": {
     "filtersTitle": "Filters",
     "statusFilter": "Status",

@@ -432,6 +432,31 @@
       }
     }
   },
+  "seasonDetail": {
+    "backToSeasons": "Retour aux saisons",
+    "loadFailed": "Impossible de charger la saison",
+    "archivedNotice": "Cette saison est archivée. Les modifications ci-dessous impactent les statistiques déjà calculées pour cette période — comportement attendu, pas une erreur.",
+    "tabs": {
+      "info": "Informations",
+      "championships": "Championnats"
+    },
+    "name": "Nom de la saison",
+    "nameRequired": "Le nom est requis",
+    "startDate": "Date de début",
+    "endDate": "Date de fin",
+    "dateRequired": "La date est requise",
+    "save": "Enregistrer",
+    "updated": "Saison mise à jour avec succès",
+    "updateFailed": "Échec de la mise à jour de la saison",
+    "delete": "Supprimer",
+    "deleteDialogTitle": "Supprimer cette saison ?",
+    "deleteDialogDescription": "Cette saison est en brouillon et sera définitivement supprimée. Cette action est irréversible.",
+    "cancel": "Annuler",
+    "deleteConfirm": "Supprimer définitivement",
+    "deleted": "Saison supprimée avec succès",
+    "deleteFailed": "Échec de la suppression de la saison",
+    "championshipsComingSoon": "La gestion des championnats arrivera dans une prochaine phase."
+  },
   "objectives": {
     "filtersTitle": "Filtres",
     "statusFilter": "Statut",
