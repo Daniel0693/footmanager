@@ -199,6 +199,48 @@ describe('PlayersService', () => {
       expect(result).toEqual([marcProfile]);
       expect(profileFindFirst).not.toHaveBeenCalled();
     });
+
+    it('sans recherche : inclut le membre et l’affectation active (équipe) de chaque candidat', async () => {
+      profileFindMany.mockResolvedValue([marcProfile]);
+
+      await service.findAllByClub(1, { memberId: 99, scope: 'CLUB' });
+
+      expect(profileFindMany).toHaveBeenCalledWith({
+        where: { member: { clubId: 1 } },
+        include: {
+          member: true,
+          playerTeams: { where: { leaveDate: null }, include: { team: true } },
+        },
+        orderBy: { id: 'asc' },
+      });
+    });
+
+    it('recherche (A16, sélecteur "joueur existant du club") : filtre sur firstName/lastName, insensible à la casse', async () => {
+      profileFindMany.mockResolvedValue([marcProfile]);
+
+      await service.findAllByClub(
+        1,
+        { memberId: 99, scope: 'CLUB' },
+        { search: 'dup' },
+      );
+
+      expect(profileFindMany).toHaveBeenCalledWith({
+        where: {
+          member: {
+            clubId: 1,
+            OR: [
+              { firstName: { contains: 'dup', mode: 'insensitive' } },
+              { lastName: { contains: 'dup', mode: 'insensitive' } },
+            ],
+          },
+        },
+        include: {
+          member: true,
+          playerTeams: { where: { leaveDate: null }, include: { team: true } },
+        },
+        orderBy: { id: 'asc' },
+      });
+    });
   });
 
   describe('findOne', () => {
