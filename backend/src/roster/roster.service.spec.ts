@@ -441,6 +441,146 @@ describe('RosterService', () => {
         'PLAYER',
       ]);
     });
+
+    it('trie par prénom croissant, homonymes départagés par le nom (retour utilisateur 2026-07-13)', async () => {
+      ptFindMany.mockResolvedValue([
+        playerTeamRow({
+          id: 201,
+          player: {
+            id: 101,
+            memberId: 43,
+            member: {
+              id: 43,
+              firstName: 'Karim',
+              lastName: 'Zidane',
+              phone: null,
+              birthDate: null,
+              user: null,
+            },
+          },
+        }),
+        playerTeamRow({
+          id: 200,
+          player: {
+            id: 100,
+            memberId: 42,
+            member: {
+              id: 42,
+              firstName: 'Karim',
+              lastName: 'Adjovi',
+              phone: null,
+              birthDate: null,
+              user: null,
+            },
+          },
+        }),
+      ]);
+
+      const result = await service.findAllByTeam(requester, {
+        sortBy: 'firstName',
+      });
+
+      expect(result.data.map((row) => row.lastName)).toEqual([
+        'Adjovi',
+        'Zidane',
+      ]);
+    });
+
+    it('trie par poste principal par ligne (Gardien → Défenseur → Milieu → Attaquant), pas par ordre alphabétique', async () => {
+      ptFindMany.mockResolvedValue([
+        playerTeamRow({ id: 201, mainPosition: 'ST' }),
+        playerTeamRow({ id: 200, mainPosition: 'GK' }),
+        playerTeamRow({ id: 202, mainPosition: 'CB' }),
+        playerTeamRow({ id: 203, mainPosition: null }),
+      ]);
+
+      const asc = await service.findAllByTeam(requester, {
+        sortBy: 'mainPosition',
+        sortOrder: 'asc',
+      });
+      // Alphabétique aurait donné CB, GK, ST — ici Gardien avant Défenseur
+      // avant Attaquant, valeur vide toujours en fin.
+      expect(asc.data.map((row) => row.mainPosition)).toEqual([
+        'GK',
+        'CB',
+        'ST',
+        null,
+      ]);
+
+      const desc = await service.findAllByTeam(requester, {
+        sortBy: 'mainPosition',
+        sortOrder: 'desc',
+      });
+      expect(desc.data.map((row) => row.mainPosition)).toEqual([
+        'ST',
+        'CB',
+        'GK',
+        null,
+      ]);
+    });
+
+    it('trie par postes secondaires selon le meilleur poste du groupe, valeur vide en fin de liste', async () => {
+      ptFindMany.mockResolvedValue([
+        playerTeamRow({ id: 201, secondaryPositions: ['ST', 'CB'] }),
+        playerTeamRow({ id: 200, secondaryPositions: ['GK'] }),
+        playerTeamRow({ id: 202, secondaryPositions: [] }),
+      ]);
+
+      const result = await service.findAllByTeam(requester, {
+        sortBy: 'secondaryPositions',
+        sortOrder: 'asc',
+      });
+
+      // id 201 = [ST, CB] classé comme CB (meilleur = plus proche du
+      // gardien), donc avant ST seul mais après GK seul.
+      expect(result.data.map((row) => row.id)).toEqual([200, 201, 202]);
+    });
+  });
+
+  describe('recherche texte (retour utilisateur 2026-07-13)', () => {
+    it('trouve un joueur par un extrait de prénom, insensible à la casse', async () => {
+      ptFindMany.mockResolvedValue([
+        playerTeamRow(),
+        playerTeamRow({
+          id: 201,
+          player: {
+            id: 101,
+            memberId: 43,
+            member: {
+              id: 43,
+              firstName: 'Daniel',
+              lastName: 'Dupont',
+              phone: null,
+              birthDate: null,
+              user: null,
+            },
+          },
+        }),
+      ]);
+
+      const result = await service.findAllByTeam(requester, { search: 'dAn' });
+
+      expect(result.data.map((row) => row.firstName)).toEqual(['Daniel']);
+      expect(result.total).toBe(1);
+    });
+
+    it('trouve aussi par un extrait de nom de famille', async () => {
+      ptFindMany.mockResolvedValue([playerTeamRow()]);
+
+      const result = await service.findAllByTeam(requester, {
+        search: 'ENAL',
+      });
+
+      expect(result.data.map((row) => row.lastName)).toEqual(['Benali']);
+    });
+
+    it('une recherche vide ou absente ne filtre rien', async () => {
+      ptFindMany.mockResolvedValue([playerTeamRow()]);
+
+      const result = await service.findAllByTeam(requester, { search: '  ' });
+
+      expect(result.total).toBe(1);
+    });
   });
 
   describe('pagination', () => {

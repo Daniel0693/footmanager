@@ -1,3 +1,4 @@
+import { act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithIntl, screen, waitFor, within } from "@/test-utils/render";
 import { TeamPlayersPageContent } from "./page";
@@ -153,7 +154,8 @@ describe("TeamPlayersPageContent", () => {
     await screen.findByText("Test");
     mockApiFetch.mockClear();
 
-    await user.click(screen.getByText("Toutes les lignes"));
+    await user.click(screen.getByRole("button", { name: /Filtres/ }));
+    await user.click(await screen.findByText("Toutes les lignes"));
     await user.click(await screen.findByRole("option", { name: "Milieu" }));
 
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
@@ -204,18 +206,23 @@ describe("TeamPlayersPageContent", () => {
   describe("filtre statut Actif/Archivé/Tout", () => {
     it("le filtre Statut est affiché quand canViewArchived est vrai", async () => {
       mockApiFetch.mockResolvedValue(rosterResponse([], 0, { canViewArchived: true }));
+      const user = userEvent.setup();
 
       renderPage();
+      await user.click(await screen.findByRole("button", { name: /Filtres/ }));
 
       expect(await screen.findByText("Statut")).toBeInTheDocument();
     });
 
     it("le filtre Statut est masqué quand canViewArchived est faux (ex. Player)", async () => {
       mockApiFetch.mockResolvedValue(rosterResponse([], 0, { canViewArchived: false }));
+      const user = userEvent.setup();
 
       renderPage();
-
       await screen.findByText("Aucun membre dans cette équipe");
+      await user.click(screen.getByRole("button", { name: /Filtres/ }));
+
+      expect(await screen.findByText("Toutes les lignes")).toBeInTheDocument();
       expect(screen.queryByText("Statut")).not.toBeInTheDocument();
     });
 
@@ -227,7 +234,8 @@ describe("TeamPlayersPageContent", () => {
       await screen.findByText("Test");
       mockApiFetch.mockClear();
 
-      await user.click(screen.getByText("Actifs"));
+      await user.click(screen.getByRole("button", { name: /Filtres/ }));
+      await user.click(await screen.findByText("Actifs"));
       await user.click(await screen.findByRole("option", { name: "Archivés" }));
 
       await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
@@ -272,6 +280,109 @@ describe("TeamPlayersPageContent", () => {
       await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
       const [url] = mockApiFetch.mock.calls[0];
       expect(queryOf(url as string).get("sortOrder")).toBe("desc");
+    });
+
+    it.each([
+      ["Prénom", "firstName"],
+      ["Poste principal", "mainPosition"],
+      ["Postes secondaires", "secondaryPositions"],
+    ])(
+      "l'en-tête %s est triable (retour utilisateur 2026-07-13) → sortBy=%s",
+      async (label, expectedSortBy) => {
+        mockApiFetch.mockResolvedValue(rosterResponse([playerRow()]));
+        const user = userEvent.setup();
+
+        renderPage();
+        await screen.findByText("Test");
+        mockApiFetch.mockClear();
+
+        await user.click(screen.getByRole("button", { name: new RegExp(label) }));
+
+        await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+        const [url] = mockApiFetch.mock.calls[0];
+        const query = queryOf(url as string);
+        expect(query.get("sortBy")).toBe(expectedSortBy);
+        expect(query.get("sortOrder")).toBe("asc");
+      },
+    );
+  });
+
+  describe("panneau Filtres compact (retour utilisateur 2026-07-13)", () => {
+    it("le bouton Filtres n'affiche aucun badge quand aucun filtre n'est actif", async () => {
+      mockApiFetch.mockResolvedValue(rosterResponse([playerRow()]));
+
+      renderPage();
+      await screen.findByText("Test");
+
+      const filtersButton = screen.getByRole("button", { name: /Filtres/ });
+      expect(within(filtersButton).queryByText("1")).not.toBeInTheDocument();
+    });
+
+    it("le badge de comptage reflète le nombre de filtres actifs et le panneau reste ouvert après une sélection", async () => {
+      mockApiFetch.mockResolvedValue(rosterResponse([playerRow()]));
+      const user = userEvent.setup();
+
+      renderPage();
+      await screen.findByText("Test");
+      mockApiFetch.mockClear();
+
+      await user.click(screen.getByRole("button", { name: /Filtres/ }));
+      await user.click(await screen.findByText("Toutes les lignes"));
+      await user.click(await screen.findByRole("option", { name: "Milieu" }));
+
+      await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+      // Le panneau n'est pas refermé par la sélection (comportement Popover,
+      // pas Menu) : le filtre Poste reste visible juste après.
+      expect(screen.getByText("Filtrer par poste")).toBeInTheDocument();
+      const filtersButton = screen.getByRole("button", { name: /Filtres/ });
+      expect(within(filtersButton).getByText("1")).toBeInTheDocument();
+    });
+  });
+
+  describe("recherche texte (retour utilisateur 2026-07-13)", () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("un seul fetch après 300ms d'inactivité, pas un par frappe", async () => {
+      mockApiFetch.mockResolvedValue(rosterResponse([playerRow()]));
+      renderPage();
+      await screen.findByText("Test");
+      mockApiFetch.mockClear();
+
+      const input = screen.getByPlaceholderText("Rechercher un joueur...");
+      fireEvent.change(input, { target: { value: "D" } });
+      fireEvent.change(input, { target: { value: "Da" } });
+      fireEvent.change(input, { target: { value: "Dan" } });
+
+      expect(mockApiFetch).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+
+      expect(mockApiFetch).toHaveBeenCalledTimes(1);
+      const [url] = mockApiFetch.mock.calls[0];
+      expect(queryOf(url as string).get("search")).toBe("Dan");
+    });
+
+    it("une recherche vide n'envoie pas le paramètre search", async () => {
+      mockApiFetch.mockResolvedValue(rosterResponse([playerRow()]));
+      renderPage();
+      await screen.findByText("Test");
+      mockApiFetch.mockClear();
+
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+
+      // Aucune frappe : le debounce initial ne doit provoquer aucun fetch
+      // supplémentaire (page déjà à 1).
+      expect(mockApiFetch).not.toHaveBeenCalled();
     });
   });
 
