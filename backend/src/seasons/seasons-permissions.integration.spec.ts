@@ -216,6 +216,12 @@ const previewRosterHandler =
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const importRosterHandler = SeasonsController.prototype.importRoster;
 
+const activationSummaryHandler =
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  SeasonsController.prototype.getActivationSummary;
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const activateHandler = SeasonsController.prototype.activate;
+
 describe('Module Saisons — scénario multi-rôles (SeasonsController)', () => {
   let guard: PermissionsGuard;
   let seasonsService: SeasonsService;
@@ -408,6 +414,76 @@ describe('Module Saisons — scénario multi-rôles (SeasonsController)', () => 
       } as Partial<PermissionedRequest>;
       await expect(
         guard.canActivate(buildContext(importRequest, importRosterHandler)),
+      ).rejects.toBeInstanceOf(AppException);
+    });
+  });
+
+  describe('activation (étape 4 du wizard)', () => {
+    it('Coach consulte le résumé et active sa propre équipe', async () => {
+      const summaryRequest = {
+        params: { clubId: '1', teamId: '5' },
+        user: { userId: 71 },
+      } as Partial<PermissionedRequest>;
+      await expect(
+        guard.canActivate(
+          buildContext(summaryRequest, activationSummaryHandler),
+        ),
+      ).resolves.toBe(true);
+
+      const activateRequest = {
+        params: { clubId: '1', teamId: '5' },
+        user: { userId: 71 },
+      } as Partial<PermissionedRequest>;
+      await expect(
+        guard.canActivate(buildContext(activateRequest, activateHandler)),
+      ).resolves.toBe(true);
+    });
+
+    it("Coach n'a aucun droit sur une AUTRE équipe", async () => {
+      const request = {
+        params: { clubId: '1', teamId: '6' },
+        user: { userId: 71 },
+      } as Partial<PermissionedRequest>;
+
+      await expect(
+        guard.canActivate(buildContext(request, activationSummaryHandler)),
+      ).rejects.toBeInstanceOf(AppException);
+      await expect(
+        guard.canActivate(buildContext(request, activateHandler)),
+      ).rejects.toBeInstanceOf(AppException);
+    });
+
+    it('AdminClub consulte et active la saison de n’importe quelle équipe du club', async () => {
+      const request = {
+        params: { clubId: '1', teamId: '6' },
+        user: { userId: 70 },
+      } as Partial<PermissionedRequest>;
+
+      await expect(
+        guard.canActivate(buildContext(request, activationSummaryHandler)),
+      ).resolves.toBe(true);
+      await expect(
+        guard.canActivate(buildContext(request, activateHandler)),
+      ).resolves.toBe(true);
+    });
+
+    it('Player peut consulter (READ) mais pas activer (UPDATE) la saison', async () => {
+      const summaryRequest = {
+        params: { clubId: '1', teamId: '5' },
+        user: { userId: 7 },
+      } as Partial<PermissionedRequest>;
+      await expect(
+        guard.canActivate(
+          buildContext(summaryRequest, activationSummaryHandler),
+        ),
+      ).resolves.toBe(true);
+
+      const activateRequest = {
+        params: { clubId: '1', teamId: '5' },
+        user: { userId: 7 },
+      } as Partial<PermissionedRequest>;
+      await expect(
+        guard.canActivate(buildContext(activateRequest, activateHandler)),
       ).rejects.toBeInstanceOf(AppException);
     });
   });

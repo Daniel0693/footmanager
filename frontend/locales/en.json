@@ -721,7 +721,9 @@
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
       "NOT_FOUND": "Season not found",
       "CANNOT_DELETE_NON_DRAFT": "Only a draft season can be deleted",
-      "ROSTER_IMPORT_ONLY_FOR_DRAFT": "Roster import is only possible for a draft season"
+      "ROSTER_IMPORT_ONLY_FOR_DRAFT": "Roster import is only possible for a draft season",
+      "ACTIVATION_ONLY_FOR_DRAFT": "Activation is only possible for a draft season",
+      "MULTIPLE_ACTIVE_SEASONS": "Inconsistency detected: multiple active seasons for this team"
     }
   }
 }

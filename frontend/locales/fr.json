@@ -721,7 +721,9 @@
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
       "NOT_FOUND": "Saison introuvable",
       "CANNOT_DELETE_NON_DRAFT": "Seule une saison en brouillon peut être supprimée",
-      "ROSTER_IMPORT_ONLY_FOR_DRAFT": "L'import du roster n'est possible que pour une saison en brouillon"
+      "ROSTER_IMPORT_ONLY_FOR_DRAFT": "L'import du roster n'est possible que pour une saison en brouillon",
+      "ACTIVATION_ONLY_FOR_DRAFT": "L'activation n'est possible que pour une saison en brouillon",
+      "MULTIPLE_ACTIVE_SEASONS": "Incohérence détectée : plusieurs saisons actives pour cette équipe"
     }
   }
 }
