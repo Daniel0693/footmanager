@@ -35,11 +35,17 @@ Ce workflow est déclenché par un Coach ou AdminClub depuis la fiche de l'équi
 - La Season est créée en état `DRAFT`. La saison actuelle reste `ACTIVE` — les deux coexistent.
 
 **Étape 2 — Importer le roster**
-- Le système affiche le roster de la saison active actuelle.
+- Le système affiche le roster actif actuel de l'équipe (indépendant de la saison ciblée —
+  `PlayerTeam` n'a pas de FK directe vers `Season`, voir `docs/schema/championnats.md`).
 - Le coach sélectionne les joueurs à reconduire (tous par défaut, décochables).
 - Pour chaque joueur sélectionné : une nouvelle entrée `PlayerTeam` est créée avec
-  `joinDate = newSeason.startDate`, liée à la même `Team`.
-- Les joueurs non sélectionnés (départs) : leur `PlayerTeam` actuelle reçoit `leaveDate`.
+  `joinDate = newSeason.startDate`, liée à la même `Team`, en reportant numéro de maillot et
+  poste de son affectation active actuelle (continuité — évite de tout ressaisir).
+- **Précision (2026-07-13)** : aucun `leaveDate` n'est posé à cette étape — ni sur l'ancienne
+  affectation des joueurs reconduits, ni sur celle des partants (implicites, simplement non
+  sélectionnés). Réservé entièrement à l'étape 4, pour que le wizard reste annulable sans effet
+  de bord tant qu'il n'est pas validé. Conséquence acceptée : entre l'import et l'activation, un
+  joueur reconduit a temporairement deux affectations `PlayerTeam` actives sur la même équipe.
 - Nouveaux joueurs (arrivées / transferts) : ajoutés manuellement à ce stade ou plus tard.
 
 **Étape 3 — Configurer les championnats (optionnel à ce stade)**
@@ -53,7 +59,9 @@ Ce workflow est déclenché par un Coach ou AdminClub depuis la fiche de l'équi
   août alors que l'ancienne se terminait officiellement en juin).
 - À la validation :
   1. L'ancienne saison passe en état `ARCHIVED`.
-  2. Les `PlayerTeam` de l'ancienne saison sans `leaveDate` reçoivent `leaveDate = oldSeason.endDate`.
+  2. Les `PlayerTeam` de l'ancienne saison sans `leaveDate` reçoivent `leaveDate = oldSeason.endDate`
+     — couvre uniformément les partants (jamais fermée depuis l'étape 2) et l'ancienne
+     affectation des joueurs reconduits (doublonnée avec la nouvelle jusqu'ici).
   3. La nouvelle saison passe en état `ACTIVE`.
   4. Les nouvelles `PlayerTeam` sont confirmées.
 

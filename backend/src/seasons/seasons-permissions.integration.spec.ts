@@ -96,13 +96,25 @@ const permissions = {
     action: 'DELETE',
     scope: 'TEAM',
   },
-  seasonCreateClub: {
+  seasonUpdateTeam: {
     id: 4,
+    resource: 'season',
+    action: 'UPDATE',
+    scope: 'TEAM',
+  },
+  seasonCreateClub: {
+    id: 5,
     resource: 'season',
     action: 'CREATE',
     scope: 'CLUB',
   },
-  seasonReadClub: { id: 5, resource: 'season', action: 'READ', scope: 'CLUB' },
+  seasonReadClub: { id: 6, resource: 'season', action: 'READ', scope: 'CLUB' },
+  seasonUpdateClub: {
+    id: 7,
+    resource: 'season',
+    action: 'UPDATE',
+    scope: 'CLUB',
+  },
 } as const;
 
 const roles = {
@@ -112,6 +124,7 @@ const roles = {
     rolePermissions: [
       { permission: permissions.seasonCreateTeam },
       { permission: permissions.seasonReadTeam },
+      { permission: permissions.seasonUpdateTeam },
       { permission: permissions.seasonDeleteTeam },
     ],
   },
@@ -121,6 +134,7 @@ const roles = {
     rolePermissions: [
       { permission: permissions.seasonCreateClub },
       { permission: permissions.seasonReadClub },
+      { permission: permissions.seasonUpdateClub },
     ],
   },
   player: {
@@ -195,6 +209,12 @@ const createHandler = SeasonsController.prototype.create;
 const findAllHandler = SeasonsController.prototype.findAll;
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const removeHandler = SeasonsController.prototype.remove;
+
+const previewRosterHandler =
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  SeasonsController.prototype.previewRosterImport;
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const importRosterHandler = SeasonsController.prototype.importRoster;
 
 describe('Module Saisons — scénario multi-rôles (SeasonsController)', () => {
   let guard: PermissionsGuard;
@@ -322,5 +342,73 @@ describe('Module Saisons — scénario multi-rôles (SeasonsController)', () => 
     await expect(
       guard.canActivate(buildContext(request, findAllHandler)),
     ).rejects.toBeInstanceOf(AppException);
+  });
+
+  describe('import du roster (étape 2 du wizard)', () => {
+    it('Coach consulte et importe le roster de sa propre équipe', async () => {
+      const previewRequest = {
+        params: { clubId: '1', teamId: '5' },
+        user: { userId: 71 },
+      } as Partial<PermissionedRequest>;
+      await expect(
+        guard.canActivate(buildContext(previewRequest, previewRosterHandler)),
+      ).resolves.toBe(true);
+      expect(previewRequest.permissionScope).toBe('TEAM');
+
+      const importRequest = {
+        params: { clubId: '1', teamId: '5' },
+        user: { userId: 71 },
+      } as Partial<PermissionedRequest>;
+      await expect(
+        guard.canActivate(buildContext(importRequest, importRosterHandler)),
+      ).resolves.toBe(true);
+      expect(importRequest.permissionScope).toBe('TEAM');
+    });
+
+    it("Coach n'a aucun droit sur une AUTRE équipe", async () => {
+      const request = {
+        params: { clubId: '1', teamId: '6' },
+        user: { userId: 71 },
+      } as Partial<PermissionedRequest>;
+
+      await expect(
+        guard.canActivate(buildContext(request, previewRosterHandler)),
+      ).rejects.toBeInstanceOf(AppException);
+      await expect(
+        guard.canActivate(buildContext(request, importRosterHandler)),
+      ).rejects.toBeInstanceOf(AppException);
+    });
+
+    it('AdminClub consulte et importe le roster de n’importe quelle équipe du club', async () => {
+      const request = {
+        params: { clubId: '1', teamId: '6' },
+        user: { userId: 70 },
+      } as Partial<PermissionedRequest>;
+
+      await expect(
+        guard.canActivate(buildContext(request, previewRosterHandler)),
+      ).resolves.toBe(true);
+      await expect(
+        guard.canActivate(buildContext(request, importRosterHandler)),
+      ).resolves.toBe(true);
+    });
+
+    it('Player peut consulter (READ) mais pas importer (UPDATE) le roster', async () => {
+      const previewRequest = {
+        params: { clubId: '1', teamId: '5' },
+        user: { userId: 7 },
+      } as Partial<PermissionedRequest>;
+      await expect(
+        guard.canActivate(buildContext(previewRequest, previewRosterHandler)),
+      ).resolves.toBe(true);
+
+      const importRequest = {
+        params: { clubId: '1', teamId: '5' },
+        user: { userId: 7 },
+      } as Partial<PermissionedRequest>;
+      await expect(
+        guard.canActivate(buildContext(importRequest, importRosterHandler)),
+      ).rejects.toBeInstanceOf(AppException);
+    });
   });
 });
