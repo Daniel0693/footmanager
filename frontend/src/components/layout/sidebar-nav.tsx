@@ -2,7 +2,10 @@
 
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
+import { useEffect, useMemo } from "react";
 import { Link, usePathname } from "@/i18n/navigation";
+import { useAuth } from "@/lib/auth/auth-context";
+import { getLastTeam, setLastTeam } from "@/lib/last-team";
 import { cn } from "@/lib/utils";
 import { navModules } from "./nav-modules";
 
@@ -11,10 +14,39 @@ interface SidebarNavProps {
   onNavigate: () => void;
 }
 
+function paramString(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export function SidebarNav({ open, onNavigate }: SidebarNavProps) {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const params = useParams();
+  const { user } = useAuth();
+  const clubId = paramString(params.clubId as string | string[] | undefined);
+  const teamId = paramString(params.teamId as string | string[] | undefined);
+
+  // Persiste l'équipe visitée pour ce club — écrit vers un système externe
+  // (localStorage), cas d'usage légitime d'un effect.
+  useEffect(() => {
+    if (user && clubId && teamId) {
+      setLastTeam(user.id, clubId, teamId);
+    }
+  }, [user, clubId, teamId]);
+
+  // Lecture pure (pas d'effect/state nécessaire) : SidebarNav ne monte
+  // jamais pendant le rendu serveur — AppShell retourne null tant que
+  // `user` n'est pas résolu (voir app-shell.tsx) — donc pas de risque de
+  // désynchronisation SSR/client à lire localStorage directement ici.
+  // Complète teamId manquant avec la dernière équipe visitée dans CE club
+  // (jamais celle d'un autre club, jamais celle d'un autre utilisateur) :
+  // permet à "Effectif"/"Saisons" de rester sur l'équipe déjà choisie même
+  // depuis une page scopée club (Calendrier, liste des équipes).
+  const effectiveParams = useMemo(() => {
+    if (teamId || !clubId || !user) return params;
+    const lastTeam = getLastTeam(user.id);
+    return lastTeam?.clubId === clubId ? { ...params, teamId: lastTeam.teamId } : params;
+  }, [params, clubId, teamId, user]);
 
   return (
     <>
@@ -39,7 +71,7 @@ export function SidebarNav({ open, onNavigate }: SidebarNavProps) {
             return (
               <Link
                 key={module.key}
-                href={module.href(params)}
+                href={module.href(effectiveParams)}
                 onClick={onNavigate}
                 aria-current={active ? "page" : undefined}
                 className={cn(

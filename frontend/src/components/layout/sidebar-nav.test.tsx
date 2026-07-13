@@ -12,10 +12,24 @@ jest.mock("next/navigation", () => ({
   useParams: () => mockUseParams(),
 }));
 
+const mockUseAuth = jest.fn();
+jest.mock("@/lib/auth/auth-context", () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
+const mockGetLastTeam = jest.fn();
+const mockSetLastTeam = jest.fn();
+jest.mock("@/lib/last-team", () => ({
+  getLastTeam: (...args: unknown[]) => mockGetLastTeam(...args),
+  setLastTeam: (...args: unknown[]) => mockSetLastTeam(...args),
+}));
+
 describe("SidebarNav", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseParams.mockReturnValue({});
+    mockUseAuth.mockReturnValue({ user: { id: 1 } });
+    mockGetLastTeam.mockReturnValue(null);
   });
 
   it("affiche les modules existants avec leurs libellés", () => {
@@ -85,5 +99,48 @@ describe("SidebarNav", () => {
     await user.click(screen.getByRole("link", { name: "Accueil" }));
 
     expect(onNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  describe("mémorisation de la dernière équipe visitée", () => {
+    it("mémorise l'équipe courante quand teamId est présent dans l'URL", () => {
+      usePathname.mockReturnValue("/clubs/42/teams/7/players");
+      mockUseParams.mockReturnValue({ clubId: "42", teamId: "7" });
+      renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+      expect(mockSetLastTeam).toHaveBeenCalledWith(1, "42", "7");
+    });
+
+    it("complète Effectif/Saisons avec la dernière équipe visitée depuis une page sans teamId (ex. Calendrier)", () => {
+      mockGetLastTeam.mockReturnValue({ clubId: "42", teamId: "7" });
+      usePathname.mockReturnValue("/clubs/42/calendar");
+      mockUseParams.mockReturnValue({ clubId: "42" });
+      renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+      expect(screen.getByRole("link", { name: "Effectif" })).toHaveAttribute(
+        "href",
+        "/clubs/42/teams/7/players",
+      );
+      expect(screen.getByRole("link", { name: "Saisons" })).toHaveAttribute(
+        "href",
+        "/clubs/42/teams/7/seasons",
+      );
+      expect(mockSetLastTeam).not.toHaveBeenCalled();
+    });
+
+    it("ignore la dernière équipe mémorisée si elle appartient à un autre club", () => {
+      mockGetLastTeam.mockReturnValue({ clubId: "99", teamId: "7" });
+      usePathname.mockReturnValue("/clubs/42/calendar");
+      mockUseParams.mockReturnValue({ clubId: "42" });
+      renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+      expect(screen.getByRole("link", { name: "Effectif" })).toHaveAttribute(
+        "href",
+        "/clubs/42/teams",
+      );
+      expect(screen.getByRole("link", { name: "Saisons" })).toHaveAttribute(
+        "href",
+        "/clubs/42/teams",
+      );
+    });
   });
 });
