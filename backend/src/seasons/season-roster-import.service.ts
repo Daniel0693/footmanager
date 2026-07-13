@@ -31,6 +31,13 @@ export class SeasonRosterImportService {
    * championnats.md), l'appartenance à une saison se déduit des dates. L'id
    * de saison ne sert ici qu'à vérifier l'appartenance club/équipe et que la
    * saison est bien en DRAFT (étape du wizard non pertinente autrement).
+   *
+   * Dédoublonné par joueur (correctif 2026-07-13) : un joueur peut avoir
+   * PLUSIEURS affectations actives simultanées sur cette équipe — cas normal
+   * tant qu'aucune saison n'a encore été activée (voir importRoster
+   * ci-dessous), par ex. après une tentative de wizard abandonnée avant
+   * l'activation. Un seul candidat par joueur est présenté ici (le plus
+   * récent), jamais une ligne par affectation.
    */
   async previewRoster(
     clubId: number,
@@ -45,7 +52,7 @@ export class SeasonRosterImportService {
       orderBy: { player: { member: { lastName: 'asc' } } },
     });
 
-    return assignments.map((assignment) => ({
+    return this.dedupeByPlayer(assignments).map((assignment) => ({
       playerId: assignment.playerId,
       firstName: assignment.player.member.firstName,
       lastName: assignment.player.member.lastName,
@@ -71,6 +78,13 @@ export class SeasonRosterImportService {
    * `PlayerTeam` actives sur la même équipe (l'ancienne, pas encore close,
    * et la nouvelle) — visible si l'on consulte l'effectif pendant cette
    * fenêtre. Limite acceptée du wizard en l'état.
+   *
+   * Dédoublonné par joueur avant création (correctif 2026-07-13) : au plus
+   * UNE nouvelle affectation par joueur demandé, quel que soit le nombre
+   * d'affectations actives déjà existantes pour lui (ex. wizard relancé
+   * après une tentative précédente jamais activée) — sans ce garde-fou, un
+   * joueur ayant déjà 2 affectations actives en recevait 2 nouvelles au lieu
+   * d'une, doublant le problème à chaque nouvelle tentative.
    */
   async importRoster(
     clubId: number,
@@ -87,9 +101,10 @@ export class SeasonRosterImportService {
     const currentAssignments = await this.prisma.playerTeam.findMany({
       where: { teamId, leaveDate: null, playerId: { in: retainedPlayerIds } },
     });
+    const deduped = this.dedupeByPlayer(currentAssignments);
 
     await this.prisma.playerTeam.createMany({
-      data: currentAssignments.map((assignment) => ({
+      data: deduped.map((assignment) => ({
         playerId: assignment.playerId,
         teamId,
         jerseyNumber: assignment.jerseyNumber,
@@ -99,7 +114,42 @@ export class SeasonRosterImportService {
       })),
     });
 
-    return { importedCount: currentAssignments.length };
+    return { importedCount: deduped.length };
+  }
+
+  /**
+   * Une affectation par joueur : quand plusieurs affectations actives
+   * coexistent pour le même joueur (cas normal avant activation, voir
+   * ci-dessus), retient la plus récente (`joinDate` le plus tardif, `id` le
+   * plus élevé en dernier recours) comme représentante. L'ordre relatif des
+   * joueurs (déjà trié par nom en amont) est préservé : `Map` conserve
+   * l'ordre de la PREMIÈRE occurrence de chaque clé, et les affectations
+   * d'un même joueur (même nom) sont nécessairement adjacentes dans le
+   * résultat trié par nom.
+   */
+  private dedupeByPlayer<
+    T extends { playerId: number; joinDate: Date | null; id: number },
+  >(assignments: T[]): T[] {
+    const byPlayer = new Map<number, T>();
+    for (const assignment of assignments) {
+      const existing = byPlayer.get(assignment.playerId);
+      if (!existing || this.isMoreRecent(assignment, existing)) {
+        byPlayer.set(assignment.playerId, assignment);
+      }
+    }
+    return [...byPlayer.values()];
+  }
+
+  private isMoreRecent<T extends { joinDate: Date | null; id: number }>(
+    candidate: T,
+    current: T,
+  ): boolean {
+    if (candidate.joinDate && current.joinDate) {
+      return candidate.joinDate > current.joinDate;
+    }
+    if (candidate.joinDate && !current.joinDate) return true;
+    if (!candidate.joinDate && current.joinDate) return false;
+    return candidate.id > current.id;
   }
 
   private async assertSeasonIsDraft(

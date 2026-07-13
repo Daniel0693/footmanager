@@ -56,7 +56,9 @@ describe('SeasonRosterImportService', () => {
       findOne.mockResolvedValue(draftSeason);
       playerTeamFindMany.mockResolvedValue([
         {
+          id: 501,
           playerId: 1,
+          joinDate: new Date('2025-08-01'),
           jerseyNumber: 9,
           mainPosition: 'ST',
           player: { member: { firstName: 'Marc', lastName: 'Dupont' } },
@@ -79,6 +81,43 @@ describe('SeasonRosterImportService', () => {
         include: { player: { include: { member: true } } },
         orderBy: { player: { member: { lastName: 'asc' } } },
       });
+    });
+
+    it("ne présente qu'une ligne par joueur même s'il a plusieurs affectations actives (correctif 2026-07-13)", async () => {
+      // Reproduit le bug signalé : un wizard précédent jamais activé laisse
+      // deux affectations actives pour le même joueur — la plus récente
+      // (joinDate le plus tardif) doit être la seule retenue.
+      findOne.mockResolvedValue(draftSeason);
+      playerTeamFindMany.mockResolvedValue([
+        {
+          id: 501,
+          playerId: 1,
+          joinDate: new Date('2024-08-01'),
+          jerseyNumber: 9,
+          mainPosition: 'ST',
+          player: { member: { firstName: 'Marc', lastName: 'Dupont' } },
+        },
+        {
+          id: 640,
+          playerId: 1,
+          joinDate: new Date('2025-08-01'),
+          jerseyNumber: 10,
+          mainPosition: 'CAM',
+          player: { member: { firstName: 'Marc', lastName: 'Dupont' } },
+        },
+      ]);
+
+      const result = await service.previewRoster(1, 5, 100);
+
+      expect(result).toEqual([
+        {
+          playerId: 1,
+          firstName: 'Marc',
+          lastName: 'Dupont',
+          jerseyNumber: 10,
+          mainPosition: 'CAM',
+        },
+      ]);
     });
   });
 
@@ -106,13 +145,17 @@ describe('SeasonRosterImportService', () => {
       findOne.mockResolvedValue(draftSeason);
       playerTeamFindMany.mockResolvedValue([
         {
+          id: 501,
           playerId: 1,
+          joinDate: new Date('2025-08-01'),
           jerseyNumber: 9,
           mainPosition: 'ST',
           secondaryPositions: ['CF'],
         },
         {
+          id: 502,
           playerId: 2,
+          joinDate: new Date('2025-08-01'),
           jerseyNumber: 4,
           mainPosition: 'CB',
           secondaryPositions: [],
@@ -147,6 +190,47 @@ describe('SeasonRosterImportService', () => {
         ],
       });
       expect(result).toEqual({ importedCount: 2 });
+    });
+
+    it('ne crée qu’une seule nouvelle affectation par joueur même s’il a déjà plusieurs affectations actives (correctif 2026-07-13)', async () => {
+      // Reproduit le bug signalé : wizard relancé sur un joueur ayant déjà 2
+      // affectations actives (tentative précédente jamais activée) — une
+      // seule nouvelle affectation doit être créée, pas deux.
+      findOne.mockResolvedValue(draftSeason);
+      playerTeamFindMany.mockResolvedValue([
+        {
+          id: 501,
+          playerId: 1,
+          joinDate: new Date('2024-08-01'),
+          jerseyNumber: 9,
+          mainPosition: 'ST',
+          secondaryPositions: [],
+        },
+        {
+          id: 640,
+          playerId: 1,
+          joinDate: new Date('2025-08-01'),
+          jerseyNumber: 10,
+          mainPosition: 'CAM',
+          secondaryPositions: ['CM'],
+        },
+      ]);
+
+      const result = await service.importRoster(1, 5, 100, [1]);
+
+      expect(playerTeamCreateMany).toHaveBeenCalledWith({
+        data: [
+          {
+            playerId: 1,
+            teamId: 5,
+            jerseyNumber: 10,
+            mainPosition: 'CAM',
+            secondaryPositions: ['CM'],
+            joinDate: draftSeason.startDate,
+          },
+        ],
+      });
+      expect(result).toEqual({ importedCount: 1 });
     });
   });
 });
