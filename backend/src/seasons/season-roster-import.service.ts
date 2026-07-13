@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { Position } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { dedupeByMostRecentAssignment } from '../common/player-team-dedupe';
 import { PrismaService } from '../prisma/prisma.service';
 import { SeasonsService } from './seasons.service';
 
@@ -52,7 +53,7 @@ export class SeasonRosterImportService {
       orderBy: { player: { member: { lastName: 'asc' } } },
     });
 
-    return this.dedupeByPlayer(assignments).map((assignment) => ({
+    return dedupeByMostRecentAssignment(assignments).map((assignment) => ({
       playerId: assignment.playerId,
       firstName: assignment.player.member.firstName,
       lastName: assignment.player.member.lastName,
@@ -101,7 +102,7 @@ export class SeasonRosterImportService {
     const currentAssignments = await this.prisma.playerTeam.findMany({
       where: { teamId, leaveDate: null, playerId: { in: retainedPlayerIds } },
     });
-    const deduped = this.dedupeByPlayer(currentAssignments);
+    const deduped = dedupeByMostRecentAssignment(currentAssignments);
 
     await this.prisma.playerTeam.createMany({
       data: deduped.map((assignment) => ({
@@ -115,41 +116,6 @@ export class SeasonRosterImportService {
     });
 
     return { importedCount: deduped.length };
-  }
-
-  /**
-   * Une affectation par joueur : quand plusieurs affectations actives
-   * coexistent pour le même joueur (cas normal avant activation, voir
-   * ci-dessus), retient la plus récente (`joinDate` le plus tardif, `id` le
-   * plus élevé en dernier recours) comme représentante. L'ordre relatif des
-   * joueurs (déjà trié par nom en amont) est préservé : `Map` conserve
-   * l'ordre de la PREMIÈRE occurrence de chaque clé, et les affectations
-   * d'un même joueur (même nom) sont nécessairement adjacentes dans le
-   * résultat trié par nom.
-   */
-  private dedupeByPlayer<
-    T extends { playerId: number; joinDate: Date | null; id: number },
-  >(assignments: T[]): T[] {
-    const byPlayer = new Map<number, T>();
-    for (const assignment of assignments) {
-      const existing = byPlayer.get(assignment.playerId);
-      if (!existing || this.isMoreRecent(assignment, existing)) {
-        byPlayer.set(assignment.playerId, assignment);
-      }
-    }
-    return [...byPlayer.values()];
-  }
-
-  private isMoreRecent<T extends { joinDate: Date | null; id: number }>(
-    candidate: T,
-    current: T,
-  ): boolean {
-    if (candidate.joinDate && current.joinDate) {
-      return candidate.joinDate > current.joinDate;
-    }
-    if (candidate.joinDate && !current.joinDate) return true;
-    if (!candidate.joinDate && current.joinDate) return false;
-    return candidate.id > current.id;
   }
 
   private async assertSeasonIsDraft(
