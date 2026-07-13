@@ -3,6 +3,7 @@ import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
+import { resolveSeasonPeriod } from '../common/season-period';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerInterviewDto } from './dto/create-player-interview.dto';
 import { FindPlayerInterviewsQueryDto } from './dto/find-player-interviews-query.dto';
@@ -82,20 +83,36 @@ export class PlayerInterviewsService {
     }
 
     const isOwnScope = requester.scope === 'OWN';
+
+    // Filtrage rétroactif par saison (A12) : prioritaire sur dateFrom/dateTo
+    // si transmis — mutuellement exclusifs au niveau UI (voir DTO).
+    let dateFrom = query.dateFrom;
+    let seasonDateTo = query.dateTo;
+    if (query.seasonId) {
+      const period = await resolveSeasonPeriod(
+        this.prisma,
+        requester.teamId,
+        query.seasonId,
+        'PLAYER_INTERVIEWS.SEASON_NOT_FOUND',
+      );
+      dateFrom = period.startDate;
+      seasonDateTo = period.endDate;
+    }
+
     // Un Player (scope OWN) ne voit jamais les entretiens à venir — seulement
     // ceux déjà passés (décision du 2026-07-06). "Aujourd'hui" compte comme
     // passé : borne haute fixée à la fin de la journée courante.
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
     const dateTo =
-      isOwnScope && (!query.dateTo || query.dateTo > endOfToday)
+      isOwnScope && (!seasonDateTo || seasonDateTo > endOfToday)
         ? endOfToday
-        : query.dateTo;
+        : seasonDateTo;
 
     const interviews = await this.prisma.playerInterview.findMany({
       where: {
         playerId,
-        date: { gte: query.dateFrom, lte: dateTo },
+        date: { gte: dateFrom, lte: dateTo },
       },
       include: { staff: true },
       orderBy: { date: query.sortOrder ?? 'desc' },

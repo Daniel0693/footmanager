@@ -51,6 +51,7 @@ describe('PlayerInterviewsService', () => {
   let interviewUpdate: jest.Mock;
   let interviewDelete: jest.Mock;
   let playerTeamFindFirst: jest.Mock;
+  let seasonFindFirst: jest.Mock;
   let service: PlayerInterviewsService;
 
   beforeEach(() => {
@@ -61,6 +62,7 @@ describe('PlayerInterviewsService', () => {
     interviewUpdate = jest.fn();
     interviewDelete = jest.fn();
     playerTeamFindFirst = jest.fn().mockResolvedValue({ id: 1 });
+    seasonFindFirst = jest.fn();
 
     const prismaStub = {
       playerProfile: { findFirst: playerFindFirst },
@@ -72,6 +74,7 @@ describe('PlayerInterviewsService', () => {
         delete: interviewDelete,
       },
       playerTeam: { findFirst: playerTeamFindFirst },
+      season: { findFirst: seasonFindFirst },
     } as unknown as PrismaService;
 
     service = new PlayerInterviewsService(prismaStub);
@@ -341,6 +344,83 @@ describe('PlayerInterviewsService', () => {
         }),
       ).rejects.toBeInstanceOf(AppException);
       expect(interviewFindMany).not.toHaveBeenCalled();
+    });
+
+    describe('filtrage rétroactif par saison (A12)', () => {
+      it('borne la recherche aux dates de la saison, prioritaire sur dateFrom/dateTo', async () => {
+        playerFindFirst.mockResolvedValue(player);
+        interviewFindMany.mockResolvedValue([interview]);
+        const startDate = new Date('2026-08-01');
+        const endDate = new Date('2027-06-30');
+        seasonFindFirst.mockResolvedValue({
+          id: 10,
+          teamId: 8,
+          startDate,
+          endDate,
+        });
+
+        await service.findAllByPlayer(
+          1,
+          100,
+          { memberId: 999, scope: 'TEAM', teamId: 8 },
+          {
+            seasonId: 10,
+            dateFrom: new Date('2000-01-01'),
+            dateTo: new Date('2000-12-31'),
+          },
+        );
+
+        expect(seasonFindFirst).toHaveBeenCalledWith({
+          where: { id: 10, teamId: 8 },
+        });
+        expect(interviewFindMany).toHaveBeenCalledWith({
+          where: { playerId: 100, date: { gte: startDate, lte: endDate } },
+          include: { staff: true },
+          orderBy: { date: 'desc' },
+        });
+      });
+
+      it("renvoie 404 si la saison ne correspond pas à l'équipe transmise", async () => {
+        playerFindFirst.mockResolvedValue(player);
+        seasonFindFirst.mockResolvedValue(null);
+
+        await expect(
+          service.findAllByPlayer(
+            1,
+            100,
+            { memberId: 999, scope: 'TEAM', teamId: 8 },
+            { seasonId: 999 },
+          ),
+        ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+        expect(interviewFindMany).not.toHaveBeenCalled();
+      });
+
+      it("scope OWN : la borne haute de la saison reste plafonnée à aujourd'hui si postérieure", async () => {
+        playerFindFirst.mockResolvedValue(player);
+        interviewFindMany.mockResolvedValue([]);
+        const startDate = new Date('2026-08-01');
+        const farFutureEndDate = new Date('2099-06-30');
+        seasonFindFirst.mockResolvedValue({
+          id: 10,
+          teamId: 8,
+          startDate,
+          endDate: farFutureEndDate,
+        });
+
+        await service.findAllByPlayer(
+          1,
+          100,
+          { memberId: 42, scope: 'OWN', teamId: 8 },
+          { seasonId: 10 },
+        );
+
+        const [{ where }] = interviewFindMany.mock.calls[0] as [
+          { where: { date: { lte: Date } } },
+        ];
+        expect(where.date.lte.getTime()).toBeLessThan(
+          farFutureEndDate.getTime(),
+        );
+      });
     });
   });
 

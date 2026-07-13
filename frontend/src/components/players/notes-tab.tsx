@@ -44,6 +44,7 @@ export function NotesTab({
   teamId,
   playerId,
   isOwnProfile,
+  seasonId,
 }: {
   clubId: string;
   teamId: string;
@@ -53,6 +54,10 @@ export function NotesTab({
   // DELETE : masque l'ajout et les actions par ligne plutôt que de les
   // laisser mener à un 403 au clic.
   isOwnProfile: boolean;
+  // Sélection portée par SeasonFilterSelect (A12) au niveau de la page
+  // parente — mutuellement exclusif avec dateFrom/dateTo (null = "Période
+  // personnalisée", auquel cas les champs de plage libre reprennent la main).
+  seasonId?: number | null;
 }) {
   const t = useTranslations("notes");
   const locale = useLocale();
@@ -68,19 +73,23 @@ export function NotesTab({
   const [hasError, setHasError] = useState(false);
 
   const fetchNotes = useCallback(async () => {
-    const query = toQueryString({
-      teamId,
-      dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined,
-      sortOrder,
-    });
+    const query = toQueryString(
+      seasonId
+        ? { teamId, seasonId: String(seasonId), sortOrder }
+        : {
+            teamId,
+            dateFrom: dateFrom || undefined,
+            dateTo: dateTo || undefined,
+            sortOrder,
+          },
+    );
     const response = await apiFetch(
       `/clubs/${clubId}/players/${playerId}/notes?${query}`,
       { headers: authHeaders(accessToken) },
     );
     if (!response.ok) throw new Error();
     return response.json();
-  }, [clubId, playerId, teamId, dateFrom, dateTo, sortOrder, accessToken]);
+  }, [clubId, playerId, teamId, seasonId, dateFrom, dateTo, sortOrder, accessToken]);
 
   const load = useCallback(async () => {
     try {
@@ -140,29 +149,31 @@ export function NotesTab({
       <Card className="shrink-0">
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-            {/* Plage de dates groupée en un seul bloc : les deux champs
-                wrappent ensemble plutôt que de se retrouver séparés sur deux
-                lignes (retour du 2026-07-06). */}
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("dateRangeLabel")}</Label>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="date"
-                  aria-label={t("dateFrom")}
-                  value={dateFrom}
-                  onChange={(event) => setDateFrom(event.target.value)}
-                  className="w-36"
-                />
-                <span className="text-xs text-muted-foreground">–</span>
-                <Input
-                  type="date"
-                  aria-label={t("dateTo")}
-                  value={dateTo}
-                  onChange={(event) => setDateTo(event.target.value)}
-                  className="w-36"
-                />
+            {/* Plage de dates masquée quand une saison est sélectionnée
+                (SeasonFilterSelect, A12) : les bornes viennent alors de la
+                saison, jamais des deux à la fois. */}
+            {!seasonId && (
+              <div className="flex flex-col gap-1.5">
+                <Label>{t("dateRangeLabel")}</Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date"
+                    aria-label={t("dateFrom")}
+                    value={dateFrom}
+                    onChange={(event) => setDateFrom(event.target.value)}
+                    className="w-36"
+                  />
+                  <span className="text-xs text-muted-foreground">–</span>
+                  <Input
+                    type="date"
+                    aria-label={t("dateTo")}
+                    value={dateTo}
+                    onChange={(event) => setDateTo(event.target.value)}
+                    className="w-36"
+                  />
+                </div>
               </div>
-            </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <Label>{t("sortOrder")}</Label>
               <Select

@@ -3,6 +3,7 @@ import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
+import { resolveSeasonPeriod } from '../common/season-period';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerEvaluationDto } from './dto/create-player-evaluation.dto';
 import { FindPlayerEvaluationsQueryDto } from './dto/find-player-evaluations-query.dto';
@@ -97,10 +98,25 @@ export class PlayerEvaluationsService {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
 
+    // Filtrage rétroactif par saison (A12) : prioritaire sur dateFrom/dateTo
+    // si transmis — mutuellement exclusifs au niveau UI (voir DTO).
+    let dateFrom = query.dateFrom;
+    let dateTo = query.dateTo;
+    if (query.seasonId) {
+      const period = await resolveSeasonPeriod(
+        this.prisma,
+        requester.teamId,
+        query.seasonId,
+        'PLAYER_EVALUATIONS.SEASON_NOT_FOUND',
+      );
+      dateFrom = period.startDate;
+      dateTo = period.endDate;
+    }
+
     return this.prisma.playerEvaluation.findMany({
       where: {
         playerId,
-        date: { gte: query.dateFrom, lte: query.dateTo },
+        date: { gte: dateFrom, lte: dateTo },
       },
       include: EVALUATION_INCLUDE,
       orderBy: { date: query.sortOrder ?? 'desc' },

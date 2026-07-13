@@ -36,6 +36,7 @@ describe('PlayerNotesService', () => {
   let noteUpdate: jest.Mock;
   let noteDelete: jest.Mock;
   let playerTeamFindFirst: jest.Mock;
+  let seasonFindFirst: jest.Mock;
   let service: PlayerNotesService;
 
   beforeEach(() => {
@@ -46,6 +47,7 @@ describe('PlayerNotesService', () => {
     noteUpdate = jest.fn();
     noteDelete = jest.fn();
     playerTeamFindFirst = jest.fn().mockResolvedValue({ id: 1 });
+    seasonFindFirst = jest.fn();
 
     const prismaStub = {
       playerProfile: { findFirst: playerFindFirst },
@@ -57,6 +59,7 @@ describe('PlayerNotesService', () => {
         delete: noteDelete,
       },
       playerTeam: { findFirst: playerTeamFindFirst },
+      season: { findFirst: seasonFindFirst },
     } as unknown as PrismaService;
 
     service = new PlayerNotesService(prismaStub);
@@ -241,6 +244,57 @@ describe('PlayerNotesService', () => {
       });
 
       expect(result.map((n) => n.id)).toEqual([2, 3]);
+    });
+
+    describe('filtrage rétroactif par saison (A12)', () => {
+      it('borne createdAt aux dates de la saison (dateTo étendue à la fin de journée), prioritaire sur dateFrom/dateTo', async () => {
+        playerFindFirst.mockResolvedValue(player);
+        noteFindMany.mockResolvedValue([note()]);
+        const startDate = new Date('2026-08-01');
+        const endDate = new Date('2027-06-30');
+        seasonFindFirst.mockResolvedValue({
+          id: 10,
+          teamId: 8,
+          startDate,
+          endDate,
+        });
+
+        await service.findAllByPlayer(
+          1,
+          100,
+          { memberId: 99, scope: 'TEAM', teamId: 8 },
+          {
+            seasonId: 10,
+            dateFrom: new Date('2000-01-01'),
+            dateTo: new Date('2000-12-31'),
+          },
+        );
+
+        expect(seasonFindFirst).toHaveBeenCalledWith({
+          where: { id: 10, teamId: 8 },
+        });
+        const [{ where }] = noteFindMany.mock.calls[0] as [
+          { where: { createdAt: { gte: Date; lte: Date } } },
+        ];
+        expect(where.createdAt.gte).toBe(startDate);
+        expect(where.createdAt.lte.getDate()).toBe(30);
+        expect(where.createdAt.lte.getHours()).toBe(23);
+      });
+
+      it("renvoie 404 si la saison ne correspond pas à l'équipe transmise", async () => {
+        playerFindFirst.mockResolvedValue(player);
+        seasonFindFirst.mockResolvedValue(null);
+
+        await expect(
+          service.findAllByPlayer(
+            1,
+            100,
+            { memberId: 99, scope: 'TEAM', teamId: 8 },
+            { seasonId: 999 },
+          ),
+        ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+        expect(noteFindMany).not.toHaveBeenCalled();
+      });
     });
   });
 

@@ -457,6 +457,11 @@
     "deleteFailed": "Failed to delete season",
     "championshipsComingSoon": "Championship management is coming in a future phase."
   },
+  "seasonFilter": {
+    "label": "Season",
+    "customRange": "Custom range",
+    "loadFailed": "Unable to load seasons"
+  },
   "objectives": {
     "filtersTitle": "Filters",
     "statusFilter": "Status",
@@ -720,15 +725,18 @@
     },
     "PLAYER_INTERVIEWS": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
-      "NOT_FOUND": "Interview not found"
+      "NOT_FOUND": "Interview not found",
+      "SEASON_NOT_FOUND": "Season not found for this team"
     },
     "PLAYER_NOTES": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
-      "NOT_FOUND": "Note not found"
+      "NOT_FOUND": "Note not found",
+      "SEASON_NOT_FOUND": "Season not found for this team"
     },
     "PLAYER_OBJECTIVES": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
-      "NOT_FOUND": "Objective not found"
+      "NOT_FOUND": "Objective not found",
+      "SEASON_NOT_FOUND": "Season not found for this team"
     },
     "PLAYER_ABSENCES": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
@@ -737,7 +745,8 @@
     "PLAYER_EVALUATIONS": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
       "NOT_FOUND": "Evaluation not found",
-      "CRITERION_NOT_IN_CLUB": "This criterion does not belong to this club"
+      "CRITERION_NOT_IN_CLUB": "This criterion does not belong to this club",
+      "SEASON_NOT_FOUND": "Season not found for this team"
     },
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",

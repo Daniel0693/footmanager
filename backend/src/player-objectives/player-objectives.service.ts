@@ -3,6 +3,7 @@ import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
+import { resolveSeasonPeriod } from '../common/season-period';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerObjectiveDto } from './dto/create-player-objective.dto';
 import { FindPlayerObjectivesQueryDto } from './dto/find-player-objectives-query.dto';
@@ -86,6 +87,21 @@ export class PlayerObjectivesService {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
 
+    // Filtrage rétroactif par saison (A12) : prioritaire sur dateFrom/dateTo
+    // si transmis — mutuellement exclusifs au niveau UI (voir DTO).
+    let dateFrom = query.dateFrom;
+    let dateTo = query.dateTo;
+    if (query.seasonId) {
+      const period = await resolveSeasonPeriod(
+        this.prisma,
+        requester.teamId,
+        query.seasonId,
+        'PLAYER_OBJECTIVES.SEASON_NOT_FOUND',
+      );
+      dateFrom = period.startDate;
+      dateTo = period.endDate;
+    }
+
     const objectives = await this.prisma.playerObjective.findMany({
       where: {
         playerId,
@@ -95,7 +111,7 @@ export class PlayerObjectivesService {
         // Un objectif sans startDate (NULL) ne peut satisfaire aucune borne
         // en SQL : il sort naturellement des résultats dès qu'un filtre de
         // date est actif, sans traitement particulier à ajouter ici.
-        startDate: { gte: query.dateFrom, lte: query.dateTo },
+        startDate: { gte: dateFrom, lte: dateTo },
       },
       include: { assignedBy: true },
       // Tri sur startDate (décision du 2026-07-06) plutôt que createdAt : la

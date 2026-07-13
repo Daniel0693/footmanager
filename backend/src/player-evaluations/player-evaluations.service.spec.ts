@@ -42,6 +42,7 @@ describe('PlayerEvaluationsService', () => {
   let evaluationDelete: jest.Mock;
   let scoreDeleteMany: jest.Mock;
   let playerTeamFindFirst: jest.Mock;
+  let seasonFindFirst: jest.Mock;
   let service: PlayerEvaluationsService;
 
   beforeEach(() => {
@@ -54,6 +55,7 @@ describe('PlayerEvaluationsService', () => {
     evaluationDelete = jest.fn();
     scoreDeleteMany = jest.fn();
     playerTeamFindFirst = jest.fn().mockResolvedValue({ id: 1 });
+    seasonFindFirst = jest.fn();
 
     const prismaStub = {
       playerProfile: { findFirst: playerFindFirst },
@@ -67,6 +69,7 @@ describe('PlayerEvaluationsService', () => {
       },
       playerEvaluationScore: { deleteMany: scoreDeleteMany },
       playerTeam: { findFirst: playerTeamFindFirst },
+      season: { findFirst: seasonFindFirst },
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         callback(prismaStub),
       ),
@@ -275,6 +278,62 @@ describe('PlayerEvaluationsService', () => {
       });
 
       expect(result).toHaveLength(1);
+    });
+
+    describe('filtrage rétroactif par saison (A12)', () => {
+      it('borne date aux dates de la saison, prioritaire sur dateFrom/dateTo', async () => {
+        playerFindFirst.mockResolvedValue(player);
+        evaluationFindMany.mockResolvedValue([evaluation()]);
+        const startDate = new Date('2026-08-01');
+        const endDate = new Date('2027-06-30');
+        seasonFindFirst.mockResolvedValue({
+          id: 10,
+          teamId: 8,
+          startDate,
+          endDate,
+        });
+
+        await service.findAllByPlayer(
+          1,
+          100,
+          { memberId: 99, scope: 'TEAM', teamId: 8 },
+          {
+            seasonId: 10,
+            dateFrom: new Date('2000-01-01'),
+            dateTo: new Date('2000-12-31'),
+          },
+        );
+
+        expect(seasonFindFirst).toHaveBeenCalledWith({
+          where: { id: 10, teamId: 8 },
+        });
+        expect(evaluationFindMany).toHaveBeenCalledWith({
+          where: {
+            playerId: 100,
+            date: { gte: startDate, lte: endDate },
+          },
+          include: {
+            scores: { include: { criterion: { include: { category: true } } } },
+            evaluator: true,
+          },
+          orderBy: { date: 'desc' },
+        });
+      });
+
+      it("renvoie 404 si la saison ne correspond pas à l'équipe transmise", async () => {
+        playerFindFirst.mockResolvedValue(player);
+        seasonFindFirst.mockResolvedValue(null);
+
+        await expect(
+          service.findAllByPlayer(
+            1,
+            100,
+            { memberId: 99, scope: 'TEAM', teamId: 8 },
+            { seasonId: 999 },
+          ),
+        ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+        expect(evaluationFindMany).not.toHaveBeenCalled();
+      });
     });
   });
 

@@ -182,6 +182,10 @@ mergée dans `develop`.
 - Filtrage des 5 entités A7.x par **championnat précis** (`WHERE championshipMatchId...`) :
   non applicable, ces entités n'ont aucune FK directe vers `ChampionshipMatch` — seul le
   filtrage par saison (bornes de dates) est implémenté en A12.
+- Filtrage par **catégorie d'âge** (`Season.categorySnapshot`) en A12 : différé — aucun
+  formulaire (création A5, édition A11) n'expose de champ pour renseigner ce snapshot, le
+  filtre serait donc inutilisable ; à construire quand une UI de saisie de catégorie existera.
+  Voir `docs/schema/joueurs.md` §Filtrage des statistiques par période.
 - Dépendance croisée A8 ↔ B15 : le placeholder de l'étape 3 du wizard de saison n'est
   rebranché sur le vrai formulaire de championnat qu'à la toute fin de la Partie B.
 - `ChampionshipParticipant.internalTeamId` restreint à la `teamId` de l'URL (une seule équipe

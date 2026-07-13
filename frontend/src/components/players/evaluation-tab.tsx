@@ -102,6 +102,7 @@ export function EvaluationTab({
   teamId,
   playerId,
   isOwnProfile,
+  seasonId,
 }: {
   clubId: string;
   teamId: string;
@@ -111,6 +112,10 @@ export function EvaluationTab({
   // CREATE/UPDATE/DELETE : masque l'ajout et les actions par ligne plutôt
   // que de les laisser mener à un 403 au clic.
   isOwnProfile: boolean;
+  // Sélection portée par SeasonFilterSelect (A12) au niveau de la page
+  // parente — mutuellement exclusif avec dateFrom/dateTo (null = "Période
+  // personnalisée", auquel cas les champs de plage libre reprennent la main).
+  seasonId?: number | null;
 }) {
   const t = useTranslations("evaluations");
   const locale = useLocale();
@@ -143,18 +148,18 @@ export function EvaluationTab({
 
   const load = useCallback(async () => {
     try {
-      const data = await fetchEvaluations({
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-        sortOrder,
-      });
+      const data = await fetchEvaluations(
+        seasonId
+          ? { seasonId: String(seasonId), sortOrder }
+          : { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, sortOrder },
+      );
       setEvaluations(data);
       setHasError(false);
     } catch {
       setHasError(true);
       toast.error(t("loadFailed"));
     }
-  }, [fetchEvaluations, dateFrom, dateTo, sortOrder, t]);
+  }, [fetchEvaluations, seasonId, dateFrom, dateTo, sortOrder, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,11 +191,11 @@ export function EvaluationTab({
     let cancelled = false;
     (async () => {
       try {
-        const data = await fetchEvaluations({
-          dateFrom: dateFrom || undefined,
-          dateTo: dateTo || undefined,
-          sortOrder,
-        });
+        const data = await fetchEvaluations(
+          seasonId
+            ? { seasonId: String(seasonId), sortOrder }
+            : { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, sortOrder },
+        );
         if (!cancelled) {
           setEvaluations(data);
           setHasError(false);
@@ -205,7 +210,7 @@ export function EvaluationTab({
     return () => {
       cancelled = true;
     };
-  }, [fetchEvaluations, dateFrom, dateTo, sortOrder, t]);
+  }, [fetchEvaluations, seasonId, dateFrom, dateTo, sortOrder, t]);
 
   const handleDelete = async (id: number) => {
     try {
@@ -271,26 +276,31 @@ export function EvaluationTab({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>{t("dateRangeLabel")}</Label>
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    type="date"
-                    aria-label={t("dateFrom")}
-                    value={dateFrom}
-                    onChange={(event) => setDateFrom(event.target.value)}
-                    className="w-0 min-w-0 flex-1"
-                  />
-                  <span className="text-xs text-muted-foreground">–</span>
-                  <Input
-                    type="date"
-                    aria-label={t("dateTo")}
-                    value={dateTo}
-                    onChange={(event) => setDateTo(event.target.value)}
-                    className="w-0 min-w-0 flex-1"
-                  />
+              {/* Plage de dates masquée quand une saison est sélectionnée
+                  (SeasonFilterSelect, A12) : les bornes viennent alors de la
+                  saison, jamais des deux à la fois. */}
+              {!seasonId && (
+                <div className="flex flex-col gap-1.5">
+                  <Label>{t("dateRangeLabel")}</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="date"
+                      aria-label={t("dateFrom")}
+                      value={dateFrom}
+                      onChange={(event) => setDateFrom(event.target.value)}
+                      className="w-0 min-w-0 flex-1"
+                    />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input
+                      type="date"
+                      aria-label={t("dateTo")}
+                      value={dateTo}
+                      onChange={(event) => setDateTo(event.target.value)}
+                      className="w-0 min-w-0 flex-1"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             {!isOwnProfile && axes && axes.length > 0 && (
               <div className="flex justify-end">
