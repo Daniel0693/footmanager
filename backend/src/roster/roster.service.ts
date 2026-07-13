@@ -68,6 +68,28 @@ const ROLE_SORT_RANK: Record<RosterRow['role'], number> = {
   PLAYER: 3,
 };
 
+// Miroir exact de l'ordre de déclaration de l'enum Prisma `Position`
+// (schema.prisma) : Gardien → Défenseur → Milieu → Attaquant "gratuit" par
+// construction (retour utilisateur 2026-07-13 — tri par ligne, pas
+// alphabétique). Même principe que ROLE_SORT_RANK ci-dessus.
+const POSITION_SORT_RANK: Record<Position, number> = {
+  GK: 0,
+  CB: 1,
+  RB: 2,
+  LB: 3,
+  RWB: 4,
+  LWB: 5,
+  CDM: 6,
+  CM: 7,
+  RM: 8,
+  LM: 9,
+  CAM: 10,
+  RW: 11,
+  LW: 12,
+  CF: 13,
+  ST: 14,
+};
+
 /**
  * Vue en lecture unifiée Joueurs + Staff d'une équipe (docs/modules/
  * effectif-joueurs.md) : deux requêtes Prisma indépendantes (PlayerTeam,
@@ -156,7 +178,19 @@ export class RosterService {
         ? []
         : await this.findStaffRows(requester, teamId, status);
 
-    const merged = [...players, ...staff];
+    let merged = [...players, ...staff];
+    // Recherche texte insensible à la casse sur prénom/nom (retour
+    // utilisateur 2026-07-13) : appliquée en mémoire comme le tri/la
+    // pagination ci-dessous (voir commentaire d'architecture en tête de
+    // fichier) — aucune requête SQL supplémentaire.
+    const needle = query.search?.trim().toLowerCase();
+    if (needle) {
+      merged = merged.filter(
+        (row) =>
+          row.firstName.toLowerCase().includes(needle) ||
+          row.lastName.toLowerCase().includes(needle),
+      );
+    }
     this.sortRows(merged, query.sortBy ?? 'lastName', query.sortOrder ?? 'asc');
 
     const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
@@ -461,10 +495,42 @@ export class RosterService {
     if (sortBy === 'phone' || sortBy === 'email') {
       return this.compareNullable(a[sortBy], b[sortBy], direction);
     }
+    if (sortBy === 'firstName') {
+      return (
+        a.firstName.localeCompare(b.firstName) ||
+        a.lastName.localeCompare(b.lastName)
+      );
+    }
+    if (sortBy === 'mainPosition') {
+      return this.compareNullable(
+        a.mainPosition ? POSITION_SORT_RANK[a.mainPosition] : undefined,
+        b.mainPosition ? POSITION_SORT_RANK[b.mainPosition] : undefined,
+        direction,
+      );
+    }
+    if (sortBy === 'secondaryPositions') {
+      return this.compareNullable(
+        this.bestSecondaryPositionRank(a.secondaryPositions),
+        this.bestSecondaryPositionRank(b.secondaryPositions),
+        direction,
+      );
+    }
     // lastName : nom puis prénom pour départager les homonymes.
     return (
       a.lastName.localeCompare(b.lastName) ||
       a.firstName.localeCompare(b.firstName)
+    );
+  }
+
+  // Rang du meilleur poste secondaire (le plus proche du gardien dans
+  // POSITION_SORT_RANK) — décision produit du 2026-07-13 : classer par le
+  // poste secondaire le plus "senior" plutôt que par leur nombre. `undefined`
+  // (tableau vide) est traité comme null par compareNullable, donc toujours
+  // en fin de liste dans les deux sens.
+  private bestSecondaryPositionRank(positions: Position[]): number | undefined {
+    if (positions.length === 0) return undefined;
+    return Math.min(
+      ...positions.map((position) => POSITION_SORT_RANK[position]),
     );
   }
 

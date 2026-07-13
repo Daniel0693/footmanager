@@ -91,6 +91,8 @@
     "emptyValue": "—",
     "empty": "No members in this team",
     "loadFailed": "Failed to load the roster",
+    "searchPlaceholder": "Search a player...",
+    "filtersButton": "Filters",
     "filterByLine": "Filter by line",
     "filterByPosition": "Filter by position",
     "allLines": "All lines",

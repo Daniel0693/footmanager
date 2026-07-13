@@ -91,6 +91,8 @@
     "emptyValue": "—",
     "empty": "Aucun membre dans cette équipe",
     "loadFailed": "Impossible de charger l'effectif",
+    "searchPlaceholder": "Rechercher un joueur...",
+    "filtersButton": "Filtres",
     "filterByLine": "Filtrer par ligne",
     "filterByPosition": "Filtrer par poste",
     "allLines": "Toutes les lignes",

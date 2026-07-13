@@ -1,12 +1,24 @@
 "use client";
 
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PageSizeSelect, Pagination, type PageSize } from "@/components/ui/pagination";
+import { Input } from "@/components/ui/input";
+import {
+  PageSizeSelect,
+  Pagination,
+  type PageSize,
+} from "@/components/ui/pagination";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -68,7 +80,16 @@ interface RosterResponse {
   canDelete: boolean;
 }
 
-type RosterSortBy = "jerseyNumber" | "lastName" | "phone" | "email" | "birthDate" | "role";
+type RosterSortBy =
+  | "jerseyNumber"
+  | "lastName"
+  | "firstName"
+  | "phone"
+  | "email"
+  | "birthDate"
+  | "role"
+  | "mainPosition"
+  | "secondaryPositions";
 type SortOrder = "asc" | "desc";
 type StatusFilter = "ACTIVE" | "ARCHIVED" | "ALL";
 
@@ -104,12 +125,27 @@ export function TeamPlayersPageContent({
   const [capabilities, setCapabilities] = useState(EMPTY_CAPABILITIES);
   const [hasError, setHasError] = useState(false);
   const [lineFilter, setLineFilter] = useState<PositionLine | typeof ALL>(ALL);
-  const [positionFilter, setPositionFilter] = useState<Position | typeof ALL>(ALL);
+  const [positionFilter, setPositionFilter] = useState<Position | typeof ALL>(
+    ALL,
+  );
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ACTIVE");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortBy, setSortBy] = useState<RosterSortBy>("lastName");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSize>(DEFAULT_PAGE_SIZE);
+
+  // Recherche texte (retour utilisateur 2026-07-13) : un seul fetch après
+  // 300ms d'inactivité, pas un par frappe — résolue côté backend (query
+  // param `search`), jamais un filtrage JS côté client (convention projet).
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [search]);
 
   // Poste exact prioritaire sur la ligne (même priorité que l'ancien filtre
   // JS) : sélectionner un poste précis restreint à ce seul poste, sinon la
@@ -128,6 +164,7 @@ export function TeamPlayersPageContent({
     const query = toQueryString({
       position: positionsToQuery,
       status: statusFilter,
+      search: debouncedSearch || undefined,
       sortBy,
       sortOrder,
       page: String(page),
@@ -139,7 +176,18 @@ export function TeamPlayersPageContent({
     );
     if (!response.ok) throw new Error();
     return (await response.json()) as RosterResponse;
-  }, [clubId, teamId, accessToken, positionsToQuery, statusFilter, sortBy, sortOrder, page, pageSize]);
+  }, [
+    clubId,
+    teamId,
+    accessToken,
+    positionsToQuery,
+    statusFilter,
+    debouncedSearch,
+    sortBy,
+    sortOrder,
+    page,
+    pageSize,
+  ]);
 
   const loadRoster = useCallback(async () => {
     try {
@@ -192,6 +240,15 @@ export function TeamPlayersPageContent({
     [lineFilter],
   );
 
+  // Panneau "Filtres" compact (retour utilisateur 2026-07-13) : le badge de
+  // comptage reste correct quel que soit le nombre de filtres ajoutés plus
+  // tard, sans nouvelle rangée de dropdowns à gérer dans le layout.
+  const activeFilterCount = [
+    lineFilter !== ALL,
+    positionFilter !== ALL,
+    statusFilter !== "ACTIVE",
+  ].filter(Boolean).length;
+
   // Édition en masse (B4) : joueurs uniquement, limités aux lignes
   // ACTUELLEMENT affichées (page/filtres en cours) — voir bulkPlayers.editScopeNote.
   const playerRows = useMemo(
@@ -199,16 +256,22 @@ export function TeamPlayersPageContent({
     [rows],
   );
 
-  const handleLineChange = useCallback((value: PositionLine | typeof ALL | null) => {
-    setLineFilter(value ?? ALL);
-    setPositionFilter(ALL);
-    setPage(1);
-  }, []);
+  const handleLineChange = useCallback(
+    (value: PositionLine | typeof ALL | null) => {
+      setLineFilter(value ?? ALL);
+      setPositionFilter(ALL);
+      setPage(1);
+    },
+    [],
+  );
 
-  const handlePositionChange = useCallback((value: Position | typeof ALL | null) => {
-    setPositionFilter(value ?? ALL);
-    setPage(1);
-  }, []);
+  const handlePositionChange = useCallback(
+    (value: Position | typeof ALL | null) => {
+      setPositionFilter(value ?? ALL);
+      setPage(1);
+    },
+    [],
+  );
 
   const handleStatusChange = useCallback((value: StatusFilter | null) => {
     setStatusFilter(value ?? "ACTIVE");
@@ -233,7 +296,8 @@ export function TeamPlayersPageContent({
   );
 
   const sortIcon = (column: RosterSortBy) => {
-    if (sortBy !== column) return <ArrowUpDown className="size-3.5 text-muted-foreground" />;
+    if (sortBy !== column)
+      return <ArrowUpDown className="size-3.5 text-muted-foreground" />;
     return sortOrder === "asc" ? (
       <ArrowUp className="size-3.5" />
     ) : (
@@ -256,7 +320,10 @@ export function TeamPlayersPageContent({
 
   return (
     <div className="flex w-full flex-col gap-4 p-4">
-      <Link href={`/clubs/${clubId}/teams`} className="text-sm text-muted-foreground underline">
+      <Link
+        href={`/clubs/${clubId}/teams`}
+        className="text-sm text-muted-foreground underline"
+      >
         {t("backToTeams")}
       </Link>
       <div className="flex items-center justify-between">
@@ -267,7 +334,9 @@ export function TeamPlayersPageContent({
               clubId={clubId}
               teamId={teamId}
               onSuccess={loadRoster}
-              trigger={<Button variant="outline">{tBulk("createTitle")}</Button>}
+              trigger={
+                <Button variant="outline">{tBulk("createTitle")}</Button>
+              }
             />
           )}
           {capabilities.canEdit && playerRows.length > 0 && (
@@ -290,72 +359,115 @@ export function TeamPlayersPageContent({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm text-muted-foreground">{t("filterByLine")}</span>
-          <Select value={lineFilter} onValueChange={handleLineChange}>
-            <SelectTrigger>
-              <SelectValue>
-                {(value: PositionLine | typeof ALL | null) =>
-                  value && value !== ALL ? tPositionLines(value) : t("allLines")
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>{t("allLines")}</SelectItem>
-              {POSITION_LINES.map((line) => (
-                <SelectItem key={line} value={line}>
-                  {tPositionLines(line)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative w-full max-w-xs">
+          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("searchPlaceholder")}
+            className="pl-8"
+          />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm text-muted-foreground">{t("filterByPosition")}</span>
-          <Select value={positionFilter} onValueChange={handlePositionChange}>
-            <SelectTrigger>
-              <SelectValue>
-                {(value: Position | typeof ALL | null) =>
-                  value && value !== ALL ? tPositions(value) : t("allPositions")
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>{t("allPositions")}</SelectItem>
-              {availablePositions.map((position) => (
-                <SelectItem key={position} value={position}>
-                  {tPositions(position)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button variant="outline" className="gap-1.5">
+                <SlidersHorizontal className="size-4" />
+                {t("filtersButton")}
+                {activeFilterCount > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            }
+          />
+          <PopoverContent>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm text-muted-foreground">
+                  {t("filterByLine")}
+                </span>
+                <Select value={lineFilter} onValueChange={handleLineChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {(value: PositionLine | typeof ALL | null) =>
+                        value && value !== ALL
+                          ? tPositionLines(value)
+                          : t("allLines")
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>{t("allLines")}</SelectItem>
+                    {POSITION_LINES.map((line) => (
+                      <SelectItem key={line} value={line}>
+                        {tPositionLines(line)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-        {capabilities.canViewArchived && (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm text-muted-foreground">{t("statusFilter")}</span>
-            <Select value={statusFilter} onValueChange={handleStatusChange}>
-              <SelectTrigger>
-                <SelectValue>
-                  {(value: StatusFilter | null) =>
-                    value === "ARCHIVED"
-                      ? t("statusArchived")
-                      : value === "ALL"
-                        ? t("statusAll")
-                        : t("statusActive")
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ACTIVE">{t("statusActive")}</SelectItem>
-                <SelectItem value="ARCHIVED">{t("statusArchived")}</SelectItem>
-                <SelectItem value="ALL">{t("statusAll")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm text-muted-foreground">
+                  {t("filterByPosition")}
+                </span>
+                <Select
+                  value={positionFilter}
+                  onValueChange={handlePositionChange}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {(value: Position | typeof ALL | null) =>
+                        value && value !== ALL
+                          ? tPositions(value)
+                          : t("allPositions")
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>{t("allPositions")}</SelectItem>
+                    {availablePositions.map((position) => (
+                      <SelectItem key={position} value={position}>
+                        {tPositions(position)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {capabilities.canViewArchived && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm text-muted-foreground">
+                    {t("statusFilter")}
+                  </span>
+                  <Select value={statusFilter} onValueChange={handleStatusChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue>
+                        {(value: StatusFilter | null) =>
+                          value === "ARCHIVED"
+                            ? t("statusArchived")
+                            : value === "ALL"
+                              ? t("statusAll")
+                              : t("statusActive")
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE">{t("statusActive")}</SelectItem>
+                      <SelectItem value="ARCHIVED">{t("statusArchived")}</SelectItem>
+                      <SelectItem value="ALL">{t("statusAll")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {hasError ? (
@@ -369,12 +481,12 @@ export function TeamPlayersPageContent({
               <TableRow>
                 {sortableHead("jerseyNumber", t("jerseyNumber"))}
                 {sortableHead("lastName", t("lastName"))}
-                <TableHead>{t("firstName")}</TableHead>
+                {sortableHead("firstName", t("firstName"))}
                 {sortableHead("phone", t("phone"))}
                 {sortableHead("email", t("email"))}
                 {sortableHead("birthDate", t("birthDateColumn"))}
-                <TableHead>{t("mainPosition")}</TableHead>
-                <TableHead>{t("secondaryPosition")}</TableHead>
+                {sortableHead("mainPosition", t("mainPosition"))}
+                {sortableHead("secondaryPositions", t("secondaryPosition"))}
                 {sortableHead("role", t("roleColumn"))}
                 {(capabilities.canEdit || capabilities.canDelete) && (
                   <TableHead className="text-right">{t("actions")}</TableHead>
@@ -383,7 +495,10 @@ export function TeamPlayersPageContent({
             </TableHeader>
             <TableBody>
               {(rows ?? []).map((row) => (
-                <TableRow key={`${row.role}-${row.id}`} className={row.isArchived ? "opacity-60" : undefined}>
+                <TableRow
+                  key={`${row.role}-${row.id}`}
+                  className={row.isArchived ? "opacity-60" : undefined}
+                >
                   <TableCell>{row.jerseyNumber ?? t("emptyValue")}</TableCell>
                   <TableCell>
                     {row.role === "PLAYER" && row.playerId ? (
@@ -400,7 +515,11 @@ export function TeamPlayersPageContent({
                   <TableCell>{row.firstName}</TableCell>
                   <TableCell>{row.phone ?? t("emptyValue")}</TableCell>
                   <TableCell>{row.email ?? t("emptyValue")}</TableCell>
-                  <TableCell>{row.birthDate ? formatDate(row.birthDate) : t("emptyValue")}</TableCell>
+                  <TableCell>
+                    {row.birthDate
+                      ? formatDate(row.birthDate)
+                      : t("emptyValue")}
+                  </TableCell>
                   <TableCell>
                     {row.mainPosition ? (
                       <Badge>{tPositions(row.mainPosition)}</Badge>
@@ -442,8 +561,16 @@ export function TeamPlayersPageContent({
           </Table>
 
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <PageSizeSelect pageSize={pageSize} onPageSizeChange={handlePageSizeChange} />
-            <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
+            <PageSizeSelect
+              pageSize={pageSize}
+              onPageSizeChange={handlePageSizeChange}
+            />
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+            />
           </div>
         </>
       )}

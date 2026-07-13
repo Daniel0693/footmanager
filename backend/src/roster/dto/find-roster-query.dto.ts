@@ -1,6 +1,14 @@
 import { Position } from '@prisma/client';
 import { Transform, Type, type TransformFnParams } from 'class-transformer';
-import { IsArray, IsEnum, IsIn, IsInt, IsOptional, Min } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 // Même trois valeurs que la décision produit du module Effectif (voir
 // docs/modules/effectif-joueurs.md) : Actif par défaut, Archivé, ou tout —
@@ -9,7 +17,15 @@ import { IsArray, IsEnum, IsIn, IsInt, IsOptional, Min } from 'class-validator';
 export type RosterStatus = 'ACTIVE' | 'ARCHIVED' | 'ALL';
 
 export type RosterSortBy =
-  'jerseyNumber' | 'lastName' | 'phone' | 'email' | 'birthDate' | 'role';
+  | 'jerseyNumber'
+  | 'lastName'
+  | 'firstName'
+  | 'phone'
+  | 'email'
+  | 'birthDate'
+  | 'role'
+  | 'mainPosition'
+  | 'secondaryPositions';
 
 export class FindRosterQueryDto {
   @IsOptional()
@@ -28,12 +44,28 @@ export class FindRosterQueryDto {
   position?: Position[];
 
   @IsOptional()
-  @IsIn(['jerseyNumber', 'lastName', 'phone', 'email', 'birthDate', 'role'])
+  @IsIn([
+    'jerseyNumber',
+    'lastName',
+    'firstName',
+    'phone',
+    'email',
+    'birthDate',
+    'role',
+    'mainPosition',
+    'secondaryPositions',
+  ])
   sortBy?: RosterSortBy;
 
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc';
+
+  // Recherche texte insensible à la casse sur prénom/nom (retour utilisateur
+  // 2026-07-13) : ex. "Dan" trouve "Daniel" et "Danièle" — voir RosterService.
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @IsOptional()
   @Type(() => Number)
