@@ -201,4 +201,35 @@ describe("CalendarWeekView", () => {
       mockApiFetch.mock.calls.some(([url]) => (url as string).includes("/members/birthdays")),
     ).toBe(false);
   });
+
+  describe("ligne d'heure actuelle (retour utilisateur 2026-07-13)", () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("affiche la ligne dans la colonne du jour actuel, au bon offset (heure dans la plage affichée)", async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 6, 8, 15, 30));
+      renderWeekView();
+
+      const column = await waitFor(() =>
+        screen.getByTestId(`calendar-week-column-${dayKey(new Date(2026, 6, 8))}`),
+      );
+      const line = within(column).getByTestId("calendar-week-now-line");
+      // (15.5 - HOUR_START=6) * HOUR_HEIGHT_PX=48 = 456.
+      expect(line.style.top).toBe("456px");
+      expect(
+        within(screen.getByTestId(`calendar-week-column-${dayKey(new Date(2026, 6, 6))}`)).queryByTestId(
+          "calendar-week-now-line",
+        ),
+      ).not.toBeInTheDocument();
+    });
+
+    it("ne montre aucune ligne quand l'heure actuelle est hors plage affichée (ex. 2h du matin)", async () => {
+      jest.useFakeTimers().setSystemTime(new Date(2026, 6, 8, 2, 0));
+      renderWeekView();
+
+      await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+      expect(screen.queryByTestId("calendar-week-now-line")).not.toBeInTheDocument();
+    });
+  });
 });

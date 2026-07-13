@@ -385,4 +385,33 @@ describe("CalendarPageContent", () => {
       expect(await screen.findByText("mars 2026")).toBeInTheDocument();
     });
   });
+
+  describe("vue par défaut selon le format d'écran (retour utilisateur 2026-07-13)", () => {
+    const originalMatchMedia = window.matchMedia;
+
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia;
+    });
+
+    it("sans paramètre d'URL, en contexte desktop (≥768px), bascule sur la vue Mois", async () => {
+      mockRoutes(twoTeams, []);
+      mockSearchParams = new URLSearchParams();
+      window.matchMedia = jest.fn().mockReturnValue({ matches: true });
+
+      renderWithIntl(<CalendarPageContent clubId="1" />);
+
+      expect(await screen.findByRole("tab", { name: "Mois", selected: true })).toBeInTheDocument();
+      expect(screen.queryByTestId("calendar-list-scroll")).not.toBeInTheDocument();
+    });
+
+    it("avec view=list explicite dans l'URL, reste en vue Liste même en contexte desktop", async () => {
+      mockRoutes(twoTeams, []);
+      mockSearchParams = new URLSearchParams("view=list");
+      window.matchMedia = jest.fn().mockReturnValue({ matches: true });
+
+      renderWithIntl(<CalendarPageContent clubId="1" />);
+
+      expect(await screen.findByTestId("calendar-list-scroll")).toBeInTheDocument();
+    });
+  });
 });
