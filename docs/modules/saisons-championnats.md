@@ -97,17 +97,21 @@ Joueur X — historique PlayerTeam :
 
 ### Consultation du profil joueur par saison
 
-Sur la fiche du joueur, une **liste déroulante "Saison"** permet de filtrer toutes les
-statistiques et informations liées à une saison précise. Modes de filtrage disponibles :
+Sur la fiche du joueur, un **sélecteur "Saison"** (`SeasonFilterSelect`, A12) au-dessus des
+onglets permet de filtrer les 4 onglets Entretien/Notes/Objectifs/Évaluation par saison précise.
+Modes implémentés :
 
 | Mode | Requête sous-jacente |
 |---|---|
-| Saison courante (défaut) | `WHERE event.startAt BETWEEN season.startDate AND season.endDate` (saison active) |
-| Saison passée (sélecteur) | même filtre sur la saison choisie |
-| Championnat précis | `WHERE championshipMatchId IN (championshipId X)` |
-| Catégorie (ex. "toutes les saisons U15") | `WHERE season.categorySnapshot = 'U15'` sur les seasons du joueur |
-| Tranche de dates libre | `WHERE event.startAt BETWEEN dateA AND dateB` |
+| Saison précise (défaut = saison ACTIVE de l'équipe) | `WHERE <date entité> BETWEEN season.startDate AND season.endDate` |
+| Tranche de dates libre ("Période personnalisée") | `WHERE <date entité> BETWEEN dateA AND dateB` |
 | Tout (depuis entrée au club) | pas de filtre de date |
+
+Deux modes envisagés en conception restent **non implémentés**, voir `docs/schema/joueurs.md`
+§Filtrage des statistiques par période et `docs/roadmap.md` Partie A §Points reportés :
+- **Championnat précis** — non applicable, ces 4 entités n'ont aucune FK vers `ChampionshipMatch`.
+- **Catégorie** (`season.categorySnapshot`) — différé, aucune UI ne permet de renseigner ce champ
+  sur une `Season` à ce jour.
 
 Les `PlayerMeasurement` (taille, poids) s'affichent **toujours** en graphique d'évolution
 temporelle complète, indépendamment du filtre de saison — l'évolution physique se lit dans
@@ -200,11 +204,12 @@ MVP (20 équipes × ~20 matchs = quelques centaines de lignes, parfaitement supp
 
 ## Droits par rôle
 
-| Action | Coach (son équipe) | AdminClub | SuperAdmin / Propriétaire | Player / Parent |
-|---|---|---|---|---|
-| Créer / activer une Season | ✅ | ✅ | ✅ | ❌ |
-| Modifier une Season archivée | ✅ | ✅ | ✅ | ❌ |
-| Créer un Championship | ✅ | ✅ | ✅ | ❌ |
-| Ajouter des ExternalTeam | ✅ | ✅ | ✅ | ❌ |
-| Saisir les résultats adverses | ✅ | ✅ | ✅ | ❌ |
-| Voir le classement | ✅ | ✅ | ✅ | ✅ (lecture) |
+| Action | Coach (son équipe) | AdminClub | SuperAdmin / Propriétaire | Player | Parent |
+|---|---|---|---|---|---|
+| Consulter les saisons de son équipe (peuple le sélecteur, A12) | ✅ | ✅ | ✅ | ✅ (lecture) | ❌ |
+| Créer / activer une Season | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Modifier une Season archivée | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Créer un Championship | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Ajouter des ExternalTeam | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Saisir les résultats adverses | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Voir le classement | ✅ | ✅ | ✅ | ✅ (lecture) | ✅ (lecture) |

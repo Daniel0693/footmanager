@@ -640,8 +640,11 @@ model Season {
   name             String
   // Snapshot du nom/catégorie de l'équipe au moment de la saison — Team reste
   // l'ancre stable ; ces champs permettent de retrouver le contexte
-  // historique (ex. "U15") même si l'équipe est renommée plus tard.
-  // Alimentés au wizard de transition de saison (étape 4 — activation).
+  // historique (ex. "U15") même si l'équipe est renommée plus tard. Aucun
+  // formulaire (création A5, édition A11) ni endpoint n'alimente ces champs
+  // à ce jour — voir docs/schema/joueurs.md §Filtrage des statistiques par
+  // période et docs/roadmap.md Partie A §Points reportés (filtrage par
+  // categorySnapshot différé en A12, faute d'UI pour le renseigner).
   teamNameSnapshot String?
   categorySnapshot String?
   startDate        DateTime     @db.Date

@@ -132,7 +132,7 @@ de championnat, y compris les nôtres, sont saisies manuellement sur `Championsh
 attendant Phase 4 (`matchId` posé nullable dès maintenant, sans `@relation`, pour la migration
 future).
 
-### Partie A — Module Season 🚧
+### Partie A — Module Season ✅
 
 | Étape | Contenu |
 |---|---|
@@ -153,6 +153,14 @@ future).
 
 Détail complet de chaque étape : voir le plan de développement archivé au moment de la
 conception de la Phase 3 et `docs/modules/saisons-championnats.md`.
+
+Scénario multi-rôles bout-en-bout (A13, docs/modules/auth-roles.md §"Multi-rôles — règle de
+test obligatoire") : `backend/src/common/season-multi-role.integration.spec.ts` — Coach U15
+crée/importe le roster/active une saison ; Player Seniors lit ses propres saisons et filtre son
+profil par la saison de son équipe, sans pouvoir lire les bornes d'une saison d'une autre
+équipe (404) ; Parent Club B aucun accès à `season` ni au filtrage par saison.
+
+Tests à la fin de la Partie A : 460 tests backend + 434 tests frontend.
 
 ### Partie B — Module Championship ⬜
 

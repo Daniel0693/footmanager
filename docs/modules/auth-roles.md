@@ -284,7 +284,13 @@ utilisateur différent par rôle. Pour le module Calendrier (B9, Partie B),
 `backend/src/common/calendrier-multi-role.integration.spec.ts` applique le même principe à
 `Event`/`PlayerAbsence` (CRUD réel via guards/services) et aux agrégations "mine"
 (`events/mine`, `members/birthdays`, exercées avec le vrai `PermissionsService` — voir le
-constat documenté ci-dessus sur leur proxy `MemberRole`).
+constat documenté ci-dessus sur leur proxy `MemberRole`). Pour le module Season (A13, Phase 3
+Partie A), `backend/src/common/season-multi-role.integration.spec.ts` couvre `SeasonsController`
+(CRUD + import de roster + activation, flux réel Coach de bout en bout) et le filtrage
+rétroactif par saison des entités A7.x (A12, via `PlayerObjectivesController` comme
+représentant des 4 ressources partageant `resolveSeasonPeriod`) — dont le cas explicite d'un
+`seasonId` appartenant à une AUTRE équipe que celle transmise en `?teamId=`, rejeté en 404 par
+`resolveSeasonPeriod` plutôt que de fuiter les bornes de dates d'une saison hors scope.
 
 ### Propriétaire — mécanisme de transfert sécurisé
 
