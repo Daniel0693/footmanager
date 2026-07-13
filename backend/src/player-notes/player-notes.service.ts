@@ -88,7 +88,7 @@ export class PlayerNotesService {
     if (query.seasonId) {
       const period = await resolveSeasonPeriod(
         this.prisma,
-        requester.teamId,
+        clubId,
         query.seasonId,
         'PLAYER_NOTES.SEASON_NOT_FOUND',
       );

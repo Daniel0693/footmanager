@@ -283,7 +283,7 @@ describe('PlayerObjectivesService', () => {
         const endDate = new Date('2027-06-30');
         seasonFindFirst.mockResolvedValue({
           id: 10,
-          teamId: 8,
+          clubId: 1,
           startDate,
           endDate,
         });
@@ -300,7 +300,7 @@ describe('PlayerObjectivesService', () => {
         );
 
         expect(seasonFindFirst).toHaveBeenCalledWith({
-          where: { id: 10, teamId: 8 },
+          where: { id: 10, clubId: 1 },
         });
         expect(objectiveFindMany).toHaveBeenCalledWith({
           where: {
@@ -314,7 +314,7 @@ describe('PlayerObjectivesService', () => {
         });
       });
 
-      it("renvoie 404 si la saison ne correspond pas à l'équipe transmise", async () => {
+      it('renvoie 404 si la saison ne correspond pas au club transmis', async () => {
         playerFindFirst.mockResolvedValue(player);
         seasonFindFirst.mockResolvedValue(null);
 

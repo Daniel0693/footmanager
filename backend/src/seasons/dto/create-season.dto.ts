@@ -1,22 +1,13 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsDate, IsNotEmpty, IsString } from 'class-validator';
 
 // `status` n'est jamais accepté en écriture ici : une Season créée via cette
-// route est toujours DRAFT (docs/modules/saisons-championnats.md — wizard de
-// transition de saison, étape 1). Le passage à ACTIVE/ARCHIVED passe par les
-// endpoints dédiés du wizard (SeasonsService.activate, étape A9).
+// route est toujours DRAFT (docs/modules/saisons-championnats.md). Le passage
+// à ACTIVE/ARCHIVED passe par l'endpoint dédié `SeasonsService.activate`.
 export class CreateSeasonDto {
   @IsString()
   @IsNotEmpty()
   name: string;
-
-  @IsOptional()
-  @IsString()
-  teamNameSnapshot?: string;
-
-  @IsOptional()
-  @IsString()
-  categorySnapshot?: string;
 
   @Type(() => Date)
   @IsDate()

@@ -354,7 +354,7 @@ describe('PlayerInterviewsService', () => {
         const endDate = new Date('2027-06-30');
         seasonFindFirst.mockResolvedValue({
           id: 10,
-          teamId: 8,
+          clubId: 1,
           startDate,
           endDate,
         });
@@ -371,7 +371,7 @@ describe('PlayerInterviewsService', () => {
         );
 
         expect(seasonFindFirst).toHaveBeenCalledWith({
-          where: { id: 10, teamId: 8 },
+          where: { id: 10, clubId: 1 },
         });
         expect(interviewFindMany).toHaveBeenCalledWith({
           where: { playerId: 100, date: { gte: startDate, lte: endDate } },
@@ -380,7 +380,7 @@ describe('PlayerInterviewsService', () => {
         });
       });
 
-      it("renvoie 404 si la saison ne correspond pas à l'équipe transmise", async () => {
+      it('renvoie 404 si la saison ne correspond pas au club transmis', async () => {
         playerFindFirst.mockResolvedValue(player);
         seasonFindFirst.mockResolvedValue(null);
 
@@ -402,7 +402,7 @@ describe('PlayerInterviewsService', () => {
         const farFutureEndDate = new Date('2099-06-30');
         seasonFindFirst.mockResolvedValue({
           id: 10,
-          teamId: 8,
+          clubId: 1,
           startDate,
           endDate: farFutureEndDate,
         });

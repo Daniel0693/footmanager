@@ -14,12 +14,12 @@ import { SeasonsService } from './seasons.service';
 
 /**
  * Scénario multi-rôles (docs/modules/auth-roles.md) appliqué au module
- * Saisons (étape A2) : un Coach gère les saisons de ses équipes (scope
- * TEAM), un AdminClub gère tout le club (scope CLUB), un Player ne peut que
- * consulter les saisons de son équipe (scope TEAM, READ seul — aucune
- * permission CREATE/UPDATE/DELETE, voir backend/prisma/seed.ts), un membre
- * sans rôle n'a aucun accès. Même pattern que EventsController/TeamStaff :
- * l'URL porte toujours teamId, pas de cas "Coach sans teamId" à couvrir ici.
+ * Saisons, révisé en A14 pour un `season` désormais club-wide (route
+ * `clubs/:clubId/seasons`, plus de `:teamId` dans l'URL) : AdminClub gère
+ * les saisons de son club (scope CLUB, CRUD complet), Coach et Player ne
+ * peuvent que consulter (scope TEAM, READ seul — transmis via `?teamId=`,
+ * même pattern que `evaluation_config`, voir docs/modules/auth-roles.md
+ * §"Patterns découverts"), un membre sans rôle n'a aucun accès.
  */
 
 const coachMember: Member = {
@@ -83,50 +83,35 @@ const noRoleMember: Member = {
 };
 
 const permissions = {
-  seasonCreateTeam: {
-    id: 1,
-    resource: 'season',
-    action: 'CREATE',
-    scope: 'TEAM',
-  },
-  seasonReadTeam: { id: 2, resource: 'season', action: 'READ', scope: 'TEAM' },
-  seasonDeleteTeam: {
-    id: 3,
-    resource: 'season',
-    action: 'DELETE',
-    scope: 'TEAM',
-  },
-  seasonUpdateTeam: {
-    id: 4,
-    resource: 'season',
-    action: 'UPDATE',
-    scope: 'TEAM',
-  },
+  seasonReadTeam: { id: 1, resource: 'season', action: 'READ', scope: 'TEAM' },
   seasonCreateClub: {
-    id: 5,
+    id: 2,
     resource: 'season',
     action: 'CREATE',
     scope: 'CLUB',
   },
-  seasonReadClub: { id: 6, resource: 'season', action: 'READ', scope: 'CLUB' },
+  seasonReadClub: { id: 3, resource: 'season', action: 'READ', scope: 'CLUB' },
   seasonUpdateClub: {
-    id: 7,
+    id: 4,
     resource: 'season',
     action: 'UPDATE',
+    scope: 'CLUB',
+  },
+  seasonDeleteClub: {
+    id: 5,
+    resource: 'season',
+    action: 'DELETE',
     scope: 'CLUB',
   },
 } as const;
 
 const roles = {
+  // Coach/Player n'ont plus, depuis A14, que la lecture sur `season` — la
+  // gestion d'une saison engage tout le club, réservée à AdminClub.
   coach: {
     id: 1,
     isSystem: true,
-    rolePermissions: [
-      { permission: permissions.seasonCreateTeam },
-      { permission: permissions.seasonReadTeam },
-      { permission: permissions.seasonUpdateTeam },
-      { permission: permissions.seasonDeleteTeam },
-    ],
+    rolePermissions: [{ permission: permissions.seasonReadTeam }],
   },
   adminClub: {
     id: 2,
@@ -135,6 +120,7 @@ const roles = {
       { permission: permissions.seasonCreateClub },
       { permission: permissions.seasonReadClub },
       { permission: permissions.seasonUpdateClub },
+      { permission: permissions.seasonDeleteClub },
     ],
   },
   player: {
@@ -203,29 +189,18 @@ function buildContext(
   } as unknown as ExecutionContext;
 }
 
-// eslint-disable-next-line @typescript-eslint/unbound-method
+/* eslint-disable @typescript-eslint/unbound-method */
 const createHandler = SeasonsController.prototype.create;
-// eslint-disable-next-line @typescript-eslint/unbound-method
 const findAllHandler = SeasonsController.prototype.findAll;
-// eslint-disable-next-line @typescript-eslint/unbound-method
+const updateHandler = SeasonsController.prototype.update;
 const removeHandler = SeasonsController.prototype.remove;
-
-const previewRosterHandler =
-  // eslint-disable-next-line @typescript-eslint/unbound-method
-  SeasonsController.prototype.previewRosterImport;
-// eslint-disable-next-line @typescript-eslint/unbound-method
-const importRosterHandler = SeasonsController.prototype.importRoster;
-
-const activationSummaryHandler =
-  // eslint-disable-next-line @typescript-eslint/unbound-method
-  SeasonsController.prototype.getActivationSummary;
-// eslint-disable-next-line @typescript-eslint/unbound-method
 const activateHandler = SeasonsController.prototype.activate;
+/* eslint-enable @typescript-eslint/unbound-method */
 
-describe('Module Saisons — scénario multi-rôles (SeasonsController)', () => {
+describe('Module Saisons — scénario multi-rôles (SeasonsController, club-wide depuis A14)', () => {
   let guard: PermissionsGuard;
   let seasonsService: SeasonsService;
-  let teamFindFirst: jest.Mock;
+  let seasonFindFirst: jest.Mock;
   let seasonFindMany: jest.Mock;
   let seasonCreate: jest.Mock;
 
@@ -250,49 +225,22 @@ describe('Module Saisons — scénario multi-rôles (SeasonsController)', () => 
       membersService,
     );
 
-    teamFindFirst = jest.fn().mockResolvedValue({ id: 5, clubId: 1 });
+    seasonFindFirst = jest.fn().mockResolvedValue(null); // pas de chevauchement par défaut
     seasonFindMany = jest.fn().mockResolvedValue([]);
     seasonCreate = jest.fn().mockResolvedValue({ id: 900 });
     const prismaStub = {
-      team: { findFirst: teamFindFirst },
-      season: { findMany: seasonFindMany, create: seasonCreate },
+      season: {
+        findFirst: seasonFindFirst,
+        findMany: seasonFindMany,
+        create: seasonCreate,
+      },
     } as unknown as PrismaService;
     seasonsService = new SeasonsService(prismaStub);
   });
 
-  it('Coach crée une saison pour sa propre équipe', async () => {
+  it('AdminClub crée une saison pour son club', async () => {
     const request = {
-      params: { clubId: '1', teamId: '5' },
-      user: { userId: 71 },
-    } as Partial<PermissionedRequest>;
-
-    await expect(
-      guard.canActivate(buildContext(request, createHandler)),
-    ).resolves.toBe(true);
-    expect(request.permissionScope).toBe('TEAM');
-
-    await seasonsService.create(1, 5, {
-      name: 'Saison 2026-2027',
-      startDate: new Date('2026-08-01'),
-      endDate: new Date('2027-06-30'),
-    });
-    expect(seasonCreate).toHaveBeenCalled();
-  });
-
-  it("Coach n'a aucun droit pour créer une saison sur une AUTRE équipe", async () => {
-    const request = {
-      params: { clubId: '1', teamId: '6' },
-      user: { userId: 71 },
-    } as Partial<PermissionedRequest>;
-
-    await expect(
-      guard.canActivate(buildContext(request, createHandler)),
-    ).rejects.toBeInstanceOf(AppException);
-  });
-
-  it('AdminClub crée une saison pour n’importe quelle équipe du club', async () => {
-    const request = {
-      params: { clubId: '1', teamId: '6' },
+      params: { clubId: '1' },
       user: { userId: 70 },
     } as Partial<PermissionedRequest>;
 
@@ -300,12 +248,49 @@ describe('Module Saisons — scénario multi-rôles (SeasonsController)', () => 
       guard.canActivate(buildContext(request, createHandler)),
     ).resolves.toBe(true);
     expect(request.permissionScope).toBe('CLUB');
+
+    await seasonsService.create(1, {
+      name: 'Saison 2026-2027',
+      startDate: new Date('2026-08-01'),
+      endDate: new Date('2027-06-30'),
+    });
+    expect(seasonCreate).toHaveBeenCalled();
   });
 
-  it('Player consulte les saisons de son équipe (READ seul)', async () => {
+  it('AdminClub met à jour et active une saison de son club', async () => {
+    const updateRequest = {
+      params: { clubId: '1' },
+      user: { userId: 70 },
+    } as Partial<PermissionedRequest>;
+    await expect(
+      guard.canActivate(buildContext(updateRequest, updateHandler)),
+    ).resolves.toBe(true);
+
+    const activateRequest = {
+      params: { clubId: '1' },
+      user: { userId: 70 },
+    } as Partial<PermissionedRequest>;
+    await expect(
+      guard.canActivate(buildContext(activateRequest, activateHandler)),
+    ).resolves.toBe(true);
+  });
+
+  it("AdminClub d'un AUTRE club n'a aucun droit sur ce club", async () => {
     const request = {
-      params: { clubId: '1', teamId: '5' },
-      user: { userId: 7 },
+      params: { clubId: '2' },
+      user: { userId: 70 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, createHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it('Coach consulte les saisons du club en transmettant son équipe en query (?teamId=)', async () => {
+    const request = {
+      params: { clubId: '1' },
+      query: { teamId: '5' },
+      user: { userId: 71 },
     } as Partial<PermissionedRequest>;
 
     await expect(
@@ -313,178 +298,79 @@ describe('Module Saisons — scénario multi-rôles (SeasonsController)', () => 
     ).resolves.toBe(true);
     expect(request.permissionScope).toBe('TEAM');
 
-    await expect(seasonsService.findAllByTeam(1, 5, {})).resolves.toEqual([]);
+    await expect(seasonsService.findAllByClub(1)).resolves.toEqual([]);
   });
 
-  it("Player n'a pas la permission de créer une saison", async () => {
+  it('Coach sans ?teamId= (ou avec un teamId où il n’a aucun rôle) est refusé — route club-only', async () => {
+    const withoutTeamId = {
+      params: { clubId: '1' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+    await expect(
+      guard.canActivate(buildContext(withoutTeamId, findAllHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+
+    const wrongTeamId = {
+      params: { clubId: '1' },
+      query: { teamId: '6' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+    await expect(
+      guard.canActivate(buildContext(wrongTeamId, findAllHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it("Coach n'a plus aucun droit d'écriture sur `season` depuis A14 (gestion réservée à AdminClub)", async () => {
     const request = {
-      params: { clubId: '1', teamId: '5' },
-      user: { userId: 7 },
+      params: { clubId: '1' },
+      query: { teamId: '5' },
+      user: { userId: 71 },
     } as Partial<PermissionedRequest>;
 
     await expect(
       guard.canActivate(buildContext(request, createHandler)),
     ).rejects.toBeInstanceOf(AppException);
+    await expect(
+      guard.canActivate(buildContext(request, updateHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+    await expect(
+      guard.canActivate(buildContext(request, removeHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+    await expect(
+      guard.canActivate(buildContext(request, activateHandler)),
+    ).rejects.toBeInstanceOf(AppException);
     expect(seasonCreate).not.toHaveBeenCalled();
   });
 
-  it("Player n'a pas la permission de supprimer une saison", async () => {
-    const request = {
-      params: { clubId: '1', teamId: '5' },
+  it('Player consulte les saisons du club via ?teamId=, aucun droit d’écriture', async () => {
+    const readRequest = {
+      params: { clubId: '1' },
+      query: { teamId: '5' },
       user: { userId: 7 },
     } as Partial<PermissionedRequest>;
-
     await expect(
-      guard.canActivate(buildContext(request, removeHandler)),
+      guard.canActivate(buildContext(readRequest, findAllHandler)),
+    ).resolves.toBe(true);
+    expect(readRequest.permissionScope).toBe('TEAM');
+
+    const writeRequest = {
+      params: { clubId: '1' },
+      query: { teamId: '5' },
+      user: { userId: 7 },
+    } as Partial<PermissionedRequest>;
+    await expect(
+      guard.canActivate(buildContext(writeRequest, createHandler)),
     ).rejects.toBeInstanceOf(AppException);
   });
 
   it("un membre du club sans aucun rôle n'a aucun accès", async () => {
     const request = {
-      params: { clubId: '1', teamId: '5' },
+      params: { clubId: '1' },
       user: { userId: 500 },
     } as Partial<PermissionedRequest>;
 
     await expect(
       guard.canActivate(buildContext(request, findAllHandler)),
     ).rejects.toBeInstanceOf(AppException);
-  });
-
-  describe('import du roster (étape 2 du wizard)', () => {
-    it('Coach consulte et importe le roster de sa propre équipe', async () => {
-      const previewRequest = {
-        params: { clubId: '1', teamId: '5' },
-        user: { userId: 71 },
-      } as Partial<PermissionedRequest>;
-      await expect(
-        guard.canActivate(buildContext(previewRequest, previewRosterHandler)),
-      ).resolves.toBe(true);
-      expect(previewRequest.permissionScope).toBe('TEAM');
-
-      const importRequest = {
-        params: { clubId: '1', teamId: '5' },
-        user: { userId: 71 },
-      } as Partial<PermissionedRequest>;
-      await expect(
-        guard.canActivate(buildContext(importRequest, importRosterHandler)),
-      ).resolves.toBe(true);
-      expect(importRequest.permissionScope).toBe('TEAM');
-    });
-
-    it("Coach n'a aucun droit sur une AUTRE équipe", async () => {
-      const request = {
-        params: { clubId: '1', teamId: '6' },
-        user: { userId: 71 },
-      } as Partial<PermissionedRequest>;
-
-      await expect(
-        guard.canActivate(buildContext(request, previewRosterHandler)),
-      ).rejects.toBeInstanceOf(AppException);
-      await expect(
-        guard.canActivate(buildContext(request, importRosterHandler)),
-      ).rejects.toBeInstanceOf(AppException);
-    });
-
-    it('AdminClub consulte et importe le roster de n’importe quelle équipe du club', async () => {
-      const request = {
-        params: { clubId: '1', teamId: '6' },
-        user: { userId: 70 },
-      } as Partial<PermissionedRequest>;
-
-      await expect(
-        guard.canActivate(buildContext(request, previewRosterHandler)),
-      ).resolves.toBe(true);
-      await expect(
-        guard.canActivate(buildContext(request, importRosterHandler)),
-      ).resolves.toBe(true);
-    });
-
-    it('Player peut consulter (READ) mais pas importer (UPDATE) le roster', async () => {
-      const previewRequest = {
-        params: { clubId: '1', teamId: '5' },
-        user: { userId: 7 },
-      } as Partial<PermissionedRequest>;
-      await expect(
-        guard.canActivate(buildContext(previewRequest, previewRosterHandler)),
-      ).resolves.toBe(true);
-
-      const importRequest = {
-        params: { clubId: '1', teamId: '5' },
-        user: { userId: 7 },
-      } as Partial<PermissionedRequest>;
-      await expect(
-        guard.canActivate(buildContext(importRequest, importRosterHandler)),
-      ).rejects.toBeInstanceOf(AppException);
-    });
-  });
-
-  describe('activation (étape 4 du wizard)', () => {
-    it('Coach consulte le résumé et active sa propre équipe', async () => {
-      const summaryRequest = {
-        params: { clubId: '1', teamId: '5' },
-        user: { userId: 71 },
-      } as Partial<PermissionedRequest>;
-      await expect(
-        guard.canActivate(
-          buildContext(summaryRequest, activationSummaryHandler),
-        ),
-      ).resolves.toBe(true);
-
-      const activateRequest = {
-        params: { clubId: '1', teamId: '5' },
-        user: { userId: 71 },
-      } as Partial<PermissionedRequest>;
-      await expect(
-        guard.canActivate(buildContext(activateRequest, activateHandler)),
-      ).resolves.toBe(true);
-    });
-
-    it("Coach n'a aucun droit sur une AUTRE équipe", async () => {
-      const request = {
-        params: { clubId: '1', teamId: '6' },
-        user: { userId: 71 },
-      } as Partial<PermissionedRequest>;
-
-      await expect(
-        guard.canActivate(buildContext(request, activationSummaryHandler)),
-      ).rejects.toBeInstanceOf(AppException);
-      await expect(
-        guard.canActivate(buildContext(request, activateHandler)),
-      ).rejects.toBeInstanceOf(AppException);
-    });
-
-    it('AdminClub consulte et active la saison de n’importe quelle équipe du club', async () => {
-      const request = {
-        params: { clubId: '1', teamId: '6' },
-        user: { userId: 70 },
-      } as Partial<PermissionedRequest>;
-
-      await expect(
-        guard.canActivate(buildContext(request, activationSummaryHandler)),
-      ).resolves.toBe(true);
-      await expect(
-        guard.canActivate(buildContext(request, activateHandler)),
-      ).resolves.toBe(true);
-    });
-
-    it('Player peut consulter (READ) mais pas activer (UPDATE) la saison', async () => {
-      const summaryRequest = {
-        params: { clubId: '1', teamId: '5' },
-        user: { userId: 7 },
-      } as Partial<PermissionedRequest>;
-      await expect(
-        guard.canActivate(
-          buildContext(summaryRequest, activationSummaryHandler),
-        ),
-      ).resolves.toBe(true);
-
-      const activateRequest = {
-        params: { clubId: '1', teamId: '5' },
-        user: { userId: 7 },
-      } as Partial<PermissionedRequest>;
-      await expect(
-        guard.canActivate(buildContext(activateRequest, activateHandler)),
-      ).rejects.toBeInstanceOf(AppException);
-    });
   });
 });

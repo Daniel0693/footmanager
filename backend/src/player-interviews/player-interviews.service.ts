@@ -91,7 +91,7 @@ export class PlayerInterviewsService {
     if (query.seasonId) {
       const period = await resolveSeasonPeriod(
         this.prisma,
-        requester.teamId,
+        clubId,
         query.seasonId,
         'PLAYER_INTERVIEWS.SEASON_NOT_FOUND',
       );

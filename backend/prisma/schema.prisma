@@ -76,6 +76,7 @@ model Club {
   evaluationConfigs    ClubEvaluationConfig[]
   playingStyleTags     PlayingStyleTag[]
   scoutingCriteria     PlayerScoutingCriterion[]
+  seasons              Season[]
 }
 
 model Team {
@@ -91,7 +92,6 @@ model Team {
   teamStaffs        TeamStaff[]
   playerEvaluations PlayerEvaluation[]
   events            Event[]
-  seasons           Season[]
 
   @@index([clubId])
 }
@@ -624,36 +624,34 @@ model PlayerEvaluationScore {
 
 enum SeasonStatus {
   DRAFT // en préparation, la saison précédente reste ACTIVE
-  ACTIVE // saison courante — une seule par Team à tout instant
+  ACTIVE // saison courante — une seule par Club à tout instant
   ARCHIVED // saison terminée, données consultables et modifiables
 }
 
-// Cadre temporel d'une équipe sur une période définie (docs/modules/
-// saisons-championnats.md). Une seule Season avec status = ACTIVE par Team à
-// tout instant — contrainte applicative (SeasonsService), pas une contrainte
+// Cadre temporel PARTAGÉ PAR TOUT LE CLUB (docs/modules/saisons-championnats.md
+// — révision A14 : Season était initialement scopée équipe, déplacée au
+// niveau club car toutes les équipes d'un club suivent le même calendrier de
+// saisons). Une seule Season avec status = ACTIVE par Club à tout instant, et
+// les plages de dates de deux Season d'un même club ne peuvent jamais se
+// chevaucher — contraintes applicatives (SeasonsService), pas des contraintes
 // SQL. Les saisons archivées restent modifiables sans verrou (comportement
-// attendu, pas un bug — voir la doc module).
+// attendu, pas un bug — voir la doc module). Pas de logique de roster
+// attachée : PlayerTeam n'a pas de FK directe vers Season (appartenance
+// déduite de joinDate/leaveDate), les mouvements de joueurs entre équipes
+// (départs, arrivées, promotions de catégorie) se gèrent au fil de l'eau via
+// l'Effectif, pas via un wizard de transition de saison.
 model Season {
-  id               Int          @id @default(autoincrement())
-  teamId           Int
-  team             Team         @relation(fields: [teamId], references: [id])
-  name             String
-  // Snapshot du nom/catégorie de l'équipe au moment de la saison — Team reste
-  // l'ancre stable ; ces champs permettent de retrouver le contexte
-  // historique (ex. "U15") même si l'équipe est renommée plus tard. Aucun
-  // formulaire (création A5, édition A11) ni endpoint n'alimente ces champs
-  // à ce jour — voir docs/schema/joueurs.md §Filtrage des statistiques par
-  // période et docs/roadmap.md Partie A §Points reportés (filtrage par
-  // categorySnapshot différé en A12, faute d'UI pour le renseigner).
-  teamNameSnapshot String?
-  categorySnapshot String?
-  startDate        DateTime     @db.Date
-  endDate          DateTime     @db.Date
-  status           SeasonStatus @default(DRAFT)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id        Int          @id @default(autoincrement())
+  clubId    Int
+  club      Club         @relation(fields: [clubId], references: [id])
+  name      String
+  startDate DateTime     @db.Date
+  endDate   DateTime     @db.Date
+  status    SeasonStatus @default(DRAFT)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  @@index([teamId, status])
+  @@index([clubId, status])
 }
 
 // ─────────────────────────────────────────────────────────────────────────

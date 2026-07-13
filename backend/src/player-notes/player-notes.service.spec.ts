@@ -254,7 +254,7 @@ describe('PlayerNotesService', () => {
         const endDate = new Date('2027-06-30');
         seasonFindFirst.mockResolvedValue({
           id: 10,
-          teamId: 8,
+          clubId: 1,
           startDate,
           endDate,
         });
@@ -271,7 +271,7 @@ describe('PlayerNotesService', () => {
         );
 
         expect(seasonFindFirst).toHaveBeenCalledWith({
-          where: { id: 10, teamId: 8 },
+          where: { id: 10, clubId: 1 },
         });
         const [{ where }] = noteFindMany.mock.calls[0] as [
           { where: { createdAt: { gte: Date; lte: Date } } },
@@ -281,7 +281,7 @@ describe('PlayerNotesService', () => {
         expect(where.createdAt.lte.getHours()).toBe(23);
       });
 
-      it("renvoie 404 si la saison ne correspond pas à l'équipe transmise", async () => {
+      it('renvoie 404 si la saison ne correspond pas au club transmis', async () => {
         playerFindFirst.mockResolvedValue(player);
         seasonFindFirst.mockResolvedValue(null);
 

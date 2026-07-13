@@ -105,7 +105,7 @@ export class PlayerEvaluationsService {
     if (query.seasonId) {
       const period = await resolveSeasonPeriod(
         this.prisma,
-        requester.teamId,
+        clubId,
         query.seasonId,
         'PLAYER_EVALUATIONS.SEASON_NOT_FOUND',
       );

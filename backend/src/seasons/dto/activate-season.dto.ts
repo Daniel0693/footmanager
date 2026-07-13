@@ -1,10 +1,10 @@
 import { Type } from 'class-transformer';
 import { IsDate, IsOptional } from 'class-validator';
 
-// Étape 4 du wizard (docs/modules/saisons-championnats.md) : permet de
-// corriger la endDate de l'ancienne saison au moment de l'activation (ex.
-// nouvelle saison créée en août alors que l'ancienne se terminait
-// officiellement en juin). Absent = conserve l'endDate déjà enregistrée.
+// Permet de corriger la endDate de l'ancienne saison ACTIVE du club au moment
+// de l'activation de la nouvelle (ex. nouvelle saison créée en août alors que
+// l'ancienne se terminait officiellement en juin). Absent = conserve
+// l'endDate déjà enregistrée. Voir docs/modules/saisons-championnats.md.
 export class ActivateSeasonDto {
   @IsOptional()
   @Type(() => Date)

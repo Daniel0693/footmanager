@@ -12,30 +12,32 @@ import { PrismaService } from '../prisma/prisma.service';
 
 import { SeasonsController } from '../seasons/seasons.controller';
 import { SeasonsService } from '../seasons/seasons.service';
-import { SeasonRosterImportService } from '../seasons/season-roster-import.service';
-import { SeasonActivationService } from '../seasons/season-activation.service';
 import { PlayerObjectivesController } from '../player-objectives/player-objectives.controller';
 import { PlayerObjectivesService } from '../player-objectives/player-objectives.service';
 
 /**
- * A13 — scénario multi-rôles bout-en-bout (docs/modules/auth-roles.md
+ * A13/A19 — scénario multi-rôles bout-en-bout (docs/modules/auth-roles.md
  * §"Multi-rôles — règle de test obligatoire"), appliqué au module Season
  * (Partie A), miroir de `effectif-multi-role.integration.spec.ts` (A8) et
- * `calendrier-multi-role.integration.spec.ts` (B9). Même scénario canonique
- * "Marc" : Coach équipe U15 (équipe 5, Club 1), Player équipe Seniors
- * (équipe 8, Club 1), Parent d'un enfant équipe U10 (équipe 12, Club 2,
- * `Member` distinct par club).
+ * `calendrier-multi-role.integration.spec.ts` (B9). Réécrit en A14/A15 :
+ * `Season` est désormais club-wide (plus scopée équipe), sa gestion réservée
+ * à AdminClub — le scénario canonique "Marc" (Coach U15/Player Seniors/
+ * Parent Club B) ne peut donc plus servir à tester la CRÉATION/ACTIVATION
+ * d'une saison (Marc n'a jamais ce rôle) ; un persona AdminClub dédié est
+ * ajouté pour ce volet.
  *
- * Couvre les deux volets du plan A13 :
- * 1. `SeasonsController` — Coach crée/importe le roster/active une saison
- *    U15 ; Player Seniors lit ses propres saisons sans pouvoir écrire ;
- *    Parent Club B n'a aucun accès.
+ * Couvre les deux volets révisés :
+ * 1. `SeasonsController` — AdminClub crée/active une saison club-wide ;
+ *    Coach et Player (Marc) lisent seulement, via `?teamId=` (route
+ *    club-only, même pattern que `evaluation_config`) ; aucun accès pour un
+ *    membre sans rôle.
  * 2. Filtrage rétroactif par saison (A12), via `PlayerObjectivesController`
  *    comme représentant des 4 entités partageant `resolveSeasonPeriod`
- *    (Entretien/Notes/Objectifs/Évaluation, même mécanisme) — Player
- *    Seniors filtre son propre profil par une saison de SON équipe, mais ne
- *    peut pas s'en servir pour lire les bornes d'une saison d'une AUTRE
- *    équipe (404, pas une fuite de données).
+ *    (Entretien/Notes/Objectifs/Évaluation) — Coach (équipe 5) et Player
+ *    (équipe 8, son propre profil) filtrent tous deux par une saison du
+ *    MÊME club (partagée entre leurs deux équipes) ; un `seasonId`
+ *    appartenant à un AUTRE club est rejeté (404, pas de fuite de bornes de
+ *    dates).
  */
 
 const marcClub1: Member = {
@@ -59,6 +61,22 @@ const marcClub2: Member = {
   clubId: 2,
   firstName: 'Marc',
   lastName: 'Dupont',
+  phone: null,
+  avatarUrl: null,
+  gender: null,
+  birthDate: null,
+  isActive: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+// AdminClub du Club 1 — seul habilité à créer/activer une saison depuis A14.
+const aliceAdminClub: Member = {
+  id: 90,
+  userId: 80,
+  clubId: 1,
+  firstName: 'Alice',
+  lastName: 'Admin',
   phone: null,
   avatarUrl: null,
   gender: null,
@@ -105,15 +123,18 @@ interface ResourceRoles {
   coach: unknown;
   player: unknown;
   parent: unknown;
+  adminClub?: unknown;
 }
 
 // memberId 42 = Marc (Club 1) : Coach équipe 5 (U15) + Player équipe 8
-// (Seniors). memberId 55 = Marc (Club 2) : Parent, MemberRole équipe 12
-// (U10) — le rôle Parent n'a aucune permission `season`/`player_objective`
-// (voir backend/prisma/seed.ts), vérifié explicitement ci-dessous plutôt
-// que supposé.
+// (Seniors) — les deux équipes partagent le même pool de saisons du Club 1.
+// memberId 55 = Marc (Club 2) : Parent, MemberRole équipe 12 (U10) — le rôle
+// Parent n'a aucune permission `season`/`player_objective` (voir
+// backend/prisma/seed.ts), vérifié explicitement ci-dessous plutôt que
+// supposé. memberId 90 = Alice (Club 1) : AdminClub, scope club entier
+// (teamId null).
 function buildMemberRolesByMember(roles: ResourceRoles): Record<number, any[]> {
-  return {
+  const entries: Record<number, any[]> = {
     42: [
       {
         memberId: 42,
@@ -143,6 +164,19 @@ function buildMemberRolesByMember(roles: ResourceRoles): Record<number, any[]> {
       },
     ],
   };
+  if (roles.adminClub) {
+    entries[90] = [
+      {
+        memberId: 90,
+        clubId: 1,
+        teamId: null,
+        startDate: null,
+        endDate: null,
+        role: roles.adminClub,
+      },
+    ];
+  }
+  return entries;
 }
 
 function buildGuard(roles: ResourceRoles) {
@@ -160,6 +194,7 @@ function buildGuard(roles: ResourceRoles) {
   const membersByUserAndClub: Record<string, Member> = {
     '71:1': marcClub1,
     '71:2': marcClub2,
+    '80:1': aliceAdminClub,
   };
   const findByUserAndClub = jest.fn((userId: number, clubId: number) =>
     Promise.resolve(membersByUserAndClub[`${userId}:${clubId}`] ?? null),
@@ -174,36 +209,46 @@ function buildGuard(roles: ResourceRoles) {
 }
 
 // ───────────────────────────────────────────────────────────────────────
-// season — ressource scopée équipe via l'URL (docs/roadmap.md, décision
-// transverse #3 : une ressource dédiée par entité, pas de scope OWN).
+// season — club-wide depuis A14 : gestion réservée à AdminClub, Coach/Player
+// en lecture seule via ?teamId= (route club-only, sans :teamId dans l'URL).
 // ───────────────────────────────────────────────────────────────────────
-describe('A13 — scénario multi-rôles (SeasonsController)', () => {
+describe('A13/A19 — scénario multi-rôles (SeasonsController, club-wide)', () => {
   const permissions = {
     readTeam: { id: 1, resource: 'season', action: 'READ', scope: 'TEAM' },
-    createTeam: { id: 2, resource: 'season', action: 'CREATE', scope: 'TEAM' },
-    updateTeam: { id: 3, resource: 'season', action: 'UPDATE', scope: 'TEAM' },
-    deleteTeam: { id: 4, resource: 'season', action: 'DELETE', scope: 'TEAM' },
+    createClub: {
+      id: 2,
+      resource: 'season',
+      action: 'CREATE',
+      scope: 'CLUB',
+    },
+    updateClub: {
+      id: 3,
+      resource: 'season',
+      action: 'UPDATE',
+      scope: 'CLUB',
+    },
   } as const;
   const roles: ResourceRoles = {
+    // Coach/Player n'ont plus, depuis A14, que la lecture sur `season`.
     coach: {
       id: 1,
       isSystem: true,
-      rolePermissions: [
-        { permission: permissions.readTeam },
-        { permission: permissions.createTeam },
-        { permission: permissions.updateTeam },
-        { permission: permissions.deleteTeam },
-      ],
+      rolePermissions: [{ permission: permissions.readTeam }],
     },
-    // Même pattern que le seed réel (backend/prisma/seed.ts) : Player n'a
-    // que READ/TEAM sur `season` (peuple le sélecteur de saison, A12),
-    // aucun droit d'écriture.
     player: {
       id: 2,
       isSystem: true,
       rolePermissions: [{ permission: permissions.readTeam }],
     },
     parent: { id: 3, isSystem: true, rolePermissions: [] },
+    adminClub: {
+      id: 4,
+      isSystem: true,
+      rolePermissions: [
+        { permission: permissions.createClub },
+        { permission: permissions.updateClub },
+      ],
+    },
   };
 
   /* eslint-disable @typescript-eslint/unbound-method */
@@ -216,41 +261,21 @@ describe('A13 — scénario multi-rôles (SeasonsController)', () => {
 
   let guard: PermissionsGuard;
   let seasonsService: SeasonsService;
-  let rosterImportService: SeasonRosterImportService;
-  let activationService: SeasonActivationService;
-  let teamFindFirst: jest.Mock;
   let seasonCreate: jest.Mock;
   let seasonFindMany: jest.Mock;
   let seasonFindFirst: jest.Mock;
   let seasonCount: jest.Mock;
   let seasonFindUniqueOrThrow: jest.Mock;
-  let playerTeamFindMany: jest.Mock;
   let txSeasonUpdate: jest.Mock;
-  let txPlayerTeamUpdateMany: jest.Mock;
   let seasonsStore: Season[];
 
   beforeEach(() => {
     guard = buildGuard(roles);
     seasonsStore = [];
 
-    teamFindFirst = jest.fn(
-      ({ where }: { where: { id: number; clubId: number } }) => {
-        const teamsByIdAndClub: Record<string, { id: number; clubId: number }> =
-          {
-            '5:1': { id: 5, clubId: 1 },
-            '8:1': { id: 8, clubId: 1 },
-            '12:2': { id: 12, clubId: 2 },
-          };
-        return Promise.resolve(
-          teamsByIdAndClub[`${where.id}:${where.clubId}`] ?? null,
-        );
-      },
-    );
     seasonCreate = jest.fn(({ data }: { data: Partial<Season> }) => {
       const season = {
         id: 200,
-        teamNameSnapshot: null,
-        categorySnapshot: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         ...data,
@@ -258,26 +283,29 @@ describe('A13 — scénario multi-rôles (SeasonsController)', () => {
       seasonsStore.push(season);
       return Promise.resolve(season);
     });
-    seasonFindMany = jest.fn(({ where }: { where: { teamId: number } }) =>
-      Promise.resolve(seasonsStore.filter((s) => s.teamId === where.teamId)),
+    seasonFindMany = jest.fn(({ where }: { where: { clubId: number } }) =>
+      Promise.resolve(seasonsStore.filter((s) => s.clubId === where.clubId)),
     );
-    // `findSeasonOrThrow`/`resolveSeasonPeriod` filtrent par {id, teamId,
-    // ...} — le nested `team: { clubId }` de findSeasonOrThrow n'a pas
-    // besoin d'être réévalué ici, les fixtures ne mélangent jamais club/
-    // équipe de façon incohérente.
     seasonFindFirst = jest.fn(
-      ({ where }: { where: { id: number; teamId?: number } }) =>
+      ({
+        where,
+      }: {
+        where: { id?: number; clubId: number; status?: string };
+      }) =>
         Promise.resolve(
           seasonsStore.find(
-            (s) => s.id === where.id && s.teamId === where.teamId,
+            (s) =>
+              (where.id === undefined || s.id === where.id) &&
+              s.clubId === where.clubId &&
+              (where.status === undefined || s.status === where.status),
           ) ?? null,
         ),
     );
     seasonCount = jest.fn(
-      ({ where }: { where: { teamId: number; status: string } }) =>
+      ({ where }: { where: { clubId: number; status: string } }) =>
         Promise.resolve(
           seasonsStore.filter(
-            (s) => s.teamId === where.teamId && s.status === where.status,
+            (s) => s.clubId === where.clubId && s.status === where.status,
           ).length,
         ),
     );
@@ -285,7 +313,6 @@ describe('A13 — scénario multi-rôles (SeasonsController)', () => {
       ({ where: { id } }: { where: { id: number } }) =>
         Promise.resolve(seasonsStore.find((s) => s.id === id)),
     );
-    playerTeamFindMany = jest.fn().mockResolvedValue([]);
     txSeasonUpdate = jest.fn(
       ({
         where: { id },
@@ -299,10 +326,8 @@ describe('A13 — scénario multi-rôles (SeasonsController)', () => {
         return Promise.resolve(season);
       },
     );
-    txPlayerTeamUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
 
     const prismaStub = {
-      team: { findFirst: teamFindFirst },
       season: {
         create: seasonCreate,
         findMany: seasonFindMany,
@@ -310,74 +335,50 @@ describe('A13 — scénario multi-rôles (SeasonsController)', () => {
         count: seasonCount,
         findUniqueOrThrow: seasonFindUniqueOrThrow,
       },
-      playerTeam: { findMany: playerTeamFindMany },
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
-        callback({
-          season: { update: txSeasonUpdate },
-          playerTeam: { updateMany: txPlayerTeamUpdateMany },
-        }),
+        callback({ season: { update: txSeasonUpdate } }),
       ),
     } as unknown as PrismaService;
 
     seasonsService = new SeasonsService(prismaStub);
-    rosterImportService = new SeasonRosterImportService(
-      prismaStub,
-      seasonsService,
-    );
-    activationService = new SeasonActivationService(prismaStub, seasonsService);
   });
 
-  it('Coach (équipe 5, U15) : crée une saison DRAFT, importe un roster vide puis l’active — flux réel complet', async () => {
-    const request = {
-      params: { clubId: '1', teamId: '5' },
-      user: { userId: 71 },
+  it('AdminClub (Alice) : crée une saison DRAFT pour le club puis l’active — flux réel complet', async () => {
+    const createRequest = {
+      params: { clubId: '1' },
+      user: { userId: 80 },
     } as Partial<PermissionedRequest>;
     await expect(
-      guard.canActivate(buildContext(request, createHandler)),
+      guard.canActivate(buildContext(createRequest, createHandler)),
     ).resolves.toBe(true);
-    expect(request.permissionScope).toBe('TEAM');
+    expect(createRequest.permissionScope).toBe('CLUB');
 
-    const created = await seasonsService.create(1, 5, {
-      name: 'Saison U15 2026-2027',
+    const created = await seasonsService.create(1, {
+      name: 'Saison 2026-2027',
       startDate: new Date('2026-08-01'),
       endDate: new Date('2027-06-30'),
     });
     expect(seasonCreate).toHaveBeenCalled();
     expect(created.status).toBe('DRAFT');
 
-    const preview = await rosterImportService.previewRoster(1, 5, created.id);
-    expect(preview).toEqual([]);
-    const imported = await rosterImportService.importRoster(
-      1,
-      5,
-      created.id,
-      [],
-    );
-    expect(imported).toEqual({ importedCount: 0 });
-
-    const activated = await activationService.activate(1, 5, created.id);
-    expect(activated.status).toBe('ACTIVE');
-    expect(txPlayerTeamUpdateMany).not.toHaveBeenCalled(); // pas d'ancienne saison ACTIVE à clore
-
-    // Même personne, même club, mais son seul rôle sur l'équipe 8 est
-    // Player (READ seul) : le guard doit refuser la création là-bas.
-    const createOnPlayerTeam = {
-      params: { clubId: '1', teamId: '8' },
-      user: { userId: 71 },
+    const activateRequest = {
+      params: { clubId: '1' },
+      user: { userId: 80 },
     } as Partial<PermissionedRequest>;
     await expect(
-      guard.canActivate(buildContext(createOnPlayerTeam, createHandler)),
-    ).rejects.toBeInstanceOf(AppException);
+      guard.canActivate(buildContext(activateRequest, activateHandler)),
+    ).resolves.toBe(true);
+
+    const activated = await seasonsService.activate(1, created.id);
+    expect(activated.status).toBe('ACTIVE');
   });
 
-  it('Player (équipe 8, Seniors) : lit ses propres saisons, refusé en écriture par le guard', async () => {
+  it('Coach (Marc, équipe 5) : lit les saisons du club via ?teamId=, refusé en écriture', async () => {
     seasonsStore.push({
-      id: 201,
-      teamId: 8,
-      name: 'Saison Seniors 2026-2027',
-      teamNameSnapshot: null,
-      categorySnapshot: null,
-      startDate: new Date('2026-07-01'),
+      id: 200,
+      clubId: 1,
+      name: 'Saison 2026-2027',
+      startDate: new Date('2026-08-01'),
       endDate: new Date('2027-06-30'),
       status: 'ACTIVE',
       createdAt: new Date(),
@@ -385,18 +386,22 @@ describe('A13 — scénario multi-rôles (SeasonsController)', () => {
     });
 
     const readRequest = {
-      params: { clubId: '1', teamId: '8' },
+      params: { clubId: '1' },
+      query: { teamId: '5' },
       user: { userId: 71 },
     } as Partial<PermissionedRequest>;
     await expect(
       guard.canActivate(buildContext(readRequest, findAllHandler)),
     ).resolves.toBe(true);
     expect(readRequest.permissionScope).toBe('TEAM');
-    const seasons = await seasonsService.findAllByTeam(1, 8);
-    expect(seasons.map((s) => s.id)).toEqual([201]);
+    const seasons = await seasonsService.findAllByClub(1);
+    expect(seasons.map((s) => s.id)).toEqual([200]);
 
+    // Même personne, même club, mais son seul rôle est Coach/Player en
+    // lecture seule sur `season` — jamais AdminClub.
     const writeRequest = {
-      params: { clubId: '1', teamId: '8' },
+      params: { clubId: '1' },
+      query: { teamId: '5' },
       user: { userId: 71 },
     } as Partial<PermissionedRequest>;
     await expect(
@@ -414,9 +419,20 @@ describe('A13 — scénario multi-rôles (SeasonsController)', () => {
     expect(seasonCreate).not.toHaveBeenCalled();
   });
 
-  it('Parent (Club 2) : aucun accès à `season`, quelle que soit l’équipe ou l’action', async () => {
+  it('Coach (Marc, équipe 8, Player seul) : sans ?teamId= transmis pour une équipe où il tient un rôle, refusé — route club-only', async () => {
     const request = {
-      params: { clubId: '2', teamId: '12' },
+      params: { clubId: '1' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+    await expect(
+      guard.canActivate(buildContext(request, findAllHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it('Parent (Marc, Club 2) : aucun accès à `season`, quelle que soit l’action', async () => {
+    const request = {
+      params: { clubId: '2' },
+      query: { teamId: '12' },
       user: { userId: 71 },
     } as Partial<PermissionedRequest>;
     await expect(
@@ -437,9 +453,11 @@ describe('A13 — scénario multi-rôles (SeasonsController)', () => {
 // ───────────────────────────────────────────────────────────────────────
 // Filtrage rétroactif par saison (A12) — player_objective comme
 // représentant des 4 entités partageant `resolveSeasonPeriod` (Entretien/
-// Notes/Objectifs/Évaluation, Mesures explicitement exclu).
+// Notes/Objectifs/Évaluation, Mesures explicitement exclu). Season étant
+// club-wide, Coach (équipe 5) et Player (équipe 8) filtrent désormais par la
+// MÊME saison, partagée entre leurs deux équipes du Club 1.
 // ───────────────────────────────────────────────────────────────────────
-describe('A13 — scénario multi-rôles (filtrage par saison, PlayerObjectivesController)', () => {
+describe('A13/A19 — scénario multi-rôles (filtrage par saison, PlayerObjectivesController)', () => {
   const permissions = {
     readTeam: {
       id: 1,
@@ -472,27 +490,25 @@ describe('A13 — scénario multi-rôles (filtrage par saison, PlayerObjectivesC
   const findAllHandler = PlayerObjectivesController.prototype.findAll;
   /* eslint-enable @typescript-eslint/unbound-method */
 
-  // Saison de l'équipe 8 (Seniors, celle de Marc-Player) et saison de
-  // l'équipe 5 (U15, celle de Marc-Coach) — jamais confondues par
-  // `resolveSeasonPeriod`, qui filtre toujours par le `teamId` transmis en
-  // query par l'appelant.
-  const seasonSeniors: Season = {
+  // Saison du Club 1, partagée par l'équipe 5 (U15, Marc-Coach) ET l'équipe 8
+  // (Seniors, Marc-Player) — plus de distinction par équipe, `season` n'a
+  // plus de FK vers Team. Saison "étrangère" du Club 2, jamais atteignable
+  // depuis le Club 1 via `resolveSeasonPeriod` (scopé clubId).
+  const club1Season: Season = {
     id: 201,
-    teamId: 8,
-    name: 'Saison Seniors 2026-2027',
-    teamNameSnapshot: null,
-    categorySnapshot: null,
+    clubId: 1,
+    name: 'Saison 2026-2027',
     startDate: new Date('2026-07-01'),
     endDate: new Date('2027-06-30'),
     status: 'ACTIVE',
     createdAt: new Date(),
     updatedAt: new Date(),
   };
-  const seasonU15: Season = {
-    ...seasonSeniors,
-    id: 200,
-    teamId: 5,
-    name: 'Saison U15 2026-2027',
+  const club2Season: Season = {
+    ...club1Season,
+    id: 900,
+    clubId: 2,
+    name: 'Saison Club 2',
   };
 
   let guard: PermissionsGuard;
@@ -511,10 +527,10 @@ describe('A13 — scénario multi-rôles (filtrage par saison, PlayerObjectivesC
     );
     objectiveFindMany = jest.fn().mockResolvedValue([]);
     seasonFindFirst = jest.fn(
-      ({ where }: { where: { id: number; teamId?: number } }) =>
+      ({ where }: { where: { id: number; clubId?: number } }) =>
         Promise.resolve(
-          [seasonSeniors, seasonU15].find(
-            (s) => s.id === where.id && s.teamId === where.teamId,
+          [club1Season, club2Season].find(
+            (s) => s.id === where.id && s.clubId === where.clubId,
           ) ?? null,
         ),
     );
@@ -528,7 +544,7 @@ describe('A13 — scénario multi-rôles (filtrage par saison, PlayerObjectivesC
     service = new PlayerObjectivesService(prismaStub);
   });
 
-  it('Player (équipe 8, Seniors, profil 100) : filtre son propre profil par la saison de SON équipe', async () => {
+  it('Player (équipe 8, Seniors, profil 100) : filtre son propre profil par la saison du club', async () => {
     const request = {
       params: { clubId: '1', playerId: '100' },
       query: { teamId: '8', seasonId: '201' },
@@ -548,38 +564,17 @@ describe('A13 — scénario multi-rôles (filtrage par saison, PlayerObjectivesC
         playerId: 100,
         status: undefined,
         theme: undefined,
-        startDate: { gte: seasonSeniors.startDate, lte: seasonSeniors.endDate },
+        startDate: { gte: club1Season.startDate, lte: club1Season.endDate },
       },
       include: { assignedBy: true },
       orderBy: { startDate: { sort: 'desc', nulls: 'last' } },
     });
   });
 
-  it('Player (équipe 8, Seniors) : un seasonId d’une AUTRE équipe (U15) ne renvoie aucune période — 404, pas de fuite de bornes de dates', async () => {
-    const request = {
-      params: { clubId: '1', playerId: '100' },
-      query: { teamId: '8', seasonId: '200' },
-      user: { userId: 71 },
-    } as Partial<PermissionedRequest>;
-    await guard.canActivate(buildContext(request, findAllHandler));
-
-    // `resolveSeasonPeriod` cherche season{id:200, teamId:8} — id 200
-    // n'existe que pour teamId 5, donc introuvable dans le scope équipe 8.
-    await expect(
-      service.findAllByPlayer(
-        1,
-        100,
-        { memberId: request.member!.id, scope: 'OWN', teamId: 8 },
-        { seasonId: 200 },
-      ),
-    ).rejects.toBeInstanceOf(AppException);
-    expect(objectiveFindMany).not.toHaveBeenCalled();
-  });
-
-  it('Coach (équipe 5, U15) : filtre le profil d’un coéquipier par la saison de l’équipe 5', async () => {
+  it('Coach (équipe 5, U15) : filtre le profil d’un coéquipier par la MÊME saison du club (partagée avec l’équipe 8)', async () => {
     const request = {
       params: { clubId: '1', playerId: '300' },
-      query: { teamId: '5', seasonId: '200' },
+      query: { teamId: '5', seasonId: '201' },
       user: { userId: 71 },
     } as Partial<PermissionedRequest>;
     await guard.canActivate(buildContext(request, findAllHandler));
@@ -589,7 +584,7 @@ describe('A13 — scénario multi-rôles (filtrage par saison, PlayerObjectivesC
       1,
       300,
       { memberId: request.member!.id, scope: 'TEAM', teamId: 5 },
-      { seasonId: 200 },
+      { seasonId: 201 },
     );
     expect(playerTeamFindFirst).toHaveBeenCalledWith({
       where: { playerId: 300, teamId: 5, leaveDate: null },
@@ -599,11 +594,32 @@ describe('A13 — scénario multi-rôles (filtrage par saison, PlayerObjectivesC
         playerId: 300,
         status: undefined,
         theme: undefined,
-        startDate: { gte: seasonU15.startDate, lte: seasonU15.endDate },
+        startDate: { gte: club1Season.startDate, lte: club1Season.endDate },
       },
       include: { assignedBy: true },
       orderBy: { startDate: { sort: 'desc', nulls: 'last' } },
     });
+  });
+
+  it('Coach (Club 1) : un seasonId appartenant à un AUTRE club (Club 2) ne renvoie aucune période — 404, pas de fuite de bornes de dates', async () => {
+    const request = {
+      params: { clubId: '1', playerId: '300' },
+      query: { teamId: '5', seasonId: '900' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+    await guard.canActivate(buildContext(request, findAllHandler));
+
+    // `resolveSeasonPeriod` cherche season{id:900, clubId:1} — id 900
+    // n'existe que pour clubId 2, donc introuvable dans le scope du Club 1.
+    await expect(
+      service.findAllByPlayer(
+        1,
+        300,
+        { memberId: request.member!.id, scope: 'TEAM', teamId: 5 },
+        { seasonId: 900 },
+      ),
+    ).rejects.toBeInstanceOf(AppException);
+    expect(objectiveFindMany).not.toHaveBeenCalled();
   });
 
   it('Parent (Club 2) : aucun accès à `player_objective`, donc jamais au filtrage par saison', async () => {
