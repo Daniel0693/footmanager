@@ -402,6 +402,18 @@
         "submit": "Créer la saison et continuer",
         "created": "Saison créée avec succès",
         "createFailed": "Échec de la création de la saison"
+      },
+      "rosterStep": {
+        "columnName": "Nom",
+        "columnJersey": "Maillot",
+        "columnPosition": "Poste",
+        "emptyValue": "—",
+        "empty": "Aucun joueur actif à reconduire.",
+        "submit": "Confirmer le roster et continuer",
+        "imported": "Roster importé avec succès",
+        "importFailed": "Échec de l'import du roster",
+        "loadFailed": "Impossible de charger le roster actuel",
+        "alreadyImported": "{count} joueur(s) reconduit(s) pour cette saison."
       }
     }
   },
@@ -700,6 +712,12 @@
     "EVENTS": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
       "NOT_FOUND": "Événement introuvable"
+    },
+    "SEASONS": {
+      "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
+      "NOT_FOUND": "Saison introuvable",
+      "CANNOT_DELETE_NON_DRAFT": "Seule une saison en brouillon peut être supprimée",
+      "ROSTER_IMPORT_ONLY_FOR_DRAFT": "L'import du roster n'est possible que pour une saison en brouillon"
     }
   }
 }

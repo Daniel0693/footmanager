@@ -402,6 +402,18 @@
         "submit": "Create season and continue",
         "created": "Season created successfully",
         "createFailed": "Failed to create season"
+      },
+      "rosterStep": {
+        "columnName": "Name",
+        "columnJersey": "Jersey",
+        "columnPosition": "Position",
+        "emptyValue": "—",
+        "empty": "No active players to carry over.",
+        "submit": "Confirm roster and continue",
+        "imported": "Roster imported successfully",
+        "importFailed": "Failed to import roster",
+        "loadFailed": "Unable to load the current roster",
+        "alreadyImported": "{count} player(s) carried over for this season."
       }
     }
   },
@@ -700,6 +712,12 @@
     "EVENTS": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
       "NOT_FOUND": "Event not found"
+    },
+    "SEASONS": {
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "NOT_FOUND": "Season not found",
+      "CANNOT_DELETE_NON_DRAFT": "Only a draft season can be deleted",
+      "ROSTER_IMPORT_ONLY_FOR_DRAFT": "Roster import is only possible for a draft season"
     }
   }
 }

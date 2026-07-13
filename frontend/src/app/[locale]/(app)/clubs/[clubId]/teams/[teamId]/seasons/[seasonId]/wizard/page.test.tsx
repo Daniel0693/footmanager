@@ -36,15 +36,21 @@ describe("SeasonWizardResumePage", () => {
     mockUseAuth.mockReturnValue({ accessToken: "token" });
   });
 
-  it("charge la saison à reprendre puis affiche le wizard à l'étape 2", async () => {
-    mockApiFetch.mockResolvedValue(
-      jsonResponse({
-        id: 10,
-        name: "Saison 2026-2027",
-        startDate: "2026-08-01",
-        endDate: "2027-06-30",
-      }),
-    );
+  it("charge la saison à reprendre puis affiche le wizard à l'étape 2 (import roster)", async () => {
+    mockApiFetch
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 10,
+          name: "Saison 2026-2027",
+          startDate: "2026-08-01",
+          endDate: "2027-06-30",
+        }),
+      )
+      // GET .../roster-import-preview, déclenché par SeasonWizardRosterStep
+      // une fois la saison chargée — roster vide pour ce test, seul le
+      // chaînage étape 1 -> étape 2 est vérifié ici (contenu détaillé de
+      // l'étape testé dans season-wizard-roster-step.test.tsx).
+      .mockResolvedValueOnce(jsonResponse([]));
 
     renderPage("10");
 
@@ -55,7 +61,7 @@ describe("SeasonWizardResumePage", () => {
       );
     });
     expect(
-      await screen.findByText("Cette étape sera disponible prochainement."),
+      await screen.findByText("Aucun joueur actif à reconduire."),
     ).toBeInTheDocument();
   });
 

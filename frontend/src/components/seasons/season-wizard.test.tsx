@@ -6,9 +6,9 @@ import { SeasonWizard } from "./season-wizard";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 jest.mock("@/i18n/navigation", () => require("@/test-utils/navigation-mock"));
 
-// SeasonWizardCreateStep a sa propre suite de tests dédiée — mocké ici pour
-// isoler la logique d'orchestration du wizard (navigation entre étapes,
-// affichage du récapitulatif).
+// SeasonWizardCreateStep/SeasonWizardRosterStep ont chacun leur propre suite
+// de tests dédiée — mockés ici pour isoler la logique d'orchestration du
+// wizard (navigation entre étapes, affichage des récapitulatifs).
 jest.mock("./season-wizard-create-step", () => ({
   SeasonWizardCreateStep: ({
     onCreated,
@@ -36,6 +36,18 @@ jest.mock("./season-wizard-create-step", () => ({
   ),
 }));
 
+jest.mock("./season-wizard-roster-step", () => ({
+  SeasonWizardRosterStep: ({
+    onImported,
+  }: {
+    onImported: (count: number) => void;
+  }) => (
+    <button type="button" onClick={() => onImported(3)}>
+      Simuler l&apos;import
+    </button>
+  ),
+}));
+
 describe("SeasonWizard", () => {
   it("affiche le formulaire de création à l'étape 1 en mode nouvelle saison", () => {
     renderWithIntl(<SeasonWizard clubId="1" teamId="5" />);
@@ -43,15 +55,13 @@ describe("SeasonWizard", () => {
     expect(screen.getByRole("button", { name: "Simuler la création" })).toBeInTheDocument();
   });
 
-  it("passe à l'étape 2 (placeholder) après création de la saison", async () => {
+  it("passe à l'étape 2 (import roster) après création de la saison", async () => {
     const user = userEvent.setup();
     renderWithIntl(<SeasonWizard clubId="1" teamId="5" />);
 
     await user.click(screen.getByRole("button", { name: "Simuler la création" }));
 
-    expect(
-      screen.getByText("Cette étape sera disponible prochainement."),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Simuler l'import" })).toBeInTheDocument();
   });
 
   it("revenir à l'étape 1 après création affiche un récapitulatif, jamais le formulaire à nouveau", async () => {
@@ -68,7 +78,33 @@ describe("SeasonWizard", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("reprend directement à l'étape 2 quand une saison existe déjà (initialSeason)", () => {
+  it("passe à l'étape 3 (placeholder) après import du roster", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(<SeasonWizard clubId="1" teamId="5" />);
+
+    await user.click(screen.getByRole("button", { name: "Simuler la création" }));
+    await user.click(screen.getByRole("button", { name: "Simuler l'import" }));
+
+    expect(
+      screen.getByText("Cette étape sera disponible prochainement."),
+    ).toBeInTheDocument();
+  });
+
+  it("revenir à l'étape 2 après import affiche un récapitulatif, jamais le formulaire à nouveau", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(<SeasonWizard clubId="1" teamId="5" />);
+
+    await user.click(screen.getByRole("button", { name: "Simuler la création" }));
+    await user.click(screen.getByRole("button", { name: "Simuler l'import" }));
+    await user.click(screen.getByRole("button", { name: "Effectif" }));
+
+    expect(screen.getByText("3 joueur(s) reconduit(s) pour cette saison.")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Simuler l'import" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("reprend directement à l'étape 2 (import roster) quand une saison existe déjà (initialSeason)", () => {
     renderWithIntl(
       <SeasonWizard
         clubId="1"
@@ -82,9 +118,7 @@ describe("SeasonWizard", () => {
       />,
     );
 
-    expect(
-      screen.getByText("Cette étape sera disponible prochainement."),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Simuler l'import" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Création" })).toBeEnabled();
   });
 });

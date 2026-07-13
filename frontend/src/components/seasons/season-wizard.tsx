@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Stepper, type StepperStep } from "@/components/ui/stepper";
 import { formatDate } from "@/lib/date-format";
 import { SeasonWizardCreateStep, type CreatedSeason } from "./season-wizard-create-step";
+import { SeasonWizardRosterStep } from "./season-wizard-roster-step";
 
 const WIZARD_STEPS: StepperStep[] = [
   { key: "create", labelKey: "create" },
@@ -14,10 +15,9 @@ const WIZARD_STEPS: StepperStep[] = [
   { key: "activate", labelKey: "activate" },
 ];
 
-// Étapes 2-4 (import roster, championnats, activation) arrivent en A6-A10 —
-// voir docs/roadmap.md. Placeholder générique en attendant, remplacé
-// incrément par incrément (même pattern que les onglets "à venir" de la
-// fiche joueur).
+// Étapes 3-4 (championnats, activation) arrivent en A8-A10 — voir
+// docs/roadmap.md. Placeholder générique en attendant, remplacé incrément
+// par incrément (même pattern que les onglets "à venir" de la fiche joueur).
 export function SeasonWizard({
   clubId,
   teamId,
@@ -33,14 +33,27 @@ export function SeasonWizard({
   const t = useTranslations("seasons.wizard");
   const [season, setSeason] = useState<CreatedSeason | null>(initialSeason ?? null);
   const [currentStepIndex, setCurrentStepIndex] = useState(initialSeason ? 1 : 0);
+  // null = roster pas encore importé pour cette session de wizard. Reprise
+  // (.../seasons/[id]/wizard) : pas d'info sur un import déjà fait, l'étape
+  // réaffiche le formulaire — limite connue, acceptable tant que le wizard
+  // se complète en une seule session (voir A6, doc saisons-championnats.md).
+  const [importedCount, setImportedCount] = useState<number | null>(null);
 
-  // L'étape 1 (création) est la seule marquée complétée pour l'instant :
-  // les étapes 2-4 n'ont pas encore de contenu réel à valider (A6-A10).
-  const completedSteps = useMemo(() => new Set(season ? [0] : []), [season]);
+  const completedSteps = useMemo(() => {
+    const completed = new Set<number>();
+    if (season) completed.add(0);
+    if (importedCount !== null) completed.add(1);
+    return completed;
+  }, [season, importedCount]);
 
   const handleCreated = (created: CreatedSeason) => {
     setSeason(created);
     setCurrentStepIndex(1);
+  };
+
+  const handleImported = (count: number) => {
+    setImportedCount(count);
+    setCurrentStepIndex(2);
   };
 
   return (
@@ -75,7 +88,25 @@ export function SeasonWizard({
                 onCreated={handleCreated}
               />
             ))}
-          {currentStepIndex > 0 && (
+          {currentStepIndex === 1 && season !== null && (
+            importedCount !== null ? (
+              // Revisite de l'étape 2 après import : jamais le formulaire à
+              // nouveau (dupliquerait les affectations PlayerTeam créées,
+              // voir SeasonRosterImportService) — un récapitulatif en
+              // lecture seule, même principe que l'étape 1.
+              <p className="text-sm text-muted-foreground">
+                {t("rosterStep.alreadyImported", { count: importedCount })}
+              </p>
+            ) : (
+              <SeasonWizardRosterStep
+                clubId={clubId}
+                teamId={teamId}
+                seasonId={season.id}
+                onImported={handleImported}
+              />
+            )
+          )}
+          {currentStepIndex > 1 && (
             <p className="text-sm text-muted-foreground">{t("stepComingSoon")}</p>
           )}
         </CardContent>
