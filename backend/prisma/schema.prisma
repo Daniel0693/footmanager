@@ -91,6 +91,7 @@ model Team {
   teamStaffs        TeamStaff[]
   playerEvaluations PlayerEvaluation[]
   events            Event[]
+  seasons           Season[]
 
   @@index([clubId])
 }
@@ -613,6 +614,43 @@ model PlayerEvaluationScore {
 
   @@unique([evaluationId, criterionId])
   @@index([evaluationId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Saisons & Championnats (Partie A — Season) — docs/schema/championnats.md,
+// docs/modules/saisons-championnats.md. Championship/ChampionshipParticipant/
+// ChampionshipMatch/ExternalTeam arrivent en Partie B (Phase 3, roadmap.md).
+// ─────────────────────────────────────────────────────────────────────────
+
+enum SeasonStatus {
+  DRAFT // en préparation, la saison précédente reste ACTIVE
+  ACTIVE // saison courante — une seule par Team à tout instant
+  ARCHIVED // saison terminée, données consultables et modifiables
+}
+
+// Cadre temporel d'une équipe sur une période définie (docs/modules/
+// saisons-championnats.md). Une seule Season avec status = ACTIVE par Team à
+// tout instant — contrainte applicative (SeasonsService), pas une contrainte
+// SQL. Les saisons archivées restent modifiables sans verrou (comportement
+// attendu, pas un bug — voir la doc module).
+model Season {
+  id               Int          @id @default(autoincrement())
+  teamId           Int
+  team             Team         @relation(fields: [teamId], references: [id])
+  name             String
+  // Snapshot du nom/catégorie de l'équipe au moment de la saison — Team reste
+  // l'ancre stable ; ces champs permettent de retrouver le contexte
+  // historique (ex. "U15") même si l'équipe est renommée plus tard.
+  // Alimentés au wizard de transition de saison (étape 4 — activation).
+  teamNameSnapshot String?
+  categorySnapshot String?
+  startDate        DateTime     @db.Date
+  endDate          DateTime     @db.Date
+  status           SeasonStatus @default(DRAFT)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([teamId, status])
 }
 
 // ─────────────────────────────────────────────────────────────────────────
