@@ -380,6 +380,14 @@
       "DRAFT": "Draft",
       "ACTIVE": "Active",
       "ARCHIVED": "Archived"
+    },
+    "wizard": {
+      "steps": {
+        "create": "Create",
+        "roster": "Roster",
+        "championships": "Championships",
+        "activate": "Activate"
+      }
     }
   },
   "objectives": {

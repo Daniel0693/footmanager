@@ -380,6 +380,14 @@
       "DRAFT": "Brouillon",
       "ACTIVE": "Active",
       "ARCHIVED": "Archivée"
+    },
+    "wizard": {
+      "steps": {
+        "create": "Création",
+        "roster": "Effectif",
+        "championships": "Championnats",
+        "activate": "Activation"
+      }
     }
   },
   "objectives": {
