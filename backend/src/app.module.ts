@@ -16,6 +16,7 @@ import { PlayersModule } from './players/players.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RolesModule } from './roles/roles.module';
 import { RosterModule } from './roster/roster.module';
+import { SeasonsModule } from './seasons/seasons.module';
 import { TeamStaffModule } from './team-staff/team-staff.module';
 import { TeamsModule } from './teams/teams.module';
 import { UsersModule } from './users/users.module';
@@ -42,6 +43,7 @@ import { UsersModule } from './users/users.module';
     PlayerEvaluationsModule,
     EvaluationConfigModule,
     EventsModule,
+    SeasonsModule,
   ],
 })
 export class AppModule {}
