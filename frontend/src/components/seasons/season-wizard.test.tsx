@@ -1,5 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { renderWithIntl, screen } from "@/test-utils/render";
+import { push } from "@/test-utils/navigation-mock";
 import { SeasonWizard } from "./season-wizard";
 
 // require() dans la factory jest.mock : nécessaire pour un mock fiable, voir navigation-mock.tsx.
@@ -48,7 +49,23 @@ jest.mock("./season-wizard-roster-step", () => ({
   ),
 }));
 
+jest.mock("./season-wizard-activation-step", () => ({
+  SeasonWizardActivationStep: ({
+    onActivated,
+  }: {
+    onActivated: () => void;
+  }) => (
+    <button type="button" onClick={onActivated}>
+      Simuler l&apos;activation
+    </button>
+  ),
+}));
+
 describe("SeasonWizard", () => {
+  beforeEach(() => {
+    push.mockClear();
+  });
+
   it("affiche le formulaire de création à l'étape 1 en mode nouvelle saison", () => {
     renderWithIntl(<SeasonWizard clubId="1" teamId="5" />);
 
@@ -92,7 +109,7 @@ describe("SeasonWizard", () => {
     ).toBeInTheDocument();
   });
 
-  it("passe à l'étape 4 (placeholder) en cliquant Suivant sur l'étape championnats", async () => {
+  it("passe à l'étape 4 (activation) en cliquant Suivant sur l'étape championnats", async () => {
     const user = userEvent.setup();
     renderWithIntl(<SeasonWizard clubId="1" teamId="5" />);
 
@@ -101,8 +118,20 @@ describe("SeasonWizard", () => {
     await user.click(screen.getByRole("button", { name: "Suivant" }));
 
     expect(
-      screen.getByText("Cette étape sera disponible prochainement."),
+      screen.getByRole("button", { name: "Simuler l'activation" }),
     ).toBeInTheDocument();
+  });
+
+  it("redirige vers la fiche de saison après activation", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(<SeasonWizard clubId="1" teamId="5" />);
+
+    await user.click(screen.getByRole("button", { name: "Simuler la création" }));
+    await user.click(screen.getByRole("button", { name: "Simuler l'import" }));
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+    await user.click(screen.getByRole("button", { name: "Simuler l'activation" }));
+
+    expect(push).toHaveBeenCalledWith("/clubs/1/teams/5/seasons/10");
   });
 
   it("marque l'étape championnats comme complétée une fois passée (navigation arrière possible)", async () => {

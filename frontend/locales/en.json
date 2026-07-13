@@ -389,7 +389,6 @@
         "championships": "Championships",
         "activate": "Activate"
       },
-      "stepComingSoon": "This step will be available soon.",
       "alreadyCompleted": "Step already completed.",
       "createStep": {
         "name": "Season name",
@@ -418,6 +417,18 @@
       "championshipsStep": {
         "message": "Championships can be configured later, from the season page.",
         "next": "Next"
+      },
+      "activationStep": {
+        "retained": "Retained",
+        "departing": "Departing",
+        "arriving": "Arriving",
+        "none": "None",
+        "oldSeasonEndDate": "Previous season end date",
+        "firstSeasonNotice": "First season for this team: no previous season to archive.",
+        "activate": "Activate season",
+        "activated": "Season activated successfully",
+        "activateFailed": "Failed to activate season",
+        "loadFailed": "Unable to load the activation summary"
       }
     }
   },

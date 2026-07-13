@@ -389,7 +389,6 @@
         "championships": "Championnats",
         "activate": "Activation"
       },
-      "stepComingSoon": "Cette étape sera disponible prochainement.",
       "alreadyCompleted": "Étape déjà complétée.",
       "createStep": {
         "name": "Nom de la saison",
@@ -418,6 +417,18 @@
       "championshipsStep": {
         "message": "Les championnats pourront être configurés plus tard, depuis la fiche de la saison.",
         "next": "Suivant"
+      },
+      "activationStep": {
+        "retained": "Reconduits",
+        "departing": "Partants",
+        "arriving": "Arrivants",
+        "none": "Aucun",
+        "oldSeasonEndDate": "Date de fin de l'ancienne saison",
+        "firstSeasonNotice": "Première saison de l'équipe : aucune saison précédente à archiver.",
+        "activate": "Activer la saison",
+        "activated": "Saison activée avec succès",
+        "activateFailed": "Échec de l'activation de la saison",
+        "loadFailed": "Impossible de charger le résumé d'activation"
       }
     }
   },

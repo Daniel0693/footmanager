@@ -5,7 +5,9 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Stepper, type StepperStep } from "@/components/ui/stepper";
+import { useRouter } from "@/i18n/navigation";
 import { formatDate } from "@/lib/date-format";
+import { SeasonWizardActivationStep } from "./season-wizard-activation-step";
 import { SeasonWizardCreateStep, type CreatedSeason } from "./season-wizard-create-step";
 import { SeasonWizardRosterStep } from "./season-wizard-roster-step";
 
@@ -15,10 +17,6 @@ const WIZARD_STEPS: StepperStep[] = [
   { key: "championships", labelKey: "championships" },
   { key: "activate", labelKey: "activate" },
 ];
-
-// Étape 4 (activation) arrive en A9-A10 — voir docs/roadmap.md. Placeholder
-// générique en attendant, remplacé au prochain incrément (même pattern que
-// les onglets "à venir" de la fiche joueur).
 export function SeasonWizard({
   clubId,
   teamId,
@@ -32,6 +30,7 @@ export function SeasonWizard({
   initialSeason?: CreatedSeason;
 }) {
   const t = useTranslations("seasons.wizard");
+  const router = useRouter();
   const [season, setSeason] = useState<CreatedSeason | null>(initialSeason ?? null);
   const [currentStepIndex, setCurrentStepIndex] = useState(initialSeason ? 1 : 0);
   // null = roster pas encore importé pour cette session de wizard. Reprise
@@ -66,6 +65,13 @@ export function SeasonWizard({
   const handleChampionshipsStepNext = () => {
     setChampionshipsStepPassed(true);
     setCurrentStepIndex(3);
+  };
+
+  const handleActivated = () => {
+    if (!season) return;
+    // Fiche de saison arrive en A11 — la route existe déjà (voir plan Partie
+    // A) et sera livrée juste après cet incrément.
+    router.push(`/clubs/${clubId}/teams/${teamId}/seasons/${season.id}`);
   };
 
   return (
@@ -128,8 +134,13 @@ export function SeasonWizard({
               </Button>
             </div>
           )}
-          {currentStepIndex === 3 && (
-            <p className="text-sm text-muted-foreground">{t("stepComingSoon")}</p>
+          {currentStepIndex === 3 && season !== null && (
+            <SeasonWizardActivationStep
+              clubId={clubId}
+              teamId={teamId}
+              seasonId={season.id}
+              onActivated={handleActivated}
+            />
           )}
         </CardContent>
       </Card>
