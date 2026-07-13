@@ -382,11 +382,26 @@
       "ARCHIVED": "Archived"
     },
     "wizard": {
+      "title": "New season",
       "steps": {
         "create": "Create",
         "roster": "Roster",
         "championships": "Championships",
         "activate": "Activate"
+      },
+      "stepComingSoon": "This step will be available soon.",
+      "alreadyCompleted": "Step already completed.",
+      "createStep": {
+        "name": "Season name",
+        "namePlaceholder": "E.g. Season 2026-2027",
+        "nameRequired": "Name is required",
+        "startDate": "Start date",
+        "endDate": "End date",
+        "dateRequired": "Date is required",
+        "endDateBeforeStartDate": "End date must be after start date",
+        "submit": "Create season and continue",
+        "created": "Season created successfully",
+        "createFailed": "Failed to create season"
       }
     }
   },

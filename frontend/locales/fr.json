@@ -382,11 +382,26 @@
       "ARCHIVED": "Archivée"
     },
     "wizard": {
+      "title": "Nouvelle saison",
       "steps": {
         "create": "Création",
         "roster": "Effectif",
         "championships": "Championnats",
         "activate": "Activation"
+      },
+      "stepComingSoon": "Cette étape sera disponible prochainement.",
+      "alreadyCompleted": "Étape déjà complétée.",
+      "createStep": {
+        "name": "Nom de la saison",
+        "namePlaceholder": "Ex. Saison 2026-2027",
+        "nameRequired": "Le nom est requis",
+        "startDate": "Date de début",
+        "endDate": "Date de fin",
+        "dateRequired": "La date est requise",
+        "endDateBeforeStartDate": "La date de fin doit être postérieure à la date de début",
+        "submit": "Créer la saison et continuer",
+        "created": "Saison créée avec succès",
+        "createFailed": "Échec de la création de la saison"
       }
     }
   },
