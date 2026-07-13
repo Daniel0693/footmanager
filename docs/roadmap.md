@@ -116,18 +116,77 @@ Tests à la fin de la Partie B (après B9 + correctifs) : 340 tests backend + 25
 
 ---
 
-## Phase 3 — Saisons & Championnats ⬜
+## Phase 3 — Saisons & Championnats 🚧
 
 _~2–3 semaines_
 
-- `Season` (états DRAFT/ACTIVE/ARCHIVED), `Championship`, `ChampionshipParticipant`,
-  `ChampionshipMatch`, `ExternalTeam`.
-- Wizard de création de saison (import roster, confirmation, activation).
-- Configuration du format de jeu et des règles de points par championnat.
-- Presets de règles de départage + configuration personnalisée.
-- Saisie des résultats des matchs adverses.
-- Classement calculé à la volée.
-- Filtrage des statistiques joueur par saison / championnat / catégorie / dates libres.
+Découpage établi le 2026-07-13, sur le modèle de la Phase 2 (Partie A / Partie B, incréments
+granulaires, une branche `feature/` par partie, mergée dans `develop` seulement une fois
+entièrement terminée et testée). Conception fonctionnelle complète (schéma, wizard, droits,
+algorithme de classement) déjà figée dans `docs/schema/championnats.md` et
+`docs/modules/saisons-championnats.md` avant le premier incrément.
+
+**Hors scope explicite** : `ExternalPlayer` (Phase 7 Scouting, malgré sa présence dans le même
+fichier `docs/schema/championnats.md`) ; `Match`/gestion live (Phase 4) — toutes les rencontres
+de championnat, y compris les nôtres, sont saisies manuellement sur `ChampionshipMatch` en
+attendant Phase 4 (`matchId` posé nullable dès maintenant, sans `@relation`, pour la migration
+future).
+
+### Partie A — Module Season 🚧
+
+| Étape | Contenu |
+|---|---|
+| A0 | Prérequis transverse (seed permissions, nav, i18n) |
+| A1 | Schéma `Season` |
+| A2 | Backend `seasons` CRUD scopé équipe |
+| A3 | Frontend liste des saisons |
+| A4 | Composant `Stepper` générique |
+| A5 | Frontend wizard étape 1 (création DRAFT) |
+| A6 | Backend import roster (étape 2) |
+| A7 | Frontend wizard étape 2 (import roster) |
+| A8 | Wizard étape 3 — placeholder (dépend de Partie B, rebranché en B15) |
+| A9 | Backend activation (étape 4) |
+| A10 | Frontend wizard étape 4 (résumé + activation) |
+| A11 | Frontend détail de saison + édition |
+| A12 | Filtrage rétroactif par saison des 5 entités A7.x (Phase 2) |
+| A13 | Tests multi-rôles bout-en-bout Partie A |
+
+Détail complet de chaque étape : voir le plan de développement archivé au moment de la
+conception de la Phase 3 et `docs/modules/saisons-championnats.md`.
+
+### Partie B — Module Championship ⬜
+
+| Étape | Contenu |
+|---|---|
+| B0 | Prérequis transverse (seed + doc pattern ExternalTeam) |
+| B1 | Schéma `ExternalTeam` |
+| B2 | Backend `external-teams` CRUD |
+| B3 | Frontend gestion des équipes adverses |
+| B4 | Schéma `Championship` |
+| B5 | Backend `championships` CRUD + presets |
+| B6 | Frontend `championships` liste + formulaire règles |
+| B7 | Schéma `ChampionshipParticipant` |
+| B8 | Backend `championship-participants` CRUD |
+| B9 | Frontend onglet Participants |
+| B10 | Schéma `ChampionshipMatch` |
+| B11 | Backend `championship-matches` CRUD (saisie résultats) |
+| B12 | Algorithme de classement (fonction pure) + endpoint |
+| B13 | Frontend calendrier des rencontres + saisie résultats |
+| B14 | Frontend classement |
+| B15 | Tests multi-rôles bout-en-bout Partie B + rebranchement A8 |
+
+Démarre sur une branche `feature/saisons-module-championship` séparée, une fois la Partie A
+mergée dans `develop`.
+
+**Points reportés (à ne pas oublier)** :
+- Filtrage des 5 entités A7.x par **championnat précis** (`WHERE championshipMatchId...`) :
+  non applicable, ces entités n'ont aucune FK directe vers `ChampionshipMatch` — seul le
+  filtrage par saison (bornes de dates) est implémenté en A12.
+- Dépendance croisée A8 ↔ B15 : le placeholder de l'étape 3 du wizard de saison n'est
+  rebranché sur le vrai formulaire de championnat qu'à la toute fin de la Partie B.
+- `ChampionshipParticipant.internalTeamId` restreint à la `teamId` de l'URL (une seule équipe
+  interne par championnat créé depuis cette équipe) — limite MVP, deux équipes du même club
+  dans le même championnat hors scope.
 
 ---
 

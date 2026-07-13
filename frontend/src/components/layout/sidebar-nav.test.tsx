@@ -18,12 +18,14 @@ describe("SidebarNav", () => {
     mockUseParams.mockReturnValue({});
   });
 
-  it("affiche les deux modules existants avec leurs libellés", () => {
+  it("affiche les modules existants avec leurs libellés", () => {
     usePathname.mockReturnValue("/home");
     renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
 
     expect(screen.getByRole("link", { name: "Accueil" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Effectif" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Calendrier" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Saisons" })).toBeInTheDocument();
   });
 
   it("le lien Effectif renvoie vers /home quand aucun club n'est sélectionné", () => {
@@ -52,6 +54,26 @@ describe("SidebarNav", () => {
 
     expect(screen.getByRole("link", { name: "Effectif" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Accueil" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("le lien Saisons devient contextuel dès qu'un club/équipe est dans l'URL", () => {
+    usePathname.mockReturnValue("/clubs/42/teams/7/seasons");
+    mockUseParams.mockReturnValue({ clubId: "42", teamId: "7" });
+    renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+    expect(screen.getByRole("link", { name: "Saisons" })).toHaveAttribute(
+      "href",
+      "/clubs/42/teams/7/seasons",
+    );
+  });
+
+  it("marque Saisons comme actif (et pas Effectif) sur une route /seasons", () => {
+    usePathname.mockReturnValue("/clubs/42/teams/7/seasons");
+    mockUseParams.mockReturnValue({ clubId: "42", teamId: "7" });
+    renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+    expect(screen.getByRole("link", { name: "Saisons" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Effectif" })).not.toHaveAttribute("aria-current");
   });
 
   it("appelle onNavigate quand un lien est cliqué (fermeture de la sidebar mobile)", async () => {
