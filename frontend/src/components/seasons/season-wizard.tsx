@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Stepper, type StepperStep } from "@/components/ui/stepper";
 import { formatDate } from "@/lib/date-format";
@@ -15,9 +16,9 @@ const WIZARD_STEPS: StepperStep[] = [
   { key: "activate", labelKey: "activate" },
 ];
 
-// Étapes 3-4 (championnats, activation) arrivent en A8-A10 — voir
-// docs/roadmap.md. Placeholder générique en attendant, remplacé incrément
-// par incrément (même pattern que les onglets "à venir" de la fiche joueur).
+// Étape 4 (activation) arrive en A9-A10 — voir docs/roadmap.md. Placeholder
+// générique en attendant, remplacé au prochain incrément (même pattern que
+// les onglets "à venir" de la fiche joueur).
 export function SeasonWizard({
   clubId,
   teamId,
@@ -38,13 +39,19 @@ export function SeasonWizard({
   // réaffiche le formulaire — limite connue, acceptable tant que le wizard
   // se complète en une seule session (voir A6, doc saisons-championnats.md).
   const [importedCount, setImportedCount] = useState<number | null>(null);
+  // Étape 3 optionnelle "à ce stade" (docs/modules/saisons-championnats.md)
+  // : aucune donnée à valider tant que le module Championship n'existe pas
+  // (Partie B). Un simple bouton Suivant, jamais bloquant — rebranché sur le
+  // vrai formulaire de championnat en B15.
+  const [championshipsStepPassed, setChampionshipsStepPassed] = useState(false);
 
   const completedSteps = useMemo(() => {
     const completed = new Set<number>();
     if (season) completed.add(0);
     if (importedCount !== null) completed.add(1);
+    if (championshipsStepPassed) completed.add(2);
     return completed;
-  }, [season, importedCount]);
+  }, [season, importedCount, championshipsStepPassed]);
 
   const handleCreated = (created: CreatedSeason) => {
     setSeason(created);
@@ -54,6 +61,11 @@ export function SeasonWizard({
   const handleImported = (count: number) => {
     setImportedCount(count);
     setCurrentStepIndex(2);
+  };
+
+  const handleChampionshipsStepNext = () => {
+    setChampionshipsStepPassed(true);
+    setCurrentStepIndex(3);
   };
 
   return (
@@ -106,7 +118,17 @@ export function SeasonWizard({
               />
             )
           )}
-          {currentStepIndex > 1 && (
+          {currentStepIndex === 2 && (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">
+                {t("championshipsStep.message")}
+              </p>
+              <Button onClick={handleChampionshipsStepNext} className="self-start">
+                {t("championshipsStep.next")}
+              </Button>
+            </div>
+          )}
+          {currentStepIndex === 3 && (
             <p className="text-sm text-muted-foreground">{t("stepComingSoon")}</p>
           )}
         </CardContent>

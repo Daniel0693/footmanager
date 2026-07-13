@@ -78,7 +78,7 @@ describe("SeasonWizard", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("passe à l'étape 3 (placeholder) après import du roster", async () => {
+  it("passe à l'étape 3 (championnats, optionnelle) après import du roster", async () => {
     const user = userEvent.setup();
     renderWithIntl(<SeasonWizard clubId="1" teamId="5" />);
 
@@ -86,7 +86,38 @@ describe("SeasonWizard", () => {
     await user.click(screen.getByRole("button", { name: "Simuler l'import" }));
 
     expect(
+      screen.getByText(
+        "Les championnats pourront être configurés plus tard, depuis la fiche de la saison.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("passe à l'étape 4 (placeholder) en cliquant Suivant sur l'étape championnats", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(<SeasonWizard clubId="1" teamId="5" />);
+
+    await user.click(screen.getByRole("button", { name: "Simuler la création" }));
+    await user.click(screen.getByRole("button", { name: "Simuler l'import" }));
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+
+    expect(
       screen.getByText("Cette étape sera disponible prochainement."),
+    ).toBeInTheDocument();
+  });
+
+  it("marque l'étape championnats comme complétée une fois passée (navigation arrière possible)", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(<SeasonWizard clubId="1" teamId="5" />);
+
+    await user.click(screen.getByRole("button", { name: "Simuler la création" }));
+    await user.click(screen.getByRole("button", { name: "Simuler l'import" }));
+    await user.click(screen.getByRole("button", { name: "Suivant" }));
+    await user.click(screen.getByRole("button", { name: "Championnats" }));
+
+    expect(
+      screen.getByText(
+        "Les championnats pourront être configurés plus tard, depuis la fiche de la saison.",
+      ),
     ).toBeInTheDocument();
   });
 

@@ -414,6 +414,10 @@
         "importFailed": "Failed to import roster",
         "loadFailed": "Unable to load the current roster",
         "alreadyImported": "{count} player(s) carried over for this season."
+      },
+      "championshipsStep": {
+        "message": "Championships can be configured later, from the season page.",
+        "next": "Next"
       }
     }
   },

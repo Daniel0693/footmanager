@@ -414,6 +414,10 @@
         "importFailed": "Échec de l'import du roster",
         "loadFailed": "Impossible de charger le roster actuel",
         "alreadyImported": "{count} joueur(s) reconduit(s) pour cette saison."
+      },
+      "championshipsStep": {
+        "message": "Les championnats pourront être configurés plus tard, depuis la fiche de la saison.",
+        "next": "Suivant"
       }
     }
   },
