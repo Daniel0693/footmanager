@@ -2,7 +2,7 @@
 
 import { Cake, MapPin, Pencil, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,11 @@ import {
   type ExistingEvent,
 } from "@/components/calendar/event-form-dialog";
 import { DeleteEventDialog } from "@/components/calendar/delete-event-dialog";
+import { useNow } from "@/components/calendar/use-now";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { eventTypeColorClass, teamColorClass } from "@/lib/calendar-color";
-import { addDays, endOfDay } from "@/lib/calendar-grid";
+import { addDays, endOfDay, isSameDay } from "@/lib/calendar-grid";
 import { formatDate } from "@/lib/date-format";
 import { cn } from "@/lib/utils";
 import {
@@ -114,6 +115,7 @@ export function CalendarListView({
   const t = useTranslations("calendar");
   const locale = useLocale();
   const { accessToken } = useAuth();
+  const now = useNow();
   const teamIndexById = new Map(teams.map((team, index) => [team.id, index]));
 
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
@@ -491,6 +493,19 @@ export function CalendarListView({
           })),
         ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+  // Repère "où en est-on dans le temps" (retour utilisateur 2026-07-13) : la
+  // liste n'est jamais groupée par jour (voir TimelineItem plus haut), donc
+  // le seul repère fiable est un séparateur inséré à la position
+  // chronologique de `now` — juste après le dernier élément passé et avant
+  // le premier futur, qu'un événement tombe ou non CE jour précis.
+  const nowDividerIndex = timelineItems.findIndex(
+    (item) => new Date(item.date).getTime() > now.getTime(),
+  );
+  const todayDividerIndex = nowDividerIndex === -1 ? timelineItems.length : nowDividerIndex;
+
+  const isEventLive = (event: CalendarEvent) =>
+    now >= new Date(event.startAt) && now <= new Date(event.endAt ?? event.startAt);
+
   return (
     <div className="flex flex-1 flex-col gap-2 lg:min-h-0">
       {visibleRangeLabel && (
@@ -516,26 +531,57 @@ export function CalendarListView({
       )}
       {!hasError && events !== null && timelineItems.length > 0 && (
         <ol className="flex flex-col gap-3">
-          {timelineItems.map((item) =>
-            item.kind === "birthday" ? (
-              <li key={`birthday-${item.birthday.memberId}-${item.date}`}>
-                <Card className="bg-muted/40">
-                  <CardContent className="flex items-center gap-2 py-3 text-sm">
-                    <Cake className="size-4 shrink-0 text-muted-foreground" />
-                    <span>
-                      {t("birthdayAgeWithDate", {
-                        firstName: item.birthday.firstName,
-                        lastName: item.birthday.lastName,
-                        date: formatDate(item.birthday.date),
-                        age: item.birthday.age,
-                      })}
-                    </span>
-                  </CardContent>
-                </Card>
+          {timelineItems.map((item, index) => {
+            const divider = index === todayDividerIndex && (
+              <li
+                key="now-divider"
+                data-testid="calendar-list-now-divider"
+                className="flex items-center gap-2 text-xs font-medium text-primary"
+                aria-hidden="true"
+              >
+                <span className="h-px flex-1 bg-primary/40" />
+                {t("nowDivider")}
+                <span className="h-px flex-1 bg-primary/40" />
               </li>
-            ) : (
-              <li key={item.event.id}>
-                <Card>
+            );
+
+            if (item.kind === "birthday") {
+              const isToday = isSameDay(new Date(item.date), now);
+              return (
+                <Fragment key={`birthday-${item.birthday.memberId}-${item.date}`}>
+                  {divider}
+                  <li>
+                    <Card className={cn("bg-muted/40", isToday && "border-primary/50")}>
+                      <CardContent className="flex items-center gap-2 py-3 text-sm">
+                        <Cake className="size-4 shrink-0 text-muted-foreground" />
+                        <span>
+                          {t("birthdayAgeWithDate", {
+                            firstName: item.birthday.firstName,
+                            lastName: item.birthday.lastName,
+                            date: formatDate(item.birthday.date),
+                            age: item.birthday.age,
+                          })}
+                        </span>
+                        {isToday && <Badge variant="outline">{t("todayBadge")}</Badge>}
+                      </CardContent>
+                    </Card>
+                  </li>
+                </Fragment>
+              );
+            }
+
+            const isLive = isEventLive(item.event);
+            const isToday = isSameDay(new Date(item.event.startAt), now);
+            return (
+              <Fragment key={item.event.id}>
+                {divider}
+                <li>
+                <Card
+                  className={cn(
+                    isLive && "border-primary bg-primary/5",
+                    isToday && !isLive && "border-primary/50",
+                  )}
+                >
                   <CardContent className="flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -561,6 +607,15 @@ export function CalendarListView({
                           {item.event.team.name}
                         </Badge>
                         <span className="font-medium">{item.event.title}</span>
+                        {isLive && (
+                          <Badge className="gap-1.5 bg-primary text-primary-foreground">
+                            <span className="size-1.5 animate-pulse rounded-full bg-primary-foreground" />
+                            {t("liveBadge")}
+                          </Badge>
+                        )}
+                        {isToday && !isLive && (
+                          <Badge variant="outline">{t("todayBadge")}</Badge>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         <EventFormDialog
@@ -602,8 +657,21 @@ export function CalendarListView({
                     )}
                   </CardContent>
                 </Card>
-              </li>
-            ),
+                </li>
+              </Fragment>
+            );
+          })}
+          {todayDividerIndex === timelineItems.length && (
+            <li
+              key="now-divider"
+              data-testid="calendar-list-now-divider"
+              className="flex items-center gap-2 text-xs font-medium text-primary"
+              aria-hidden="true"
+            >
+              <span className="h-px flex-1 bg-primary/40" />
+              {t("nowDivider")}
+              <span className="h-px flex-1 bg-primary/40" />
+            </li>
           )}
         </ol>
       )}

@@ -117,6 +117,66 @@ describe("CalendarListView", () => {
     expect(screen.getByText("Match").className).not.toMatch(/bg-palette/);
   });
 
+  describe("repères aujourd'hui/en cours (retour utilisateur 2026-07-13)", () => {
+    // Horloge système gelée sur 2026-07-10T12:00:00.000Z (beforeEach).
+    it("insère un séparateur 'Aujourd'hui' entre le dernier événement passé et le premier futur", async () => {
+      mockApiFetch.mockResolvedValueOnce(
+        jsonResponse([
+          eventItem({ id: 1, title: "Passé", startAt: "2026-07-09T08:00:00.000Z" }),
+          eventItem({ id: 2, title: "Futur", startAt: "2026-07-11T08:00:00.000Z" }),
+        ]),
+      );
+      renderWithIntl(
+        <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
+      );
+
+      await screen.findByText("Passé");
+      const list = screen.getByRole("list");
+      const divider = screen.getByTestId("calendar-list-now-divider");
+      const items = Array.from(list.children);
+      expect(items.indexOf(divider)).toBeGreaterThan(
+        items.findIndex((el) => el.textContent?.includes("Passé")),
+      );
+      expect(items.indexOf(divider)).toBeLessThan(
+        items.findIndex((el) => el.textContent?.includes("Futur")),
+      );
+    });
+
+    it("un événement dont l'heure système tombe dans sa plage affiche le badge 'En cours'", async () => {
+      mockApiFetch.mockResolvedValueOnce(
+        jsonResponse([
+          eventItem({
+            title: "Match en direct",
+            startAt: "2026-07-10T11:00:00.000Z",
+            endAt: "2026-07-10T13:00:00.000Z",
+          }),
+        ]),
+      );
+      renderWithIntl(
+        <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
+      );
+
+      await screen.findByText("Match en direct");
+      expect(screen.getByText("En cours")).toBeInTheDocument();
+      expect(screen.queryByText("Aujourd'hui")).not.toBeInTheDocument();
+    });
+
+    it("un événement du jour pas encore commencé affiche le badge 'Aujourd'hui' sans 'En cours'", async () => {
+      mockApiFetch.mockResolvedValueOnce(
+        jsonResponse([
+          eventItem({ title: "Match ce soir", startAt: "2026-07-10T20:00:00.000Z" }),
+        ]),
+      );
+      renderWithIntl(
+        <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
+      );
+
+      await screen.findByText("Match ce soir");
+      expect(screen.getByText("Aujourd'hui")).toBeInTheDocument();
+      expect(screen.queryByText("En cours")).not.toBeInTheDocument();
+    });
+  });
+
   it("affiche la plage de dates actuellement chargée", async () => {
     renderWithIntl(
       <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,

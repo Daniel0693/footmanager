@@ -28,3 +28,19 @@ if (!window.HTMLElement.prototype.setPointerCapture) {
 if (!window.HTMLElement.prototype.releasePointerCapture) {
   window.HTMLElement.prototype.releasePointerCapture = () => {};
 }
+
+// jsdom n'implémente pas matchMedia — `matches: false` par défaut (aucun test
+// existant ne simule un écran desktop) ; les tests qui doivent simuler un
+// format d'écran précis remplacent `window.matchMedia` eux-mêmes.
+if (!window.matchMedia) {
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+}

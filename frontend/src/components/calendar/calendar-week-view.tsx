@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { EventFormTeam, ExistingEvent } from "@/components/calendar/event-form-dialog";
+import { useNow } from "@/components/calendar/use-now";
 import { useAuth } from "@/lib/auth/auth-context";
 import { eventTypeColorClass, teamColorClass } from "@/lib/calendar-color";
 import {
@@ -90,6 +91,8 @@ export function CalendarWeekView({
   const t = useTranslations("calendar");
   const locale = useLocale();
   const { accessToken } = useAuth();
+  const now = useNow();
+  const nowFraction = now.getHours() + now.getMinutes() / 60;
 
   const weekStart = startOfWeek(week);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -342,6 +345,17 @@ export function CalendarWeekView({
                         style={{ top: (hour - HOUR_START) * HOUR_HEIGHT_PX }}
                       />
                     ))}
+                    {isSameDay(day, now) &&
+                      nowFraction >= HOUR_START &&
+                      nowFraction <= HOUR_END && (
+                        <div
+                          data-testid="calendar-week-now-line"
+                          className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-destructive"
+                          style={{ top: (nowFraction - HOUR_START) * HOUR_HEIGHT_PX }}
+                        >
+                          <span className="absolute -top-1 -left-1 size-2 rounded-full bg-destructive" />
+                        </div>
+                      )}
                     {dayEvents.map((event) => {
                       const placement = lanes.get(event.id) ?? { lane: 0, laneCount: 1 };
                       const start = timeToHourFraction(event.startAt);

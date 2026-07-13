@@ -3,7 +3,7 @@
 import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,6 +90,23 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, month, week]);
+
+  // Vue par défaut selon le format d'écran (retour utilisateur 2026-07-13) :
+  // Mensuelle sur ordinateur, Liste sur portable — seulement quand l'URL ne
+  // précise aucune vue explicite (un lien partagé avec ?view=week doit
+  // toujours être respecté). `window` est indisponible au rendu serveur,
+  // donc corrigé après montage plutôt que dans l'initialiseur de `view`
+  // ci-dessus — un bref flash Liste→Mois au premier chargement desktop est
+  // accepté (pas de détection de user-agent côté serveur ici).
+  const autoViewAppliedRef = useRef(false);
+  useEffect(() => {
+    if (autoViewAppliedRef.current) return;
+    autoViewAppliedRef.current = true;
+    if (searchParams.get("view") !== null) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (window.matchMedia("(min-width: 768px)").matches) setView("month");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Incrémenté après toute création/édition/suppression pour que la vue
   // active (Liste/Mois/Semaine) sache qu'elle doit recharger sa fenêtre —
   // chaque vue gère son propre chargement borné à sa plage affichée (voir
