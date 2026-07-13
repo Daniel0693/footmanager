@@ -1,10 +1,22 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import type { SeasonStatus } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSeasonDto } from './dto/create-season.dto';
 import { FindSeasonsQueryDto } from './dto/find-seasons-query.dto';
 import { UpdateSeasonDto } from './dto/update-season.dto';
+
+// Ordre d'affichage de la liste des saisons (docs/modules/
+// saisons-championnats.md) : ACTIVE en premier, ARCHIVED en dernier — un
+// ordre de priorité, pas alphabétique, donc pas exprimable en un simple
+// `orderBy` Prisma sur la colonne status. Résolu ici (backend), jamais en JS
+// côté frontend (convention du projet — tri toujours résolu côté backend).
+const STATUS_DISPLAY_ORDER: Record<SeasonStatus, number> = {
+  ACTIVE: 0,
+  DRAFT: 1,
+  ARCHIVED: 2,
+};
 
 /**
  * CRUD des saisons (docs/schema/championnats.md — Season), scopé équipe.
@@ -52,10 +64,17 @@ export class SeasonsService {
       'SEASONS.TEAM_NOT_IN_CLUB',
     );
 
-    return this.prisma.season.findMany({
+    const seasons = await this.prisma.season.findMany({
       where: { teamId, status: query.status },
       orderBy: { startDate: 'desc' },
     });
+
+    // Array.prototype.sort est stable (garanti depuis ES2019) : l'ordre par
+    // startDate desc posé par Prisma est préservé au sein de chaque groupe
+    // de statut.
+    return [...seasons].sort(
+      (a, b) => STATUS_DISPLAY_ORDER[a.status] - STATUS_DISPLAY_ORDER[b.status],
+    );
   }
 
   async findOne(clubId: number, teamId: number, id: number) {

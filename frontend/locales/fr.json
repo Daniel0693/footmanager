@@ -365,6 +365,23 @@
     "editScopeDialogTitle": "Modifier l'événement récurrent",
     "editScopeDialogDescription": "Cet événement fait partie d'une série récurrente. Appliquer les changements à :"
   },
+  "seasons": {
+    "title": "Saisons",
+    "backToTeams": "Retour aux équipes",
+    "newSeason": "Nouvelle saison",
+    "columnName": "Nom",
+    "columnDates": "Dates",
+    "columnStatus": "Statut",
+    "columnActions": "Actions",
+    "continueSetup": "Continuer la configuration",
+    "empty": "Aucune saison pour l'instant",
+    "loadFailed": "Impossible de charger les saisons",
+    "status": {
+      "DRAFT": "Brouillon",
+      "ACTIVE": "Active",
+      "ARCHIVED": "Archivée"
+    }
+  },
   "objectives": {
     "filtersTitle": "Filtres",
     "statusFilter": "Statut",

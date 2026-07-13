@@ -124,6 +124,27 @@ describe('SeasonsService', () => {
       });
     });
 
+    it('réordonne par priorité de statut (ACTIVE > DRAFT > ARCHIVED) même si Prisma les renvoie autrement', async () => {
+      const archivedSeason: Season = {
+        ...draftSeason,
+        id: 98,
+        name: 'Saison 2024-2025',
+        status: 'ARCHIVED',
+      };
+      teamFindFirst.mockResolvedValue(team);
+      // Prisma les renvoie triées par startDate desc uniquement (pas par
+      // statut) : DRAFT (le plus récent) avant ACTIVE avant ARCHIVED.
+      seasonFindMany.mockResolvedValue([
+        draftSeason,
+        activeSeason,
+        archivedSeason,
+      ]);
+
+      const result = await service.findAllByTeam(1, 5);
+
+      expect(result).toEqual([activeSeason, draftSeason, archivedSeason]);
+    });
+
     it('filtre par statut quand demandé', async () => {
       teamFindFirst.mockResolvedValue(team);
       seasonFindMany.mockResolvedValue([activeSeason]);

@@ -365,6 +365,23 @@
     "editScopeDialogTitle": "Edit recurring event",
     "editScopeDialogDescription": "This event is part of a recurring series. Apply changes to:"
   },
+  "seasons": {
+    "title": "Seasons",
+    "backToTeams": "Back to teams",
+    "newSeason": "New season",
+    "columnName": "Name",
+    "columnDates": "Dates",
+    "columnStatus": "Status",
+    "columnActions": "Actions",
+    "continueSetup": "Continue setup",
+    "empty": "No seasons yet",
+    "loadFailed": "Unable to load seasons",
+    "status": {
+      "DRAFT": "Draft",
+      "ACTIVE": "Active",
+      "ARCHIVED": "Archived"
+    }
+  },
   "objectives": {
     "filtersTitle": "Filters",
     "statusFilter": "Status",
