@@ -25,7 +25,7 @@ function renderSelect(onSeasonChange = jest.fn()) {
   return {
     onSeasonChange,
     ...renderWithIntl(
-      <SeasonFilterSelect clubId="1" teamId="5" onSeasonChange={onSeasonChange} />,
+      <SeasonFilterSelect clubId="1" onSeasonChange={onSeasonChange} />,
     ),
   };
 }
@@ -36,7 +36,7 @@ describe("SeasonFilterSelect", () => {
     mockUseAuth.mockReturnValue({ accessToken: "token" });
   });
 
-  it("charge les saisons de l'équipe et sélectionne la saison ACTIVE par défaut", async () => {
+  it("charge les saisons du club et sélectionne la saison ACTIVE par défaut", async () => {
     mockApiFetch.mockResolvedValue(
       jsonResponse([
         { id: 10, name: "Saison 2026-2027", status: "ACTIVE" },
@@ -49,6 +49,10 @@ describe("SeasonFilterSelect", () => {
 
     await waitFor(() => expect(onSeasonChange).toHaveBeenCalledWith(10));
     expect(await screen.findByText("Saison 2026-2027")).toBeInTheDocument();
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      "/clubs/1/seasons",
+      expect.anything(),
+    );
   });
 
   it("bascule sur « Période personnalisée » quand aucune saison ACTIVE n'existe", async () => {

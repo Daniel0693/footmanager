@@ -367,13 +367,10 @@
   },
   "seasons": {
     "title": "Saisons",
-    "backToTeams": "Retour aux équipes",
     "newSeason": "Nouvelle saison",
     "columnName": "Nom",
     "columnDates": "Dates",
     "columnStatus": "Statut",
-    "columnActions": "Actions",
-    "continueSetup": "Continuer la configuration",
     "empty": "Aucune saison pour l'instant",
     "loadFailed": "Impossible de charger les saisons",
     "status": {
@@ -381,73 +378,35 @@
       "ACTIVE": "Active",
       "ARCHIVED": "Archivée"
     },
-    "wizard": {
-      "title": "Nouvelle saison",
-      "steps": {
-        "create": "Création",
-        "roster": "Effectif",
-        "championships": "Championnats",
-        "activate": "Activation"
-      },
-      "alreadyCompleted": "Étape déjà complétée.",
-      "createStep": {
-        "name": "Nom de la saison",
-        "namePlaceholder": "Ex. Saison 2026-2027",
-        "nameRequired": "Le nom est requis",
-        "startDate": "Date de début",
-        "endDate": "Date de fin",
-        "dateRequired": "La date est requise",
-        "endDateBeforeStartDate": "La date de fin doit être postérieure à la date de début",
-        "submit": "Créer la saison et continuer",
-        "created": "Saison créée avec succès",
-        "createFailed": "Échec de la création de la saison"
-      },
-      "rosterStep": {
-        "columnName": "Nom",
-        "columnJersey": "Maillot",
-        "columnPosition": "Poste",
-        "emptyValue": "—",
-        "empty": "Aucun joueur actif à reconduire.",
-        "submit": "Confirmer le roster et continuer",
-        "imported": "Roster importé avec succès",
-        "importFailed": "Échec de l'import du roster",
-        "loadFailed": "Impossible de charger le roster actuel",
-        "alreadyImported": "{count} joueur(s) reconduit(s) pour cette saison."
-      },
-      "championshipsStep": {
-        "message": "Les championnats pourront être configurés plus tard, depuis la fiche de la saison.",
-        "next": "Suivant"
-      },
-      "activationStep": {
-        "retained": "Reconduits",
-        "departing": "Partants",
-        "arriving": "Arrivants",
-        "none": "Aucun",
-        "oldSeasonEndDate": "Date de fin de l'ancienne saison",
-        "firstSeasonNotice": "Première saison de l'équipe : aucune saison précédente à archiver.",
-        "activate": "Activer la saison",
-        "activated": "Saison activée avec succès",
-        "activateFailed": "Échec de l'activation de la saison",
-        "loadFailed": "Impossible de charger le résumé d'activation"
-      }
+    "formDialog": {
+      "createTitle": "Nouvelle saison",
+      "editTitle": "Modifier la saison",
+      "name": "Nom de la saison",
+      "namePlaceholder": "Ex. Saison 2026-2027",
+      "nameRequired": "Le nom est requis",
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "dateRequired": "La date est requise",
+      "endDateBeforeStartDate": "La date de fin doit être postérieure à la date de début",
+      "submitCreate": "Créer la saison",
+      "submitEdit": "Enregistrer",
+      "created": "Saison créée avec succès",
+      "createFailed": "Échec de la création de la saison",
+      "updated": "Saison mise à jour avec succès",
+      "updateFailed": "Échec de la mise à jour de la saison"
     }
   },
   "seasonDetail": {
     "backToSeasons": "Retour aux saisons",
     "loadFailed": "Impossible de charger la saison",
-    "archivedNotice": "Cette saison est archivée. Les modifications ci-dessous impactent les statistiques déjà calculées pour cette période — comportement attendu, pas une erreur.",
+    "archivedNotice": "Cette saison est archivée. Les modifications apportées via « Modifier » impactent les statistiques déjà calculées pour cette période — comportement attendu, pas une erreur.",
+    "edit": "Modifier",
     "tabs": {
       "info": "Informations",
       "championships": "Championnats"
     },
-    "name": "Nom de la saison",
-    "nameRequired": "Le nom est requis",
     "startDate": "Date de début",
     "endDate": "Date de fin",
-    "dateRequired": "La date est requise",
-    "save": "Enregistrer",
-    "updated": "Saison mise à jour avec succès",
-    "updateFailed": "Échec de la mise à jour de la saison",
     "delete": "Supprimer",
     "deleteDialogTitle": "Supprimer cette saison ?",
     "deleteDialogDescription": "Cette saison est en brouillon et sera définitivement supprimée. Cette action est irréversible.",
@@ -455,7 +414,15 @@
     "deleteConfirm": "Supprimer définitivement",
     "deleted": "Saison supprimée avec succès",
     "deleteFailed": "Échec de la suppression de la saison",
-    "championshipsComingSoon": "La gestion des championnats arrivera dans une prochaine phase."
+    "championshipsComingSoon": "La gestion des championnats arrivera dans une prochaine phase.",
+    "activate": "Activer",
+    "activateDialogTitle": "Activer cette saison ?",
+    "activateDialogDescriptionWithOldSeason": "La saison « {name} » sera archivée. Vous pouvez corriger sa date de fin ci-dessous.",
+    "activateDialogDescriptionFirstSeason": "Aucune saison active à archiver — ce sera la première saison active du club.",
+    "oldSeasonEndDate": "Date de fin de l'ancienne saison",
+    "activateConfirm": "Activer la saison",
+    "activated": "Saison activée avec succès",
+    "activateFailed": "Échec de l'activation de la saison"
   },
   "seasonFilter": {
     "label": "Saison",
@@ -770,5 +737,11 @@
       "ACTIVATION_ONLY_FOR_DRAFT": "L'activation n'est possible que pour une saison en brouillon",
       "MULTIPLE_ACTIVE_SEASONS": "Incohérence détectée : plusieurs saisons actives pour cette équipe"
     }
+  },
+  "stepperExample": {
+    "create": "Création",
+    "roster": "Effectif",
+    "championships": "Championnats",
+    "activate": "Activation"
   }
 }

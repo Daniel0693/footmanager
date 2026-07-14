@@ -11,8 +11,11 @@ export interface StepperStep {
 }
 
 // Composant de présentation pur (aucun état interne, aucun appel réseau) —
-// la machine à états du wizard (étape courante, appels API séquentiels) vit
-// dans le composant métier qui l'utilise (ex. season-wizard.tsx), jamais ici.
+// la machine à états d'un éventuel wizard (étape courante, appels API
+// séquentiels) vit dans le composant métier qui l'utilise, jamais ici.
+// Introduit pour le wizard de création de saison (Partie A), retiré de ce
+// flux depuis la révision A14-A17 (docs/roadmap.md — Season simplifiée en
+// CRUD, plus de wizard) ; laissé disponible pour un futur besoin similaire.
 const stepIndicatorVariants = cva(
   "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-medium transition-colors",
   {

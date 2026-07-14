@@ -16,7 +16,7 @@ describe("Stepper", () => {
         steps={steps}
         currentStepIndex={0}
         completedSteps={new Set()}
-        translationNamespace="seasons.wizard.steps"
+        translationNamespace="stepperExample"
       />,
     );
 
@@ -32,7 +32,7 @@ describe("Stepper", () => {
         steps={steps}
         currentStepIndex={1}
         completedSteps={new Set([0])}
-        translationNamespace="seasons.wizard.steps"
+        translationNamespace="stepperExample"
       />,
     );
 
@@ -52,7 +52,7 @@ describe("Stepper", () => {
         currentStepIndex={2}
         completedSteps={new Set([0, 1])}
         onStepClick={jest.fn()}
-        translationNamespace="seasons.wizard.steps"
+        translationNamespace="stepperExample"
       />,
     );
 
@@ -73,7 +73,7 @@ describe("Stepper", () => {
         currentStepIndex={2}
         completedSteps={new Set([0, 1])}
         onStepClick={onStepClick}
-        translationNamespace="seasons.wizard.steps"
+        translationNamespace="stepperExample"
       />,
     );
 
@@ -94,7 +94,7 @@ describe("Stepper", () => {
         steps={steps}
         currentStepIndex={2}
         completedSteps={new Set([0, 1])}
-        translationNamespace="seasons.wizard.steps"
+        translationNamespace="stepperExample"
       />,
     );
 

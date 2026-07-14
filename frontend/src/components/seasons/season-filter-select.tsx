@@ -25,17 +25,16 @@ const CUSTOM_RANGE = "custom";
 // Filtrage rétroactif par saison des 5 entités A7.x (docs/schema/joueurs.md
 // §Filtrage des statistiques par période, A12) — sélecteur partagé affiché
 // une seule fois au-dessus des onglets de la fiche joueur, propage seasonId
-// aux 4 onglets concernés (Mesures exclu, toujours vue complète). "Période
-// personnalisée" rend la main aux filtres dateFrom/dateTo déjà existants de
-// chaque onglet — mutuellement exclusif avec le filtre par saison, jamais
-// les deux actifs en même temps.
+// aux 4 onglets concernés (Mesures exclu, toujours vue complète). Saisons
+// club-wide depuis la révision A14 (docs/roadmap.md) : plus de teamId, une
+// seule liste pour tout le club. "Période personnalisée" rend la main aux
+// filtres dateFrom/dateTo déjà existants de chaque onglet — mutuellement
+// exclusif avec le filtre par saison, jamais les deux actifs en même temps.
 export function SeasonFilterSelect({
   clubId,
-  teamId,
   onSeasonChange,
 }: {
   clubId: string;
-  teamId: string;
   onSeasonChange: (seasonId: number | null) => void;
 }) {
   const t = useTranslations("seasonFilter");
@@ -45,16 +44,15 @@ export function SeasonFilterSelect({
 
   const loadSeasons = useCallback(async () => {
     try {
-      const response = await apiFetch(
-        `/clubs/${clubId}/teams/${teamId}/seasons`,
-        { headers: authHeaders(accessToken) },
-      );
+      const response = await apiFetch(`/clubs/${clubId}/seasons`, {
+        headers: authHeaders(accessToken),
+      });
       if (!response.ok) throw new Error();
       const data = (await response.json()) as SeasonOption[];
       setSeasons(data);
-      // Valeur par défaut = saison ACTIVE de l'équipe (docs/modules/
+      // Valeur par défaut = saison ACTIVE du club (docs/modules/
       // saisons-championnats.md) — repli sur "Période personnalisée" si
-      // aucune saison active (équipe jamais passée par le wizard).
+      // aucune saison active (club jamais passé par la création de saison).
       const active = data.find((season) => season.status === "ACTIVE");
       if (active) {
         setValue(String(active.id));
@@ -67,11 +65,11 @@ export function SeasonFilterSelect({
     // au chargement initial pour poser la valeur par défaut, pas à chaque
     // rendu du parent (qui recrée la fonction sans être mémoïsée).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clubId, teamId, accessToken, t]);
+  }, [clubId, accessToken, t]);
 
   useEffect(() => {
-    // Bootstrap volontaire : charge les saisons de l'équipe au montage —
-    // cas d'usage légitime d'un effect (pas un état dérivable du rendu).
+    // Bootstrap volontaire : charge les saisons du club au montage — cas
+    // d'usage légitime d'un effect (pas un état dérivable du rendu).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadSeasons();
   }, [loadSeasons]);

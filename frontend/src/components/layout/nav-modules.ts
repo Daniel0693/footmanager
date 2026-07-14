@@ -52,11 +52,13 @@ export const navModules: NavModule[] = [
     key: "seasons",
     icon: Trophy,
     labelKey: "seasons",
+    // Club-wide depuis la révision A14 (docs/roadmap.md) : plus besoin du
+    // repli "dernière équipe visitée" (last-team.ts), qui reste utile
+    // uniquement pour Effectif (roster.href ci-dessus).
     href: (params) => {
       const clubId = paramString(params.clubId);
-      const teamId = paramString(params.teamId);
       if (!clubId) return "/home";
-      return teamId ? `/clubs/${clubId}/teams/${teamId}/seasons` : `/clubs/${clubId}/teams`;
+      return `/clubs/${clubId}/seasons`;
     },
     isActive: (pathname) => pathname.includes("/seasons"),
   },

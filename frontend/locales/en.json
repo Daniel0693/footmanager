@@ -367,13 +367,10 @@
   },
   "seasons": {
     "title": "Seasons",
-    "backToTeams": "Back to teams",
     "newSeason": "New season",
     "columnName": "Name",
     "columnDates": "Dates",
     "columnStatus": "Status",
-    "columnActions": "Actions",
-    "continueSetup": "Continue setup",
     "empty": "No seasons yet",
     "loadFailed": "Unable to load seasons",
     "status": {
@@ -381,73 +378,35 @@
       "ACTIVE": "Active",
       "ARCHIVED": "Archived"
     },
-    "wizard": {
-      "title": "New season",
-      "steps": {
-        "create": "Create",
-        "roster": "Roster",
-        "championships": "Championships",
-        "activate": "Activate"
-      },
-      "alreadyCompleted": "Step already completed.",
-      "createStep": {
-        "name": "Season name",
-        "namePlaceholder": "E.g. Season 2026-2027",
-        "nameRequired": "Name is required",
-        "startDate": "Start date",
-        "endDate": "End date",
-        "dateRequired": "Date is required",
-        "endDateBeforeStartDate": "End date must be after start date",
-        "submit": "Create season and continue",
-        "created": "Season created successfully",
-        "createFailed": "Failed to create season"
-      },
-      "rosterStep": {
-        "columnName": "Name",
-        "columnJersey": "Jersey",
-        "columnPosition": "Position",
-        "emptyValue": "—",
-        "empty": "No active players to carry over.",
-        "submit": "Confirm roster and continue",
-        "imported": "Roster imported successfully",
-        "importFailed": "Failed to import roster",
-        "loadFailed": "Unable to load the current roster",
-        "alreadyImported": "{count} player(s) carried over for this season."
-      },
-      "championshipsStep": {
-        "message": "Championships can be configured later, from the season page.",
-        "next": "Next"
-      },
-      "activationStep": {
-        "retained": "Retained",
-        "departing": "Departing",
-        "arriving": "Arriving",
-        "none": "None",
-        "oldSeasonEndDate": "Previous season end date",
-        "firstSeasonNotice": "First season for this team: no previous season to archive.",
-        "activate": "Activate season",
-        "activated": "Season activated successfully",
-        "activateFailed": "Failed to activate season",
-        "loadFailed": "Unable to load the activation summary"
-      }
+    "formDialog": {
+      "createTitle": "New season",
+      "editTitle": "Edit season",
+      "name": "Season name",
+      "namePlaceholder": "E.g. Season 2026-2027",
+      "nameRequired": "Name is required",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "dateRequired": "Date is required",
+      "endDateBeforeStartDate": "End date must be after start date",
+      "submitCreate": "Create season",
+      "submitEdit": "Save",
+      "created": "Season created successfully",
+      "createFailed": "Failed to create season",
+      "updated": "Season updated successfully",
+      "updateFailed": "Failed to update season"
     }
   },
   "seasonDetail": {
     "backToSeasons": "Back to seasons",
     "loadFailed": "Unable to load the season",
-    "archivedNotice": "This season is archived. Changes below affect statistics already computed for this period — this is expected, not an error.",
+    "archivedNotice": "This season is archived. Changes made via \"Edit\" affect statistics already computed for this period — this is expected, not an error.",
+    "edit": "Edit",
     "tabs": {
       "info": "Information",
       "championships": "Championships"
     },
-    "name": "Season name",
-    "nameRequired": "Name is required",
     "startDate": "Start date",
     "endDate": "End date",
-    "dateRequired": "Date is required",
-    "save": "Save",
-    "updated": "Season updated successfully",
-    "updateFailed": "Failed to update season",
     "delete": "Delete",
     "deleteDialogTitle": "Delete this season?",
     "deleteDialogDescription": "This season is a draft and will be permanently deleted. This action cannot be undone.",
@@ -455,7 +414,15 @@
     "deleteConfirm": "Delete permanently",
     "deleted": "Season deleted successfully",
     "deleteFailed": "Failed to delete season",
-    "championshipsComingSoon": "Championship management is coming in a future phase."
+    "championshipsComingSoon": "Championship management is coming in a future phase.",
+    "activate": "Activate",
+    "activateDialogTitle": "Activate this season?",
+    "activateDialogDescriptionWithOldSeason": "Season \"{name}\" will be archived. You can correct its end date below.",
+    "activateDialogDescriptionFirstSeason": "No active season to archive — this will be the club's first active season.",
+    "oldSeasonEndDate": "Previous season end date",
+    "activateConfirm": "Activate season",
+    "activated": "Season activated successfully",
+    "activateFailed": "Failed to activate season"
   },
   "seasonFilter": {
     "label": "Season",
@@ -770,5 +737,11 @@
       "ACTIVATION_ONLY_FOR_DRAFT": "Activation is only possible for a draft season",
       "MULTIPLE_ACTIVE_SEASONS": "Inconsistency detected: multiple active seasons for this team"
     }
+  },
+  "stepperExample": {
+    "create": "Create",
+    "roster": "Roster",
+    "championships": "Championships",
+    "activate": "Activate"
   }
 }

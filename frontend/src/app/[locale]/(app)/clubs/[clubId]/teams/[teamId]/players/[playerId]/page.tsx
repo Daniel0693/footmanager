@@ -361,11 +361,7 @@ export function PlayerDetailPageContent({
                 </TabsTrigger>
               ))}
             </TabsList>
-            <SeasonFilterSelect
-              clubId={clubId}
-              teamId={teamId}
-              onSeasonChange={setSeasonId}
-            />
+            <SeasonFilterSelect clubId={clubId} onSeasonChange={setSeasonId} />
           </div>
           {/* lg:min-h-0 : borne la hauteur à l'espace restant du Tabs (à
               partir de lg, colonnes côte à côte) plutôt que de suivre la

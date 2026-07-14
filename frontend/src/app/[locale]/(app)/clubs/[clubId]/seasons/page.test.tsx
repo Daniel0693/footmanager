@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { renderWithIntl, screen, waitFor } from "@/test-utils/render";
 import { SeasonsPageContent } from "./page";
 
@@ -24,30 +25,30 @@ function jsonResponse(body: unknown, ok = true) {
   return { ok, json: () => Promise.resolve(body) };
 }
 
-function renderPage(clubId = "1", teamId = "5") {
-  return renderWithIntl(<SeasonsPageContent clubId={clubId} teamId={teamId} />);
+function renderPage(clubId = "1") {
+  return renderWithIntl(<SeasonsPageContent clubId={clubId} />);
 }
 
-describe("SeasonsPage", () => {
+describe("SeasonsPage (club-wide, révision A14-A17)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({ accessToken: "token" });
   });
 
-  it("charge les saisons de l'équipe courante", async () => {
+  it("charge les saisons du club courant", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse([]));
 
-    renderPage("1", "5");
+    renderPage("1");
 
     await waitFor(() => {
       expect(mockApiFetch).toHaveBeenCalledWith(
-        "/clubs/1/teams/5/seasons",
+        "/clubs/1/seasons",
         expect.anything(),
       );
     });
   });
 
-  it("affiche un message si l'équipe n'a aucune saison", async () => {
+  it("affiche un message si le club n'a aucune saison", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse([]));
 
     renderPage();
@@ -85,56 +86,59 @@ describe("SeasonsPage", () => {
       ]),
     );
 
-    renderPage("1", "5");
+    renderPage("1");
 
     const activeLink = await screen.findByRole("link", { name: "Saison 2026-2027" });
-    expect(activeLink).toHaveAttribute("href", "/clubs/1/teams/5/seasons/10");
+    expect(activeLink).toHaveAttribute("href", "/clubs/1/seasons/10");
     expect(screen.getByText("01/08/2026 – 30/06/2027")).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Archivée")).toBeInTheDocument();
   });
 
-  it("affiche le bouton \"Continuer la configuration\" uniquement sur les saisons DRAFT", async () => {
-    mockApiFetch.mockResolvedValue(
-      jsonResponse([
-        {
-          id: 12,
-          name: "Saison en préparation",
-          startDate: "2027-08-01",
-          endDate: "2028-06-30",
-          status: "DRAFT",
-        },
-        {
-          id: 10,
-          name: "Saison active",
-          startDate: "2026-08-01",
-          endDate: "2027-06-30",
-          status: "ACTIVE",
-        },
-      ]),
-    );
-
-    renderPage("1", "5");
-
-    // Button rendu via render={<Link .../>} expose role="button", pas
-    // "link" (piège Base UI documenté dans docs/architecture.md §6).
-    const continueButtons = await screen.findAllByRole("button", {
-      name: "Continuer la configuration",
-    });
-    expect(continueButtons).toHaveLength(1);
-    expect(continueButtons[0]).toHaveAttribute(
-      "href",
-      "/clubs/1/teams/5/seasons/12/wizard",
-    );
-  });
-
-  it("le bouton Nouvelle saison renvoie vers l'assistant de création", async () => {
+  it("le bouton Nouvelle saison ouvre une modale de création (pas de navigation vers une page dédiée)", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse([]));
+    const user = userEvent.setup();
 
-    renderPage("1", "5");
+    renderPage("1");
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+
+    await user.click(await screen.findByRole("button", { name: "Nouvelle saison" }));
 
     expect(
-      await screen.findByRole("button", { name: "Nouvelle saison" }),
-    ).toHaveAttribute("href", "/clubs/1/teams/5/seasons/new");
+      await screen.findByRole("heading", { name: "Nouvelle saison" }),
+    ).toBeInTheDocument();
+  });
+
+  it("créer une saison via la modale rafraîchit la liste", async () => {
+    mockApiFetch.mockImplementation((_url: string, options?: RequestInit) => {
+      if (options?.method === "POST") return Promise.resolve(jsonResponse({ id: 12 }));
+      return Promise.resolve(jsonResponse([]));
+    });
+    const user = userEvent.setup();
+
+    renderPage("1");
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+    mockApiFetch.mockClear();
+    mockApiFetch.mockImplementation((_url: string, options?: RequestInit) => {
+      if (options?.method === "POST") return Promise.resolve(jsonResponse({ id: 12 }));
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    await user.click(screen.getByRole("button", { name: "Nouvelle saison" }));
+    await user.type(screen.getByLabelText("Nom de la saison"), "Saison 2026-2027");
+    await user.type(screen.getByLabelText("Date de début"), "2026-08-01");
+    await user.type(screen.getByLabelText("Date de fin"), "2027-06-30");
+    await user.click(screen.getByRole("button", { name: "Créer la saison" }));
+
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        "/clubs/1/seasons",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    // Rafraîchissement de la liste après succès (onSuccess), pas de redirection.
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenCalledWith("/clubs/1/seasons", expect.anything()),
+    );
   });
 });
