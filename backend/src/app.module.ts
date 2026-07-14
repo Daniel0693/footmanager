@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
+import { ChampionshipsModule } from './championships/championships.module';
 import { ClubsModule } from './clubs/clubs.module';
 import { EvaluationConfigModule } from './evaluation-config/evaluation-config.module';
 import { EventsModule } from './events/events.module';
@@ -46,6 +47,7 @@ import { UsersModule } from './users/users.module';
     EventsModule,
     SeasonsModule,
     ExternalTeamsModule,
+    ChampionshipsModule,
   ],
 })
 export class AppModule {}

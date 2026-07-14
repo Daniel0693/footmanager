@@ -793,6 +793,11 @@
     },
     "EXTERNAL_TEAMS": {
       "NOT_FOUND": "Équipe adverse introuvable"
+    },
+    "CHAMPIONSHIPS": {
+      "NOT_FOUND": "Championnat introuvable",
+      "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
+      "SEASON_NOT_FOUND": "Cette saison n'appartient pas à ce club"
     }
   },
   "stepperExample": {

@@ -793,6 +793,11 @@
     },
     "EXTERNAL_TEAMS": {
       "NOT_FOUND": "External team not found"
+    },
+    "CHAMPIONSHIPS": {
+      "NOT_FOUND": "Championship not found",
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "SEASON_NOT_FOUND": "This season does not belong to this club"
     }
   },
   "stepperExample": {
