@@ -9,7 +9,8 @@
     "home": "Accueil",
     "roster": "Effectif",
     "calendar": "Calendrier",
-    "seasons": "Saisons"
+    "seasons": "Saisons",
+    "championships": "Championnats"
   },
   "header": {
     "toggleSidebar": "Ouvrir le menu de navigation",
@@ -430,6 +431,48 @@
     "label": "Saison",
     "customRange": "Période personnalisée",
     "loadFailed": "Impossible de charger les saisons"
+  },
+  "championships": {
+    "title": "Championnats",
+    "tabs": {
+      "championships": "Championnats",
+      "externalTeams": "Équipes adverses"
+    },
+    "comingSoon": "La gestion des championnats arrivera dans une prochaine phase."
+  },
+  "externalTeams": {
+    "addButton": "Ajouter une équipe adverse",
+    "columnName": "Nom",
+    "columnCity": "Ville",
+    "columnCountry": "Pays",
+    "actions": "Actions",
+    "empty": "Aucune équipe adverse pour l'instant",
+    "loadFailed": "Impossible de charger les équipes adverses",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "deleteDialogTitle": "Supprimer cette équipe adverse ?",
+    "deleteDialogDescription": "Cette action est irréversible.",
+    "cancel": "Annuler",
+    "deleteConfirm": "Supprimer définitivement",
+    "deleted": "Équipe adverse supprimée avec succès",
+    "deleteFailed": "Échec de la suppression de l'équipe adverse",
+    "formDialog": {
+      "createTitle": "Nouvelle équipe adverse",
+      "editTitle": "Modifier l'équipe adverse",
+      "name": "Nom",
+      "namePlaceholder": "Ex. FC Rivaux",
+      "nameRequired": "Le nom est requis",
+      "city": "Ville",
+      "country": "Pays",
+      "notes": "Notes",
+      "notesPlaceholder": "Informations utiles sur cette équipe...",
+      "submitCreate": "Créer",
+      "submitEdit": "Enregistrer",
+      "created": "Équipe adverse créée avec succès",
+      "createFailed": "Échec de la création de l'équipe adverse",
+      "updated": "Équipe adverse mise à jour avec succès",
+      "updateFailed": "Échec de la mise à jour de l'équipe adverse"
+    }
   },
   "objectives": {
     "filtersTitle": "Filtres",

@@ -9,7 +9,8 @@
     "home": "Home",
     "roster": "Roster",
     "calendar": "Calendar",
-    "seasons": "Seasons"
+    "seasons": "Seasons",
+    "championships": "Championships"
   },
   "header": {
     "toggleSidebar": "Open navigation menu",
@@ -430,6 +431,48 @@
     "label": "Season",
     "customRange": "Custom range",
     "loadFailed": "Unable to load seasons"
+  },
+  "championships": {
+    "title": "Championships",
+    "tabs": {
+      "championships": "Championships",
+      "externalTeams": "External teams"
+    },
+    "comingSoon": "Championship management is coming in a future phase."
+  },
+  "externalTeams": {
+    "addButton": "Add external team",
+    "columnName": "Name",
+    "columnCity": "City",
+    "columnCountry": "Country",
+    "actions": "Actions",
+    "empty": "No external teams yet",
+    "loadFailed": "Unable to load external teams",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteDialogTitle": "Delete this external team?",
+    "deleteDialogDescription": "This action is irreversible.",
+    "cancel": "Cancel",
+    "deleteConfirm": "Delete permanently",
+    "deleted": "External team deleted successfully",
+    "deleteFailed": "Failed to delete the external team",
+    "formDialog": {
+      "createTitle": "New external team",
+      "editTitle": "Edit external team",
+      "name": "Name",
+      "namePlaceholder": "E.g. FC Rivaux",
+      "nameRequired": "Name is required",
+      "city": "City",
+      "country": "Country",
+      "notes": "Notes",
+      "notesPlaceholder": "Useful information about this team...",
+      "submitCreate": "Create",
+      "submitEdit": "Save",
+      "created": "External team created successfully",
+      "createFailed": "Failed to create the external team",
+      "updated": "External team updated successfully",
+      "updateFailed": "Failed to update the external team"
+    }
   },
   "objectives": {
     "filtersTitle": "Filters",

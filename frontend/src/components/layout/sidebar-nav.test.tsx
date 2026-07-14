@@ -53,6 +53,7 @@ describe("SidebarNav", () => {
     expect(screen.getByRole("link", { name: "Effectif" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Calendrier" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Saisons" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Championnats" })).toBeInTheDocument();
   });
 
   it("le lien Effectif renvoie vers /home quand aucun club n'est sélectionné", () => {
@@ -103,6 +104,29 @@ describe("SidebarNav", () => {
     expect(screen.getByRole("link", { name: "Effectif" })).not.toHaveAttribute("aria-current");
   });
 
+  it("le lien Championnats devient contextuel dès qu'un club/équipe est dans l'URL", () => {
+    usePathname.mockReturnValue("/clubs/42/teams/7/championships");
+    mockUseParams.mockReturnValue({ clubId: "42", teamId: "7" });
+    renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+    expect(screen.getByRole("link", { name: "Championnats" })).toHaveAttribute(
+      "href",
+      "/clubs/42/teams/7/championships",
+    );
+  });
+
+  it("marque Championnats comme actif (et pas Effectif) sur une route /championships", () => {
+    usePathname.mockReturnValue("/clubs/42/teams/7/championships");
+    mockUseParams.mockReturnValue({ clubId: "42", teamId: "7" });
+    renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+    expect(screen.getByRole("link", { name: "Championnats" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "Effectif" })).not.toHaveAttribute("aria-current");
+  });
+
   it("cache le lien Saisons pour un membre sans aucun droit de lecture dessus (ex. Parent, 403)", async () => {
     usePathname.mockReturnValue("/clubs/42/teams");
     mockUseParams.mockReturnValue({ clubId: "42" });
@@ -136,7 +160,7 @@ describe("SidebarNav", () => {
       expect(mockSetLastTeam).toHaveBeenCalledWith(1, "42", "7");
     });
 
-    it("complète Effectif avec la dernière équipe visitée depuis une page sans teamId (ex. Calendrier) ; Saisons n'en a pas besoin (club-wide)", () => {
+    it("complète Effectif ET Championnats avec la dernière équipe visitée depuis une page sans teamId (ex. Calendrier) ; Saisons n'en a pas besoin (club-wide)", () => {
       mockGetLastTeam.mockReturnValue({ clubId: "42", teamId: "7" });
       usePathname.mockReturnValue("/clubs/42/calendar");
       mockUseParams.mockReturnValue({ clubId: "42" });
@@ -145,6 +169,10 @@ describe("SidebarNav", () => {
       expect(screen.getByRole("link", { name: "Effectif" })).toHaveAttribute(
         "href",
         "/clubs/42/teams/7/players",
+      );
+      expect(screen.getByRole("link", { name: "Championnats" })).toHaveAttribute(
+        "href",
+        "/clubs/42/teams/7/championships",
       );
       expect(screen.getByRole("link", { name: "Saisons" })).toHaveAttribute(
         "href",

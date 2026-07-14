@@ -7,8 +7,11 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
+import type { Member } from '@prisma/client';
+import { CurrentMember } from '../auth/decorators/current-member.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -40,8 +43,16 @@ export class ExternalTeamsController {
 
   @RequirePermission('external_team', 'READ')
   @Get()
-  findAll(@Param('clubId', ParseIntPipe) clubId: number) {
-    return this.externalTeamsService.findAllByClub(clubId);
+  findAll(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @CurrentMember() member: Member,
+    @Query('teamId') teamId?: string,
+  ) {
+    return this.externalTeamsService.findAllByClub(
+      clubId,
+      member.id,
+      teamId ? Number(teamId) : undefined,
+    );
   }
 
   @RequirePermission('external_team', 'READ')

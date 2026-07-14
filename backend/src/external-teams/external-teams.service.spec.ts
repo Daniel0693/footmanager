@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import type { ExternalTeam } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PermissionsService } from '../roles/permissions.service';
 import { ExternalTeamsService } from './external-teams.service';
 
 const externalTeam: ExternalTeam = {
@@ -20,6 +21,7 @@ describe('ExternalTeamsService', () => {
   let externalTeamCreate: jest.Mock;
   let externalTeamUpdate: jest.Mock;
   let externalTeamDelete: jest.Mock;
+  let permissionsCan: jest.Mock;
   let service: ExternalTeamsService;
 
   beforeEach(() => {
@@ -39,7 +41,10 @@ describe('ExternalTeamsService', () => {
       },
     } as unknown as PrismaService;
 
-    service = new ExternalTeamsService(prismaStub);
+    permissionsCan = jest.fn().mockResolvedValue('TEAM');
+    const permissionsStub = { can: permissionsCan } as unknown as PermissionsService;
+
+    service = new ExternalTeamsService(prismaStub, permissionsStub);
   });
 
   describe('create', () => {
@@ -69,13 +74,38 @@ describe('ExternalTeamsService', () => {
     it('liste les équipes adverses du club, triées par nom', async () => {
       externalTeamFindMany.mockResolvedValue([externalTeam]);
 
-      const result = await service.findAllByClub(1);
+      const result = await service.findAllByClub(1, 42, 5);
 
-      expect(result).toEqual([externalTeam]);
+      expect(result).toEqual({ data: [externalTeam], canManage: true });
       expect(externalTeamFindMany).toHaveBeenCalledWith({
         where: { clubId: 1 },
         orderBy: { name: 'asc' },
       });
+    });
+
+    it('canManage reflète CREATE sur `external_team`, teamId transmis (Coach TEAM)', async () => {
+      externalTeamFindMany.mockResolvedValue([]);
+      permissionsCan.mockResolvedValue(null);
+
+      const result = await service.findAllByClub(1, 42, 5);
+
+      expect(permissionsCan).toHaveBeenCalledWith(42, 'CREATE', 'external_team', {
+        clubId: 1,
+        teamId: 5,
+      });
+      expect(result.canManage).toBe(false);
+    });
+
+    it('canManage fonctionne sans teamId (AdminClub, scope CLUB)', async () => {
+      externalTeamFindMany.mockResolvedValue([]);
+
+      const result = await service.findAllByClub(1, 99);
+
+      expect(permissionsCan).toHaveBeenCalledWith(99, 'CREATE', 'external_team', {
+        clubId: 1,
+        teamId: undefined,
+      });
+      expect(result.canManage).toBe(true);
     });
   });
 

@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../prisma/prisma.service';
+import { PermissionsService } from '../roles/permissions.service';
 import { CreateExternalTeamDto } from './dto/create-external-team.dto';
 import { UpdateExternalTeamDto } from './dto/update-external-team.dto';
 
@@ -14,7 +15,10 @@ import { UpdateExternalTeamDto } from './dto/update-external-team.dto';
  */
 @Injectable()
 export class ExternalTeamsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   create(clubId: number, dto: CreateExternalTeamDto) {
     return this.prisma.externalTeam.create({
@@ -28,11 +32,31 @@ export class ExternalTeamsService {
     });
   }
 
-  findAllByClub(clubId: number) {
-    return this.prisma.externalTeam.findMany({
-      where: { clubId },
-      orderBy: { name: 'asc' },
-    });
+  async findAllByClub(clubId: number, memberId: number, teamId?: number) {
+    const [data, canManage] = await Promise.all([
+      this.prisma.externalTeam.findMany({
+        where: { clubId },
+        orderBy: { name: 'asc' },
+      }),
+      this.canManage(clubId, memberId, teamId),
+    ]);
+    return { data, canManage };
+  }
+
+  // `canManage` reflète la capacité d'écriture réelle (bouton Ajouter /
+  // Modifier / Supprimer) — jamais déduit d'un rôle côté client (règle
+  // CLAUDE.md). `teamId` transmis tel quel : un Coach n'a CREATE qu'en
+  // scope TEAM (contrairement à `season`, où ce droit lui a été retiré),
+  // omettre `teamId` ferait échouer le match pour lui à tort. Un scope
+  // CLUB/ALL (AdminClub+) matche indépendamment de `teamId`.
+  private async canManage(clubId: number, memberId: number, teamId?: number) {
+    const scope = await this.permissionsService.can(
+      memberId,
+      'CREATE',
+      'external_team',
+      { clubId, teamId },
+    );
+    return !!scope;
   }
 
   async findOne(clubId: number, id: number) {
