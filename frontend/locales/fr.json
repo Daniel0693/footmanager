@@ -747,6 +747,9 @@
       "ROSTER_IMPORT_ONLY_FOR_DRAFT": "L'import du roster n'est possible que pour une saison en brouillon",
       "ACTIVATION_ONLY_FOR_DRAFT": "L'activation n'est possible que pour une saison en brouillon",
       "MULTIPLE_ACTIVE_SEASONS": "Incohérence détectée : plusieurs saisons actives pour cette équipe"
+    },
+    "EXTERNAL_TEAMS": {
+      "NOT_FOUND": "Équipe adverse introuvable"
     }
   },
   "stepperExample": {

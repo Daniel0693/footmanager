@@ -747,6 +747,9 @@
       "ROSTER_IMPORT_ONLY_FOR_DRAFT": "Roster import is only possible for a draft season",
       "ACTIVATION_ONLY_FOR_DRAFT": "Activation is only possible for a draft season",
       "MULTIPLE_ACTIVE_SEASONS": "Inconsistency detected: multiple active seasons for this team"
+    },
+    "EXTERNAL_TEAMS": {
+      "NOT_FOUND": "External team not found"
     }
   },
   "stepperExample": {
