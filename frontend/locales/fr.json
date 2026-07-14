@@ -454,6 +454,41 @@
     "deleted": "Championnat supprimé avec succès",
     "deleteFailed": "Échec de la suppression du championnat"
   },
+  "championshipDetail": {
+    "back": "Retour aux championnats",
+    "loadFailed": "Impossible de charger le championnat",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "deleteDialogTitle": "Supprimer ce championnat ?",
+    "deleteDialogDescription": "Cette action est irréversible.",
+    "cancel": "Annuler",
+    "deleteConfirm": "Supprimer définitivement",
+    "deleted": "Championnat supprimé avec succès",
+    "deleteFailed": "Échec de la suppression du championnat",
+    "tabs": {
+      "participants": "Participants",
+      "matches": "Calendrier",
+      "standings": "Classement"
+    },
+    "matchesComingSoon": "La gestion des rencontres arrivera dans une prochaine phase.",
+    "standingsComingSoon": "Le classement arrivera dans une prochaine phase."
+  },
+  "championshipParticipants": {
+    "loadFailed": "Impossible de charger les participants",
+    "empty": "Aucun participant pour l'instant",
+    "columnName": "Équipe",
+    "actions": "Actions",
+    "addOwnTeam": "Ajouter notre équipe",
+    "addExternalTeam": "Ajouter une équipe adverse",
+    "selectExternalTeam": "Équipe adverse",
+    "selectExternalTeamPlaceholder": "Choisir une équipe adverse",
+    "noAvailableExternalTeams": "Toutes les équipes adverses du club participent déjà — créez-en une nouvelle ci-dessous.",
+    "add": "Ajouter",
+    "added": "Participant ajouté avec succès",
+    "remove": "Retirer",
+    "removed": "Participant retiré avec succès",
+    "removeFailed": "Échec du retrait du participant"
+  },
   "championshipForm": {
     "createTitle": "Nouveau championnat",
     "editTitle": "Modifier le championnat",

@@ -109,7 +109,8 @@ describe("ChampionshipsPageContent", () => {
 
     renderPage();
 
-    expect(await screen.findByText("Championnat Automne")).toBeInTheDocument();
+    const link = await screen.findByRole("link", { name: "Championnat Automne" });
+    expect(link).toHaveAttribute("href", "/clubs/1/teams/5/championships/1");
     expect(screen.getByText("Saison 2026-2027")).toBeInTheDocument();
     expect(screen.getByText("01/09/2026 – 15/12/2026")).toBeInTheDocument();
   });

@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Link } from "@/i18n/navigation";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { ExternalTeamFormDialog } from "@/components/championships/external-team-form-dialog";
@@ -140,7 +141,14 @@ export function ChampionshipsPageContent({
                 <TableBody>
                   {(championships ?? []).map((championship) => (
                     <TableRow key={championship.id}>
-                      <TableCell className="font-medium">{championship.name}</TableCell>
+                      <TableCell>
+                        <Link
+                          href={`/clubs/${clubId}/teams/${teamId}/championships/${championship.id}`}
+                          className="font-medium underline"
+                        >
+                          {championship.name}
+                        </Link>
+                      </TableCell>
                       <TableCell>{championship.season.name}</TableCell>
                       <TableCell>
                         {formatDate(championship.startDate)} –{" "}

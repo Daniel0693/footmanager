@@ -454,6 +454,41 @@
     "deleted": "Championship deleted successfully",
     "deleteFailed": "Failed to delete the championship"
   },
+  "championshipDetail": {
+    "back": "Back to championships",
+    "loadFailed": "Unable to load the championship",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteDialogTitle": "Delete this championship?",
+    "deleteDialogDescription": "This action is irreversible.",
+    "cancel": "Cancel",
+    "deleteConfirm": "Delete permanently",
+    "deleted": "Championship deleted successfully",
+    "deleteFailed": "Failed to delete the championship",
+    "tabs": {
+      "participants": "Participants",
+      "matches": "Schedule",
+      "standings": "Standings"
+    },
+    "matchesComingSoon": "Match management is coming in a future phase.",
+    "standingsComingSoon": "Standings are coming in a future phase."
+  },
+  "championshipParticipants": {
+    "loadFailed": "Unable to load participants",
+    "empty": "No participants yet",
+    "columnName": "Team",
+    "actions": "Actions",
+    "addOwnTeam": "Add our team",
+    "addExternalTeam": "Add an external team",
+    "selectExternalTeam": "External team",
+    "selectExternalTeamPlaceholder": "Choose an external team",
+    "noAvailableExternalTeams": "All of the club's external teams are already participating — create a new one below.",
+    "add": "Add",
+    "added": "Participant added successfully",
+    "remove": "Remove",
+    "removed": "Participant removed successfully",
+    "removeFailed": "Failed to remove the participant"
+  },
   "championshipForm": {
     "createTitle": "New championship",
     "editTitle": "Edit championship",
