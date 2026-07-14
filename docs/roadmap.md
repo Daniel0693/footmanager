@@ -195,10 +195,10 @@ Tests à la fin de la Partie A (après révision A14-A20) : 449 tests backend + 
 | Étape | Contenu |
 |---|---|
 | B0 | Prérequis transverse (seed + doc pattern ExternalTeam) ✅ |
-| B1 | Schéma `ExternalTeam` |
-| B2 | Backend `external-teams` CRUD |
-| B3 | Frontend gestion des équipes adverses |
-| B4 | Schéma `Championship` |
+| B1 | Schéma `ExternalTeam` ✅ |
+| B2 | Backend `external-teams` CRUD ✅ |
+| B3 | Frontend gestion des équipes adverses + nouvelle entrée nav "Championnats" (scopée équipe, décidée avec l'utilisateur — remplace l'hypothèse initiale d'un onglet sous Saisons, devenue caduque après la révision A14) ✅ |
+| B4 | Schéma `Championship` ✅ |
 | B5 | Backend `championships` CRUD + presets |
 | B6 | Frontend `championships` liste + formulaire règles |
 | B7 | Schéma `ChampionshipParticipant` |
@@ -215,16 +215,10 @@ Démarre sur une branche `feature/saisons-module-championship` séparée, une fo
 mergée dans `develop`.
 
 **Points reportés (à ne pas oublier)** :
-- **`Championship` doit porter son propre `teamId`, en plus de `seasonId`** (à trancher dès B4,
-  schéma) — conséquence directe de la révision A14-A19 : `Season` est désormais club-wide, donc
-  la seule FK `seasonId` ne suffit plus à identifier l'équipe d'un championnat. Chaque équipe
-  joue son propre championnat au sein de la même saison partagée, et une équipe peut avoir
-  plusieurs championnats sur une même saison (pas de contrainte d'unicité `teamId`+`seasonId`) —
-  voir `docs/schema/championnats.md` §Championship et `docs/modules/saisons-championnats.md`
-  §Vision. Les Coachs créent leurs championnats eux-mêmes, à tout moment, indépendamment de la
-  création de la saison — pas de wizard reliant les deux (le wizard de saison A5-A10 a été
-  entièrement supprimé en A17, voir §Révision A14-A19 ci-dessus ; B15 n'a donc plus de
-  "rebranchement" à faire, contrairement à la conception d'origine).
+- ~~`Championship` doit porter son propre `teamId`, en plus de `seasonId`~~ — **tranché et
+  implémenté en B4** : `Championship.teamId` + `Championship.seasonId`, sans contrainte
+  d'unicité entre les deux (une équipe peut avoir plusieurs championnats sur une même saison).
+  Voir `docs/schema/championnats.md` §Championship.
 - Filtrage des 5 entités A7.x par **championnat précis** (`WHERE championshipMatchId...`) :
   non applicable, ces entités n'ont aucune FK directe vers `ChampionshipMatch` — seul le
   filtrage par saison (bornes de dates) est implémenté en A12.

@@ -41,31 +41,31 @@ un wizard de transition de saison. Détail complet : `docs/modules/saisons-champ
 
 ---
 
-## Championship — Championnat dans une saison
+## Championship — Championnat d'une équipe au sein d'une saison
 
-> **À trancher au démarrage de la Partie B** (pas encore construite) : depuis la révision A14,
-> `Season` est club-wide et n'a plus de lien direct avec une équipe précise. Un `Championship`
-> devra donc porter **son propre `teamId`** en plus de `seasonId` (chaque équipe joue son propre
-> championnat au sein de la même saison partagée — ex. Championnat U15 ≠ Championnat U16 sur la
-> saison 2026-2027), et rien n'empêchera plusieurs `Championship` pour la même équipe sur la
-> même saison (ex. U15 : "Championnat d'Automne" ET "Championnat du Printemps", cas réel en
-> Suisse signalé par l'utilisateur — pas de contrainte d'unicité `teamId`+`seasonId`). Les
-> Coachs créent leurs championnats eux-mêmes (permission déjà prévue `TEAM` CRUD, voir
-> `docs/roadmap.md` Partie B §B0), de façon récurrente et découplée de la création de la saison
-> — pas de wizard reliant les deux. Le tableau ci-dessous reflète encore la conception d'origine
-> (avant A14) et sera mis à jour au moment de l'implémentation.
+Tranché au démarrage de la Partie B (B4, docs/roadmap.md — point reporté depuis la révision
+A14) : `Season` étant club-wide depuis A14, `seasonId` seul ne suffit plus à identifier
+l'équipe. `Championship` porte donc son propre `teamId` **en plus** de `seasonId` (chaque
+équipe joue son propre championnat au sein de la même saison partagée — ex. Championnat U15 ≠
+Championnat U16 sur la saison 2026-2027). **Aucune contrainte d'unicité `teamId`+`seasonId`** :
+une équipe peut avoir plusieurs championnats sur une même saison (ex. U15 : "Championnat
+d'Automne" ET "Championnat du Printemps", cas réel signalé par l'utilisateur). Les Coachs
+créent leurs championnats eux-mêmes (permission `TEAM` CRUD, voir `docs/roadmap.md` Partie B
+§B0), de façon récurrente et découplée de la création de la saison — pas de wizard reliant les
+deux.
 
 | Champ | Type | Notes |
 |---|---|---|
 | `id` | PK | |
 | `seasonId` | FK → Season | |
+| `teamId` | FK → Team | équipe qui joue ce championnat |
 | `name` | String | ex. "Championnat Printemps 2025 U15" |
 | `startDate` | Date | défini librement par l'utilisateur |
 | `endDate` | Date | |
 | `pointsForWin` | Int, défaut `3` | |
 | `pointsForDraw` | Int, défaut `1` | |
 | `pointsForLoss` | Int, défaut `0` | |
-| `tiebreakerRules` | Json | tableau ordonné de `TiebreakerRule` — ex. `["GOAL_DIFFERENCE","GOALS_SCORED"]` |
+| `tiebreakerRules` | Json | tableau ordonné de `TiebreakerRule` — ex. `["GOAL_DIFFERENCE","GOALS_SCORED"]` ; validé côté DTO applicatif, pas un enum Postgres (ordre choisi par l'utilisateur) |
 | `tiebreakerPreset` | String, nullable | label du preset choisi (affichage uniquement) |
 | `numberOfPeriods` | Int, défaut `2` | format de jeu par défaut pour ce championnat |
 | `periodDurationMinutes` | Int, défaut `45` | durée d'une période en minutes |

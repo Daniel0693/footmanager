@@ -42,7 +42,9 @@ describe('ExternalTeamsService', () => {
     } as unknown as PrismaService;
 
     permissionsCan = jest.fn().mockResolvedValue('TEAM');
-    const permissionsStub = { can: permissionsCan } as unknown as PermissionsService;
+    const permissionsStub = {
+      can: permissionsCan,
+    } as unknown as PermissionsService;
 
     service = new ExternalTeamsService(prismaStub, permissionsStub);
   });
@@ -89,10 +91,15 @@ describe('ExternalTeamsService', () => {
 
       const result = await service.findAllByClub(1, 42, 5);
 
-      expect(permissionsCan).toHaveBeenCalledWith(42, 'CREATE', 'external_team', {
-        clubId: 1,
-        teamId: 5,
-      });
+      expect(permissionsCan).toHaveBeenCalledWith(
+        42,
+        'CREATE',
+        'external_team',
+        {
+          clubId: 1,
+          teamId: 5,
+        },
+      );
       expect(result.canManage).toBe(false);
     });
 
@@ -101,10 +108,15 @@ describe('ExternalTeamsService', () => {
 
       const result = await service.findAllByClub(1, 99);
 
-      expect(permissionsCan).toHaveBeenCalledWith(99, 'CREATE', 'external_team', {
-        clubId: 1,
-        teamId: undefined,
-      });
+      expect(permissionsCan).toHaveBeenCalledWith(
+        99,
+        'CREATE',
+        'external_team',
+        {
+          clubId: 1,
+          teamId: undefined,
+        },
+      );
       expect(result.canManage).toBe(true);
     });
   });

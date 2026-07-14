@@ -93,6 +93,7 @@ model Team {
   teamStaffs        TeamStaff[]
   playerEvaluations PlayerEvaluation[]
   events            Event[]
+  championships     Championship[]
 
   @@index([clubId])
 }
@@ -653,6 +654,8 @@ model Season {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
+  championships Championship[]
+
   @@index([clubId, status])
 }
 
@@ -674,6 +677,43 @@ model ExternalTeam {
   updatedAt DateTime @updatedAt
 
   @@index([clubId])
+}
+
+// Championnat d'une équipe au sein d'une saison (docs/schema/championnats.md
+// §Championship) — décision tranchée au démarrage de la Partie B (docs/
+// roadmap.md, point reporté depuis la révision A14) : `Season` est club-wide
+// depuis A14, donc `seasonId` seul ne suffit plus à identifier l'équipe.
+// `Championship` porte son propre `teamId` en plus de `seasonId` (chaque
+// équipe joue son propre championnat au sein de la même saison partagée) et
+// aucune contrainte d'unicité `teamId`+`seasonId` : une équipe peut avoir
+// plusieurs championnats sur une même saison (ex. U15 "Championnat
+// d'Automne" ET "Championnat du Printemps", cas réel signalé par
+// l'utilisateur). Créé par les Coachs eux-mêmes (permission TEAM CRUD, voir
+// B0), à tout moment, découplé de la création de la saison — pas de wizard.
+// `tiebreakerRules` reste un simple Json (tableau ordonné de `TiebreakerRule`,
+// validé côté DTO applicatif) plutôt qu'un enum Postgres — cohérent avec la
+// nature "ordre choisi par l'utilisateur" de la donnée.
+model Championship {
+  id                    Int      @id @default(autoincrement())
+  seasonId              Int
+  season                Season   @relation(fields: [seasonId], references: [id])
+  teamId                Int
+  team                  Team     @relation(fields: [teamId], references: [id])
+  name                  String
+  startDate             DateTime @db.Date
+  endDate               DateTime @db.Date
+  pointsForWin          Int      @default(3)
+  pointsForDraw         Int      @default(1)
+  pointsForLoss         Int      @default(0)
+  tiebreakerRules       Json
+  tiebreakerPreset      String?
+  numberOfPeriods       Int      @default(2)
+  periodDurationMinutes Int      @default(45)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([seasonId])
+  @@index([teamId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────
