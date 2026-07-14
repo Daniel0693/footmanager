@@ -54,6 +54,14 @@ un scénario multi-rôles.**
 
 Voir `docs/modules/auth-roles.md` pour le détail, les cas limites et le système de rôles dynamiques.
 
+**Corollaire côté UI : n'afficher que les actions auxquelles l'utilisateur a réellement droit.**
+Pas de bouton Créer si l'utilisateur n'a que `READ` ; pareil pour Modifier/Supprimer/Activer.
+Le frontend ne réévalue jamais lui-même un rôle (ce serait le raccourci interdit ci-dessus, version
+UI) : le backend calcule la capacité (ex. `canCreate`/`canEdit`/`canDelete`/`canManage`, déjà
+renvoyée par plusieurs endpoints de liste/détail) et le frontend se contente d'afficher/masquer
+selon ce booléen. Le masquage est un confort d'UX, jamais la seule protection — la route
+d'écriture reste toujours gardée côté backend indépendamment de ce que montre l'UI.
+
 ## Rôles
 
 Rôles fixes intégrés au système (non supprimables) :

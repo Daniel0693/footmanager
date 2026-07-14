@@ -25,7 +25,7 @@ function renderSelect(onSeasonChange = jest.fn()) {
   return {
     onSeasonChange,
     ...renderWithIntl(
-      <SeasonFilterSelect clubId="1" onSeasonChange={onSeasonChange} />,
+      <SeasonFilterSelect clubId="1" teamId="5" onSeasonChange={onSeasonChange} />,
     ),
   };
 }
@@ -38,10 +38,12 @@ describe("SeasonFilterSelect", () => {
 
   it("charge les saisons du club et sélectionne la saison ACTIVE par défaut", async () => {
     mockApiFetch.mockResolvedValue(
-      jsonResponse([
-        { id: 10, name: "Saison 2026-2027", status: "ACTIVE" },
-        { id: 9, name: "Saison 2025-2026", status: "ARCHIVED" },
-      ]),
+      jsonResponse({
+        data: [
+          { id: 10, name: "Saison 2026-2027", status: "ACTIVE" },
+          { id: 9, name: "Saison 2025-2026", status: "ARCHIVED" },
+        ],
+      }),
     );
     const onSeasonChange = jest.fn();
 
@@ -50,14 +52,14 @@ describe("SeasonFilterSelect", () => {
     await waitFor(() => expect(onSeasonChange).toHaveBeenCalledWith(10));
     expect(await screen.findByText("Saison 2026-2027")).toBeInTheDocument();
     expect(mockApiFetch).toHaveBeenCalledWith(
-      "/clubs/1/seasons",
+      "/clubs/1/seasons?teamId=5",
       expect.anything(),
     );
   });
 
   it("bascule sur « Période personnalisée » quand aucune saison ACTIVE n'existe", async () => {
     mockApiFetch.mockResolvedValue(
-      jsonResponse([{ id: 9, name: "Saison 2025-2026", status: "ARCHIVED" }]),
+      jsonResponse({ data: [{ id: 9, name: "Saison 2025-2026", status: "ARCHIVED" }] }),
     );
     const onSeasonChange = jest.fn();
 
@@ -69,7 +71,7 @@ describe("SeasonFilterSelect", () => {
 
   it("sélectionner « Période personnalisée » notifie onSeasonChange(null)", async () => {
     mockApiFetch.mockResolvedValue(
-      jsonResponse([{ id: 10, name: "Saison 2026-2027", status: "ACTIVE" }]),
+      jsonResponse({ data: [{ id: 10, name: "Saison 2026-2027", status: "ACTIVE" }] }),
     );
     const onSeasonChange = jest.fn();
     const user = userEvent.setup();

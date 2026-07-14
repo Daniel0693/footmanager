@@ -169,6 +169,7 @@ Partie B pour ne pas construire `Championship` sur le mauvais modèle.
 | A17 | Frontend : routes déplacées vers `clubs/:clubId/seasons/**`, wizard/`Stepper` retirés, création/édition via `SeasonFormDialog` (modale, cohérence avec le reste de l'app — retour utilisateur explicite), activation en action ponctuelle |
 | A18 | Frontend : sélecteur "Joueur existant du club" dans `PlayerFormDialog` (recherche affichée **par défaut**, avant "Nouveau joueur" — retour utilisateur), pour les promotions/transferts entre équipes (ex. U15→U16) sans recréer le profil |
 | A19 | Docs (ce bloc) + retest multi-rôles + vérification bout-en-bout |
+| A20 | Correctif : Coach/Player ne pouvaient pas charger la liste des saisons (bug, pas une limite de droits — le frontend ne transmettait jamais `?teamId=` sur une page club-wide sans contexte équipe naturel, voir `resolveAnyTeamId` dans `docs/modules/auth-roles.md` §"Patterns découverts") ; `canManage` (backend) masque les boutons Nouvelle saison/Modifier/Activer/Supprimer pour un rôle en lecture seule ; masquage du lien "Saisons" dans la sidebar pour un rôle sans aucun droit dessus (ex. Parent, 403) ; colonne Actions (menu ⋮ — Activer/Modifier/Supprimer) ajoutée à la liste des saisons pour éviter de systématiquement ouvrir la fiche détail (retour utilisateur) |
 
 **Pourquoi le wizard a disparu** : `Championship` (Partie B) sera créé par les Coachs,
 par équipe, de façon récurrente et découplée de la création de la saison — une équipe de
@@ -187,7 +188,7 @@ une saison club-wide en flux réel ; Coach et Player (Marc) n'ont que la lecture
 sans pouvoir lire les bornes d'une saison d'un **autre club** (404) ; Parent Club B aucun accès
 à `season` ni au filtrage par saison.
 
-Tests à la fin de la Partie A (après révision A14-A19) : 448 tests backend + 416 tests frontend.
+Tests à la fin de la Partie A (après révision A14-A20) : 449 tests backend + 428 tests frontend.
 
 ### Partie B — Module Championship ⬜
 

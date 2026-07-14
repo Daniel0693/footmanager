@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { renderWithIntl, screen } from "@/test-utils/render";
+import { renderWithIntl, screen, waitFor } from "@/test-utils/render";
 import { usePathname } from "@/test-utils/navigation-mock";
 import { SidebarNav } from "./sidebar-nav";
 
@@ -24,12 +24,25 @@ jest.mock("@/lib/last-team", () => ({
   setLastTeam: (...args: unknown[]) => mockSetLastTeam(...args),
 }));
 
+// Vérification d'accès à `season` (masquage du lien "Saisons" pour un rôle
+// sans aucun droit de lecture dessus, ex. Parent — voir seasons.controller.ts)
+// : mockée en succès par défaut (lien affiché), un test dédié simule le 403.
+const mockApiFetch = jest.fn();
+jest.mock("@/lib/api", () => ({
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  authHeaders: (token: string | null) => ({ Authorization: `Bearer ${token}` }),
+}));
+jest.mock("@/lib/resolve-any-team", () => ({
+  resolveAnyTeamId: jest.fn(() => Promise.resolve("7")),
+}));
+
 describe("SidebarNav", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseParams.mockReturnValue({});
-    mockUseAuth.mockReturnValue({ user: { id: 1 } });
+    mockUseAuth.mockReturnValue({ user: { id: 1 }, accessToken: "token" });
     mockGetLastTeam.mockReturnValue(null);
+    mockApiFetch.mockResolvedValue({ status: 200, ok: true, json: () => Promise.resolve({}) });
   });
 
   it("affiche les modules existants avec leurs libellés", () => {
@@ -88,6 +101,19 @@ describe("SidebarNav", () => {
 
     expect(screen.getByRole("link", { name: "Saisons" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Effectif" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("cache le lien Saisons pour un membre sans aucun droit de lecture dessus (ex. Parent, 403)", async () => {
+    usePathname.mockReturnValue("/clubs/42/teams");
+    mockUseParams.mockReturnValue({ clubId: "42" });
+    mockApiFetch.mockResolvedValue({ status: 403, ok: false, json: () => Promise.resolve({}) });
+
+    renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+    expect(screen.getByRole("link", { name: "Effectif" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole("link", { name: "Saisons" })).not.toBeInTheDocument(),
+    );
   });
 
   it("appelle onNavigate quand un lien est cliqué (fermeture de la sidebar mobile)", async () => {

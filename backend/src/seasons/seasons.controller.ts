@@ -10,6 +10,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import type { Member } from '@prisma/client';
+import { CurrentMember } from '../auth/decorators/current-member.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -42,9 +44,10 @@ export class SeasonsController {
   @Get()
   findAll(
     @Param('clubId', ParseIntPipe) clubId: number,
+    @CurrentMember() member: Member,
     @Query() query: FindSeasonsQueryDto,
   ) {
-    return this.seasonsService.findAllByClub(clubId, query);
+    return this.seasonsService.findAllByClub(clubId, member.id, query);
   }
 
   @RequirePermission('season', 'READ')
@@ -52,8 +55,9 @@ export class SeasonsController {
   findOne(
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('id', ParseIntPipe) id: number,
+    @CurrentMember() member: Member,
   ) {
-    return this.seasonsService.findOne(clubId, id);
+    return this.seasonsService.findOne(clubId, id, member.id);
   }
 
   @RequirePermission('season', 'UPDATE')

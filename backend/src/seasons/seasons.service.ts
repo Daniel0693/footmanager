@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import type { Season, SeasonStatus } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../prisma/prisma.service';
+import { PermissionsService } from '../roles/permissions.service';
 import { CreateSeasonDto } from './dto/create-season.dto';
 import { FindSeasonsQueryDto } from './dto/find-seasons-query.dto';
 import { UpdateSeasonDto } from './dto/update-season.dto';
@@ -31,7 +32,10 @@ const STATUS_DISPLAY_ORDER: Record<SeasonStatus, number> = {
  */
 @Injectable()
 export class SeasonsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   // Toujours créée en DRAFT (CreateSeasonDto n'expose pas `status`) — la
   // saison précédente reste ACTIVE tant que celle-ci n'est pas activée.
@@ -49,22 +53,49 @@ export class SeasonsService {
     });
   }
 
-  async findAllByClub(clubId: number, query: FindSeasonsQueryDto = {}) {
-    const seasons = await this.prisma.season.findMany({
-      where: { clubId, status: query.status },
-      orderBy: { startDate: 'desc' },
-    });
+  async findAllByClub(
+    clubId: number,
+    memberId: number,
+    query: FindSeasonsQueryDto = {},
+  ) {
+    const [seasons, canManage] = await Promise.all([
+      this.prisma.season.findMany({
+        where: { clubId, status: query.status },
+        orderBy: { startDate: 'desc' },
+      }),
+      this.canManage(clubId, memberId),
+    ]);
 
     // Array.prototype.sort est stable (garanti depuis ES2019) : l'ordre par
     // startDate desc posé par Prisma est préservé au sein de chaque groupe
     // de statut.
-    return [...seasons].sort(
+    const data = [...seasons].sort(
       (a, b) => STATUS_DISPLAY_ORDER[a.status] - STATUS_DISPLAY_ORDER[b.status],
     );
+    return { data, canManage };
   }
 
-  async findOne(clubId: number, id: number) {
-    return this.findSeasonOrThrow(clubId, id);
+  async findOne(clubId: number, id: number, memberId: number) {
+    const [season, canManage] = await Promise.all([
+      this.findSeasonOrThrow(clubId, id),
+      this.canManage(clubId, memberId),
+    ]);
+    return { ...season, canManage };
+  }
+
+  // `canManage` reflète la capacité d'écriture réelle (bouton Nouvelle
+  // saison / Modifier / Activer / Supprimer) — un Coach/Player en lecture
+  // seule (scope TEAM) n'a jamais CREATE sur `season`, seuls AdminClub+
+  // (scope CLUB/ALL) l'obtiennent. Purement indicatif côté UI, l'autorisation
+  // réelle reste vérifiée par PermissionsGuard sur chaque route d'écriture.
+  private async canManage(clubId: number, memberId: number) {
+    const scope = await this.permissionsService.can(
+      memberId,
+      'CREATE',
+      'season',
+      { clubId },
+    );
+    return !!scope;
   }
 
   // Autorisée même sur une saison ARCHIVED (pas de verrou — comportement

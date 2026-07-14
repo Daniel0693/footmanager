@@ -57,17 +57,28 @@ export function SeasonFormDialog({
   season,
   trigger,
   onSuccess,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
 }: {
   clubId: string;
-  trigger: ReactElement;
+  trigger?: ReactElement;
   season?: ExistingSeason;
   onSuccess: () => void;
+  // Mode contrôlé (colonne Actions de la liste des saisons) : pas de
+  // <DialogTrigger> visible, l'ouverture est déclenchée depuis un item de
+  // DropdownMenu — même pattern que PlayerFormDialog. Sans ces deux props,
+  // le composant reste self-managé (trigger visible + état interne),
+  // comportement inchangé pour les usages existants (liste, fiche détail).
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const mode = season ? "edit" : "create";
   const t = useTranslations("seasons.formDialog");
   const tErrors = useTranslations("errors");
   const { accessToken } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChangeProp ?? setInternalOpen;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -124,7 +135,7 @@ export function SeasonFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={trigger} />
+      {trigger && <DialogTrigger render={trigger} />}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? t("createTitle") : t("editTitle")}</DialogTitle>

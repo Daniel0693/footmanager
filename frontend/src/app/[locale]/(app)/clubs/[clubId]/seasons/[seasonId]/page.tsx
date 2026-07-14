@@ -24,6 +24,7 @@ import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { seasonStatusBadgeVariant, type SeasonStatus } from "@/lib/season-status";
 import { formatDate } from "@/lib/date-format";
+import { resolveAnyTeamId } from "@/lib/resolve-any-team";
 import { SeasonFormDialog } from "@/components/seasons/season-form-dialog";
 
 interface SeasonDetail {
@@ -32,14 +33,20 @@ interface SeasonDetail {
   startDate: string;
   endDate: string;
   status: SeasonStatus;
+  canManage: boolean;
 }
 
 // Composant nommé séparé du default export : voir la note dans
 // teams/page.tsx (TeamsPageContent) — `use(params)` ne se résout pas de
 // façon fiable sous Jest/jsdom. Saisons désormais club-wide (révision A14,
-// docs/roadmap.md) : plus de teamId. Création/édition via `SeasonFormDialog`
-// (modale), jamais un formulaire inline sur cette page — cohérence avec le
-// reste de l'application (retour utilisateur explicite).
+// docs/roadmap.md) : plus de teamId dans l'URL, mais un Coach/Player en
+// lecture seule (scope TEAM) doit transmettre `?teamId=` pour être autorisé
+// par PermissionsGuard — résolu via `resolveAnyTeamId` (voir seasons/page.tsx
+// pour le détail du raisonnement). `season.canManage` (renvoyé par le
+// backend) pilote l'affichage des boutons Activer/Supprimer/Modifier :
+// jamais déduit d'un rôle côté client. Création/édition via
+// `SeasonFormDialog` (modale), jamais un formulaire inline sur cette page —
+// cohérence avec le reste de l'application (retour utilisateur explicite).
 export function SeasonDetailPageContent({
   clubId,
   seasonId,
@@ -51,7 +58,7 @@ export function SeasonDetailPageContent({
   const tStatus = useTranslations("seasons.status");
   const tErrors = useTranslations("errors");
   const router = useRouter();
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const [season, setSeason] = useState<SeasonDetail | null>(null);
   const [hasError, setHasError] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -66,7 +73,9 @@ export function SeasonDetailPageContent({
 
   const loadSeason = useCallback(async () => {
     try {
-      const response = await apiFetch(`/clubs/${clubId}/seasons/${seasonId}`, {
+      const teamId = user ? await resolveAnyTeamId(clubId, user.id, accessToken) : null;
+      const query = teamId ? `?teamId=${teamId}` : "";
+      const response = await apiFetch(`/clubs/${clubId}/seasons/${seasonId}${query}`, {
         headers: authHeaders(accessToken),
       });
       if (!response.ok) throw new Error();
@@ -77,7 +86,7 @@ export function SeasonDetailPageContent({
       setHasError(true);
       toast.error(t("loadFailed"));
     }
-  }, [clubId, seasonId, accessToken, t]);
+  }, [clubId, seasonId, accessToken, user, t]);
 
   useEffect(() => {
     // Bootstrap volontaire : charge la saison au montage — cas d'usage
@@ -91,14 +100,16 @@ export function SeasonDetailPageContent({
     let cancelled = false;
     (async () => {
       try {
+        const teamId = user ? await resolveAnyTeamId(clubId, user.id, accessToken) : null;
+        const teamQuery = teamId ? `&teamId=${teamId}` : "";
         const response = await apiFetch(
-          `/clubs/${clubId}/seasons?status=ACTIVE`,
+          `/clubs/${clubId}/seasons?status=ACTIVE${teamQuery}`,
           { headers: authHeaders(accessToken) },
         );
         if (!response.ok) throw new Error();
-        const data = (await response.json()) as SeasonDetail[];
+        const data = (await response.json()) as { data: SeasonDetail[] };
         if (cancelled) return;
-        const active = data[0] ?? null;
+        const active = data.data[0] ?? null;
         setCurrentActiveSeason(active);
         setOldSeasonEndDate(active?.endDate.slice(0, 10) ?? "");
       } catch {
@@ -109,7 +120,7 @@ export function SeasonDetailPageContent({
     return () => {
       cancelled = true;
     };
-  }, [clubId, accessToken, season?.status]);
+  }, [clubId, accessToken, user, season?.status]);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -187,7 +198,7 @@ export function SeasonDetailPageContent({
           </Badge>
         </div>
         <div className="flex items-center gap-2">
-          {season.status === "DRAFT" && (
+          {season.canManage && season.status === "DRAFT" && (
             <AlertDialog>
               <AlertDialogTrigger render={<Button type="button">{t("activate")}</Button>} />
               <AlertDialogContent>
@@ -225,7 +236,7 @@ export function SeasonDetailPageContent({
               </AlertDialogContent>
             </AlertDialog>
           )}
-          {season.status === "DRAFT" && (
+          {season.canManage && season.status === "DRAFT" && (
             <AlertDialog>
               <AlertDialogTrigger
                 render={
@@ -252,12 +263,14 @@ export function SeasonDetailPageContent({
               </AlertDialogContent>
             </AlertDialog>
           )}
-          <SeasonFormDialog
-            clubId={clubId}
-            season={season}
-            onSuccess={loadSeason}
-            trigger={<Button variant="outline">{t("edit")}</Button>}
-          />
+          {season.canManage && (
+            <SeasonFormDialog
+              clubId={clubId}
+              season={season}
+              onSuccess={loadSeason}
+              trigger={<Button variant="outline">{t("edit")}</Button>}
+            />
+          )}
         </div>
       </div>
 

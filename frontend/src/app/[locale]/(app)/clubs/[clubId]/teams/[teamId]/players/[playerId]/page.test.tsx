@@ -31,7 +31,7 @@ function mockApiFetchDefault(playerBody: unknown, playerOk = true) {
   mockApiFetch.mockImplementation((url: string) => {
     if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
     if (url.includes("/absences")) return Promise.resolve(jsonResponse([]));
-    if (url.includes("/seasons")) return Promise.resolve(jsonResponse([]));
+    if (url.includes("/seasons")) return Promise.resolve(jsonResponse({ data: [] }));
     return Promise.resolve(jsonResponse(playerBody, playerOk));
   });
 }
@@ -158,7 +158,7 @@ describe("PlayerDetailPageContent", () => {
       if (url.includes("/absences")) return Promise.resolve(jsonResponse([]));
       if (url.includes("/seasons")) {
         return Promise.resolve(
-          jsonResponse([{ id: 10, name: "Saison 2026-2027", status: "ACTIVE" }]),
+          jsonResponse({ data: [{ id: 10, name: "Saison 2026-2027", status: "ACTIVE" }] }),
         );
       }
       if (url.includes("/objectives")) return Promise.resolve(jsonResponse([]));
@@ -215,7 +215,7 @@ describe("PlayerDetailPageContent", () => {
         );
       }
       if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
-      if (url.includes("/seasons")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("/seasons")) return Promise.resolve(jsonResponse({ data: [] }));
       return Promise.resolve(jsonResponse(playerDetail()));
     });
     // player.member.user.id (501, voir playerDetail()) === l'utilisateur
@@ -262,7 +262,7 @@ describe("PlayerDetailPageContent", () => {
   it("cliquer un poste sur le terrain sauvegarde immédiatement (PATCH), sans bouton Enregistrer", async () => {
     mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
       if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
-      if (url.includes("/seasons")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("/seasons")) return Promise.resolve(jsonResponse({ data: [] }));
       if (options?.method === "PATCH") return Promise.resolve(jsonResponse({}));
       return Promise.resolve(jsonResponse(playerDetail()));
     });
@@ -289,7 +289,7 @@ describe("PlayerDetailPageContent", () => {
   it("échec du PATCH de poste : la sélection est restaurée et une erreur est affichée", async () => {
     mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
       if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
-      if (url.includes("/seasons")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("/seasons")) return Promise.resolve(jsonResponse({ data: [] }));
       if (options?.method === "PATCH") return Promise.resolve(jsonResponse(null, false));
       return Promise.resolve(jsonResponse(playerDetail()));
     });

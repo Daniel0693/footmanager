@@ -26,15 +26,20 @@ const CUSTOM_RANGE = "custom";
 // §Filtrage des statistiques par période, A12) — sélecteur partagé affiché
 // une seule fois au-dessus des onglets de la fiche joueur, propage seasonId
 // aux 4 onglets concernés (Mesures exclu, toujours vue complète). Saisons
-// club-wide depuis la révision A14 (docs/roadmap.md) : plus de teamId, une
-// seule liste pour tout le club. "Période personnalisée" rend la main aux
-// filtres dateFrom/dateTo déjà existants de chaque onglet — mutuellement
-// exclusif avec le filtre par saison, jamais les deux actifs en même temps.
+// club-wide depuis la révision A14 (docs/roadmap.md), mais la route club
+// `clubs/:clubId/seasons` exige `?teamId=` pour un Coach/Player (scope TEAM,
+// voir seasons.controller.ts) — `teamId` déjà connu ici puisque ce composant
+// n'est monté que depuis une page déjà scopée équipe (fiche joueur). "Période
+// personnalisée" rend la main aux filtres dateFrom/dateTo déjà existants de
+// chaque onglet — mutuellement exclusif avec le filtre par saison, jamais les
+// deux actifs en même temps.
 export function SeasonFilterSelect({
   clubId,
+  teamId,
   onSeasonChange,
 }: {
   clubId: string;
+  teamId: string;
   onSeasonChange: (seasonId: number | null) => void;
 }) {
   const t = useTranslations("seasonFilter");
@@ -44,11 +49,12 @@ export function SeasonFilterSelect({
 
   const loadSeasons = useCallback(async () => {
     try {
-      const response = await apiFetch(`/clubs/${clubId}/seasons`, {
+      const response = await apiFetch(`/clubs/${clubId}/seasons?teamId=${teamId}`, {
         headers: authHeaders(accessToken),
       });
       if (!response.ok) throw new Error();
-      const data = (await response.json()) as SeasonOption[];
+      const body = (await response.json()) as { data: SeasonOption[] };
+      const data = body.data;
       setSeasons(data);
       // Valeur par défaut = saison ACTIVE du club (docs/modules/
       // saisons-championnats.md) — repli sur "Période personnalisée" si
@@ -65,7 +71,7 @@ export function SeasonFilterSelect({
     // au chargement initial pour poser la valeur par défaut, pas à chaque
     // rendu du parent (qui recrée la fonction sans être mémoïsée).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clubId, accessToken, t]);
+  }, [clubId, teamId, accessToken, t]);
 
   useEffect(() => {
     // Bootstrap volontaire : charge les saisons du club au montage — cas

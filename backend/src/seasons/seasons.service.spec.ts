@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import type { Season } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PermissionsService } from '../roles/permissions.service';
 import { SeasonsService } from './seasons.service';
 
 const draftSeason: Season = {
@@ -33,6 +34,7 @@ describe('SeasonsService', () => {
   let seasonFindUniqueOrThrow: jest.Mock;
   let transaction: jest.Mock;
   let txSeasonUpdate: jest.Mock;
+  let permissionsCan: jest.Mock;
   let service: SeasonsService;
 
   beforeEach(() => {
@@ -61,7 +63,12 @@ describe('SeasonsService', () => {
       $transaction: transaction,
     } as unknown as PrismaService;
 
-    service = new SeasonsService(prismaStub);
+    permissionsCan = jest.fn().mockResolvedValue('CLUB');
+    const permissionsStub = {
+      can: permissionsCan,
+    } as unknown as PermissionsService;
+
+    service = new SeasonsService(prismaStub, permissionsStub);
   });
 
   describe('create', () => {
@@ -105,9 +112,12 @@ describe('SeasonsService', () => {
     it('liste les saisons du club, triées par date de début décroissante', async () => {
       seasonFindMany.mockResolvedValue([activeSeason, draftSeason]);
 
-      const result = await service.findAllByClub(1);
+      const result = await service.findAllByClub(1, 42);
 
-      expect(result).toEqual([activeSeason, draftSeason]);
+      expect(result).toEqual({
+        data: [activeSeason, draftSeason],
+        canManage: true,
+      });
       expect(seasonFindMany).toHaveBeenCalledWith({
         where: { clubId: 1, status: undefined },
         orderBy: { startDate: 'desc' },
@@ -129,20 +139,32 @@ describe('SeasonsService', () => {
         archivedSeason,
       ]);
 
-      const result = await service.findAllByClub(1);
+      const result = await service.findAllByClub(1, 42);
 
-      expect(result).toEqual([activeSeason, draftSeason, archivedSeason]);
+      expect(result.data).toEqual([activeSeason, draftSeason, archivedSeason]);
     });
 
     it('filtre par statut quand demandé', async () => {
       seasonFindMany.mockResolvedValue([activeSeason]);
 
-      await service.findAllByClub(1, { status: 'ACTIVE' });
+      await service.findAllByClub(1, 42, { status: 'ACTIVE' });
 
       expect(seasonFindMany).toHaveBeenCalledWith({
         where: { clubId: 1, status: 'ACTIVE' },
         orderBy: { startDate: 'desc' },
       });
+    });
+
+    it('canManage reflète CREATE sur `season` en scope club (false pour un lecteur seul)', async () => {
+      seasonFindMany.mockResolvedValue([]);
+      permissionsCan.mockResolvedValue(null);
+
+      const result = await service.findAllByClub(1, 42);
+
+      expect(permissionsCan).toHaveBeenCalledWith(42, 'CREATE', 'season', {
+        clubId: 1,
+      });
+      expect(result.canManage).toBe(false);
     });
   });
 
@@ -150,15 +172,18 @@ describe('SeasonsService', () => {
     it('renvoie 404 si la saison est introuvable dans ce club', async () => {
       seasonFindFirst.mockResolvedValue(null);
 
-      await expect(service.findOne(1, 100)).rejects.toMatchObject({
+      await expect(service.findOne(1, 100, 42)).rejects.toMatchObject({
         status: HttpStatus.NOT_FOUND,
       });
     });
 
-    it('retourne la saison trouvée', async () => {
+    it('retourne la saison trouvée avec le flag canManage', async () => {
       seasonFindFirst.mockResolvedValue(draftSeason);
 
-      await expect(service.findOne(1, 100)).resolves.toBe(draftSeason);
+      await expect(service.findOne(1, 100, 42)).resolves.toEqual({
+        ...draftSeason,
+        canManage: true,
+      });
       expect(seasonFindFirst).toHaveBeenCalledWith({
         where: { id: 100, clubId: 1 },
       });

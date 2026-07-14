@@ -13,6 +13,13 @@ jest.mock("@/lib/auth/auth-context", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+// Résolution du teamId (pour `?teamId=`, requis par PermissionsGuard pour un
+// Coach/Player en scope TEAM — voir seasons.controller.ts) testée séparément
+// dans ses propres appelants ; mockée ici en valeur fixe.
+jest.mock("@/lib/resolve-any-team", () => ({
+  resolveAnyTeamId: jest.fn(() => Promise.resolve("5")),
+}));
+
 const mockApiFetch = jest.fn();
 jest.mock("@/lib/api", () => {
   const actual = jest.requireActual("@/lib/api");
@@ -32,6 +39,7 @@ const draftSeason = {
   startDate: "2026-08-01T00:00:00.000Z",
   endDate: "2027-06-30T00:00:00.000Z",
   status: "DRAFT",
+  canManage: true,
 };
 
 const archivedSeason = { ...draftSeason, id: 99, status: "ARCHIVED" };
@@ -40,7 +48,7 @@ const archivedSeason = { ...draftSeason, id: 99, status: "ARCHIVED" };
 // saison) — utilisé par les tests qui ne portent pas sur l'activation.
 function mockApiFetchDefault(season: unknown, ok = true) {
   mockApiFetch.mockImplementation((url: string) => {
-    if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse([]));
+    if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse({ data: [] }));
     return Promise.resolve(jsonResponse(season, ok));
   });
 }
@@ -52,17 +60,17 @@ function renderPage(seasonId = "100") {
 describe("SeasonDetailPage (club-wide, révision A14-A17)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseAuth.mockReturnValue({ accessToken: "token" });
+    mockUseAuth.mockReturnValue({ accessToken: "token", user: { id: 1 } });
   });
 
-  it("charge et affiche la saison (nom, statut, dates)", async () => {
+  it("charge et affiche la saison (nom, statut, dates), en transmettant ?teamId=", async () => {
     mockApiFetchDefault(draftSeason);
 
     renderPage();
 
     await waitFor(() => {
       expect(mockApiFetch).toHaveBeenCalledWith(
-        "/clubs/1/seasons/100",
+        "/clubs/1/seasons/100?teamId=5",
         expect.anything(),
       );
     });
@@ -100,10 +108,21 @@ describe("SeasonDetailPage (club-wide, révision A14-A17)", () => {
     expect(screen.queryByRole("button", { name: "Activer" })).not.toBeInTheDocument();
   });
 
+  it("cache Activer/Supprimer/Modifier quand canManage est false (Coach/Player en lecture seule)", async () => {
+    mockApiFetchDefault({ ...draftSeason, canManage: false });
+
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Saison 2026-2027" });
+    expect(screen.queryByRole("button", { name: "Activer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Supprimer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Modifier" })).not.toBeInTheDocument();
+  });
+
   it("modifie la saison via la modale Modifier (pas de formulaire inline sur la page)", async () => {
     const user = userEvent.setup();
     mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
-      if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse({ data: [] }));
       if (options?.method === "PATCH") {
         return Promise.resolve(jsonResponse({ ...draftSeason, name: "Nouveau nom" }));
       }
@@ -137,7 +156,7 @@ describe("SeasonDetailPage (club-wide, révision A14-A17)", () => {
   it("supprime la saison après confirmation et redirige vers la liste", async () => {
     const user = userEvent.setup();
     mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
-      if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse({ data: [] }));
       if (options?.method === "DELETE") return Promise.resolve(jsonResponse({}));
       return Promise.resolve(jsonResponse(draftSeason));
     });
@@ -174,7 +193,7 @@ describe("SeasonDetailPage (club-wide, révision A14-A17)", () => {
     it("première saison du club (aucune ACTIVE existante) : dialogue simplifié, POST sans oldSeasonEndDate", async () => {
       const user = userEvent.setup();
       mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
-        if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse([]));
+        if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse({ data: [] }));
         if (options?.method === "POST") return Promise.resolve(jsonResponse({ ...draftSeason, status: "ACTIVE" }));
         return Promise.resolve(jsonResponse(draftSeason));
       });
@@ -204,9 +223,11 @@ describe("SeasonDetailPage (club-wide, révision A14-A17)", () => {
         startDate: "2025-08-01T00:00:00.000Z",
         endDate: "2026-06-30T00:00:00.000Z",
         status: "ACTIVE",
+        canManage: true,
       };
       mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
-        if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse([currentActive]));
+        if (url.includes("status=ACTIVE"))
+          return Promise.resolve(jsonResponse({ data: [currentActive] }));
         if (options?.method === "POST") return Promise.resolve(jsonResponse({ ...draftSeason, status: "ACTIVE" }));
         return Promise.resolve(jsonResponse(draftSeason));
       });

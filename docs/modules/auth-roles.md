@@ -193,6 +193,26 @@ pas encore le teamId pertinent (ex. "quelles sont mes équipes ?" avant même d'
 une) ; le paramètre `?teamId=` en query convient quand le frontend est déjà dans un contexte
 équipe identifié et peut simplement le transmettre.
 
+**Troisième cas, distinct des deux ci-dessus : une page club-wide en LECTURE SEULE, sans
+contexte équipe du tout dans son URL, consommée par un rôle scopé `TEAM`.** Trouvé en corrigeant
+un bug signalé par l'utilisateur : la liste des saisons (`clubs/:clubId/seasons`, aucun `:teamId`
+dans son URL depuis la révision A14) renvoyait 403 pour un Coach/Player alors que leur permission
+`season READ TEAM` aurait dû les autoriser — le frontend de cette page ne transmettait tout
+simplement jamais `?teamId=`, faute de connaître une équipe (contrairement à la fiche joueur,
+toujours ouverte depuis un contexte équipe). Ici, peu importe LAQUELLE des équipes de l'appelant
+est transmise : la ressource elle-même (`Season`) ne filtre jamais par équipe, seule la
+**présence** d'un `teamId` où l'appelant a un rôle compte pour satisfaire `PermissionsGuard`.
+
+*Solution retenue* : `frontend/src/lib/resolve-any-team.ts` (`resolveAnyTeamId(clubId, userId,
+accessToken)`) — repli sur `last-team.ts` (équipe déjà mémorisée pour ce club) puis, à défaut, sur
+`GET /clubs/:clubId/teams/mine` (voir pattern self-service ci-dessus), et prend la première
+équipe renvoyée. Un scope `CLUB`/`ALL` (AdminClub+) n'a besoin d'aucun `teamId`, mais en recevoir
+un ne change rien à son autorisation (le guard ne le vérifie que si le scope résolu est `TEAM`)
+— pas besoin de distinguer les deux cas côté frontend. Utilisé par la liste des saisons, la fiche
+de saison, et pour masquer le lien "Saisons" de la sidebar (`SidebarNav`) quand la réponse est un
+403 explicite (ex. Parent, qui n'a aucune permission `season`, voir
+`docs/modules/saisons-championnats.md` §Droits par rôle) — jamais déduit d'un rôle côté client.
+
 **Le paramètre `?teamId=` transmis en query n'est vérifié par `PermissionsGuard` que pour
 résoudre le SCOPE (Coach a-t-il un rôle sur CE teamId ?) — jamais pour vérifier que la
 RESSOURCE ciblée par l'URL appartient bien à cette équipe.** Faille trouvée en concevant A7.3

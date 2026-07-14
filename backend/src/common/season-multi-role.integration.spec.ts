@@ -179,7 +179,7 @@ function buildMemberRolesByMember(roles: ResourceRoles): Record<number, any[]> {
   return entries;
 }
 
-function buildGuard(roles: ResourceRoles) {
+function buildPermissionsService(roles: ResourceRoles) {
   const memberRolesByMember = buildMemberRolesByMember(roles);
   const permissionsPrismaStub = {
     memberRole: {
@@ -189,7 +189,11 @@ function buildGuard(roles: ResourceRoles) {
       ),
     },
   } as unknown as PrismaService;
-  const permissionsService = new PermissionsService(permissionsPrismaStub);
+  return new PermissionsService(permissionsPrismaStub);
+}
+
+function buildGuard(roles: ResourceRoles) {
+  const permissionsService = buildPermissionsService(roles);
 
   const membersByUserAndClub: Record<string, Member> = {
     '71:1': marcClub1,
@@ -340,7 +344,10 @@ describe('A13/A19 — scénario multi-rôles (SeasonsController, club-wide)', ()
       ),
     } as unknown as PrismaService;
 
-    seasonsService = new SeasonsService(prismaStub);
+    seasonsService = new SeasonsService(
+      prismaStub,
+      buildPermissionsService(roles),
+    );
   });
 
   it('AdminClub (Alice) : crée une saison DRAFT pour le club puis l’active — flux réel complet', async () => {
@@ -394,8 +401,12 @@ describe('A13/A19 — scénario multi-rôles (SeasonsController, club-wide)', ()
       guard.canActivate(buildContext(readRequest, findAllHandler)),
     ).resolves.toBe(true);
     expect(readRequest.permissionScope).toBe('TEAM');
-    const seasons = await seasonsService.findAllByClub(1);
+    const { data: seasons, canManage } = await seasonsService.findAllByClub(
+      1,
+      42,
+    );
     expect(seasons.map((s) => s.id)).toEqual([200]);
+    expect(canManage).toBe(false);
 
     // Même personne, même club, mais son seul rôle est Coach/Player en
     // lecture seule sur `season` — jamais AdminClub.

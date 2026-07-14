@@ -235,7 +235,7 @@ describe('Module Saisons — scénario multi-rôles (SeasonsController, club-wid
         create: seasonCreate,
       },
     } as unknown as PrismaService;
-    seasonsService = new SeasonsService(prismaStub);
+    seasonsService = new SeasonsService(prismaStub, permissionsService);
   });
 
   it('AdminClub crée une saison pour son club', async () => {
@@ -298,7 +298,10 @@ describe('Module Saisons — scénario multi-rôles (SeasonsController, club-wid
     ).resolves.toBe(true);
     expect(request.permissionScope).toBe('TEAM');
 
-    await expect(seasonsService.findAllByClub(1)).resolves.toEqual([]);
+    await expect(seasonsService.findAllByClub(1, 43)).resolves.toEqual({
+      data: [],
+      canManage: false,
+    });
   });
 
   it('Coach sans ?teamId= (ou avec un teamId où il n’a aucun rôle) est refusé — route club-only', async () => {
