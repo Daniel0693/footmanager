@@ -235,4 +235,12 @@ c'est pourquoi sa gestion reste ouverte au Coach.
 | Créer un Championship (pour sa propre équipe) | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Ajouter des ExternalTeam | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Saisir les résultats adverses | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Voir le classement | ✅ | ✅ | ✅ | ✅ (lecture) | ✅ (lecture) |
+| Voir le classement | ✅ | ✅ | ✅ | ✅ (lecture) | ❌ |
+
+**Parent** n'a, dans le seed actuel (`backend/prisma/seed.ts`), aucune permission sur
+`championship`/`championship_participant`/`championship_match`/`external_team` — seulement
+`member READ OWN`. Un écart avec la conception initiale de la Partie B (qui envisageait un
+`READ TEAM` pour Parent au même titre que Player, "nécessaire pour le classement") : non câblé
+en pratique, cohérent avec le constat déjà documenté ailleurs que le rôle Parent n'est
+globalement pas branché à un `MemberRole` fonctionnel dans le MVP (voir
+`docs/decisions-ouvertes-et-rgpd.md`). À revoir si Parent devient un rôle réellement utilisé.

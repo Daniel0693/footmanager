@@ -324,7 +324,19 @@ A7.x (A12, via `PlayerObjectivesController` comme représentant des 4 ressources
 `resolveSeasonPeriod`) — dont le cas explicite d'un `seasonId` appartenant à un AUTRE **club**
 (et non plus une autre équipe, `Season` n'ayant plus de FK vers `Team`) que celui transmis,
 rejeté en 404 par `resolveSeasonPeriod` plutôt que de fuiter les bornes de dates d'une saison
-hors scope.
+hors scope. Pour le module Championship (B15, Phase 3 Partie B),
+`backend/src/common/championship-multi-role.integration.spec.ts` couvre le flux réel complet
+sur `championship`/`championship_participant`/`championship_match`/`external_team` : Marc-Coach
+(équipe 5) crée une équipe adverse, un championnat, ses participants, planifie une rencontre,
+saisit un résultat et lit le classement calculé (vérifie le classement lui-même, pas seulement
+le guard) — refusé sur l'équipe 8 où il n'est que Player ; Marc-Player (équipe 8) lit
+championnats/participants/rencontres/classement de sa propre équipe en lecture seule
+(`canManage=false`), écriture refusée par le guard, et n'a **pas** accès à `external_team` (seul
+Coach y a droit, aucun besoin de consulter le carnet d'adresses hors contexte d'un championnat) ;
+Marc-Parent (Club B) n'a strictement aucun accès aux 4 ressources — contrairement à la
+conception initiale de la Partie B qui envisageait un `READ TEAM` pour Parent au même titre que
+Player, jamais câblé dans le seed final (voir `docs/modules/saisons-championnats.md`
+§Droits par rôle).
 
 ### Propriétaire — mécanisme de transfert sécurisé
 

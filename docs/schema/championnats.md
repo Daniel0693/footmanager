@@ -109,7 +109,7 @@ Couvre **toutes** les rencontres du championnat : les nôtres et les matchs entr
 | `scoreHome` | Int, nullable | source de vérité du score pour le classement |
 | `scoreAway` | Int, nullable | |
 | `status` | enum `ChampionshipMatchStatus` | |
-| `matchId` | FK → Match, nullable | lien vers notre `Match` si l'une des équipes est interne |
+| `matchId` | Int, nullable | **pas une FK** en Phase 3 — `Match` n'existe pas encore (Phase 4). Champ nu sans `@relation`, dérogation assumée et documentée dans `schema.prisma` ; la relation complète sera ajoutée à la migration Phase 4 |
 | `round` | Int, nullable | journée / tour numéroté |
 | `numberOfPeriods` | Int, nullable | écrase le défaut du Championship pour ce match |
 | `periodDurationMinutes` | Int, nullable | idem |

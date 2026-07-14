@@ -116,7 +116,7 @@ Tests à la fin de la Partie B (après B9 + correctifs) : 340 tests backend + 25
 
 ---
 
-## Phase 3 — Saisons & Championnats 🚧
+## Phase 3 — Saisons & Championnats ✅
 
 _~2–3 semaines_
 
@@ -190,7 +190,7 @@ sans pouvoir lire les bornes d'une saison d'un **autre club** (404) ; Parent Clu
 
 Tests à la fin de la Partie A (après révision A14-A20) : 449 tests backend + 428 tests frontend.
 
-### Partie B — Module Championship 🚧
+### Partie B — Module Championship ✅
 
 | Étape | Contenu |
 |---|---|
@@ -209,12 +209,34 @@ Tests à la fin de la Partie A (après révision A14-A20) : 449 tests backend + 
 | B12 | Algorithme de classement (fonction pure) + endpoint ✅ |
 | B13 | Frontend calendrier des rencontres + saisie résultats ✅ |
 | B14 | Frontend classement ✅ |
-| B15 | Tests multi-rôles bout-en-bout Partie B + clôture |
+| B15 | Tests multi-rôles bout-en-bout Partie B + clôture ✅ |
 
 Démarre sur une branche `feature/saisons-module-championship` séparée, une fois la Partie A
 mergée dans `develop`.
 
+Scénario multi-rôles bout-en-bout (B15, docs/modules/auth-roles.md §"Multi-rôles — règle de
+test obligatoire") : `backend/src/common/championship-multi-role.integration.spec.ts` — même
+persona Marc (Coach équipe 5/Player équipe 8/Parent Club B). Marc-Coach gère un championnat de
+bout en bout en flux réel (équipe adverse → championnat → participants → rencontre → résultat →
+classement calculé, vérifié valeur par valeur), refusé sur l'équipe 8 où il n'est que Player ;
+Marc-Player lit championnats/participants/rencontres/classement de sa propre équipe en lecture
+seule (`canManage=false`), sans accès à `external_team` (Coach seul) ; Marc-Parent (Club B)
+n'a aucun accès aux 4 ressources — écart assumé avec la conception initiale qui envisageait un
+`READ TEAM` pour Parent, jamais câblé dans le seed final (voir §Points reportés ci-dessous et
+`docs/modules/saisons-championnats.md` §Droits par rôle).
+
+**Rebranchement A8, plus applicable** : l'étape A8 du plan initial (wizard Season étape 3,
+placeholder à remplacer par un vrai `ChampionshipFormDialog`) a été supprimée dès la révision
+A17 — le wizard Season n'existe plus du tout depuis que `Season` est devenue club-wide (A14).
+Rien à rebrancher en B15.
+
 **Points reportés (à ne pas oublier)** :
+- **Écart de droits Parent, assumé** : la conception initiale de la Partie B (§B0) envisageait
+  un `READ TEAM` pour Parent sur `championship`/`championship_participant`/`championship_match`
+  au même titre que Player ("nécessaire pour le classement"). Le seed final (`backend/prisma/
+  seed.ts`) ne l'a jamais câblé — Parent n'a que `member READ OWN`, cohérent avec le constat déjà
+  documenté que le rôle Parent n'est pas branché à un `MemberRole` fonctionnel dans le MVP (voir
+  `docs/decisions-ouvertes-et-rgpd.md` §5). À revoir si Parent devient un rôle réellement utilisé.
 - ~~`Championship` doit porter son propre `teamId`, en plus de `seasonId`~~ — **tranché et
   implémenté en B4** : `Championship.teamId` + `Championship.seasonId`, sans contrainte
   d'unicité entre les deux (une équipe peut avoir plusieurs championnats sur une même saison).
@@ -229,6 +251,10 @@ mergée dans `develop`.
 - `ChampionshipParticipant.internalTeamId` restreint à la `teamId` de l'URL (une seule équipe
   interne par championnat créé depuis cette équipe) — limite MVP, deux équipes du même club
   dans le même championnat hors scope.
+
+Tests à la fin de la Partie B (après B15) : 533 tests backend + 487 tests frontend — clôture de
+la Phase 3 (Parties A et B confondues, la branche B ayant repris directement là où A s'est
+arrêtée).
 
 ---
 
