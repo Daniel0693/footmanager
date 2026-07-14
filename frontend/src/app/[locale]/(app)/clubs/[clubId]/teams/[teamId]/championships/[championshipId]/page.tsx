@@ -25,6 +25,7 @@ import {
   type ExistingChampionship,
 } from "@/components/championships/championship-form-dialog";
 import { ParticipantsTab } from "@/components/championships/participants-tab";
+import { MatchesTab } from "@/components/championships/matches-tab";
 
 interface ChampionshipDetail extends ExistingChampionship {
   season: { id: number; name: string };
@@ -33,9 +34,9 @@ interface ChampionshipDetail extends ExistingChampionship {
 
 // Composant nommé séparé du default export : voir la note dans
 // teams/page.tsx (TeamsPageContent) — `use(params)` ne se résout pas de
-// façon fiable sous Jest/jsdom. Fiche d'un championnat (Partie B, B9) :
-// onglet Participants pleinement fonctionnel, Calendrier/Classement en
-// placeholder jusqu'à B13/B14. Édition/suppression via ChampionshipFormDialog
+// façon fiable sous Jest/jsdom. Fiche d'un championnat (Partie B) :
+// Participants (B9) et Calendrier (B13) pleinement fonctionnels, Classement
+// en placeholder jusqu'à B14. Édition/suppression via ChampionshipFormDialog
 // et une confirmation dédiée, jamais un formulaire inline — cohérence avec
 // le reste de l'application (fiche de saison, notamment).
 export function ChampionshipDetailPageContent({
@@ -178,11 +179,7 @@ export function ChampionshipDetailPageContent({
           <ParticipantsTab clubId={clubId} teamId={teamId} championshipId={championshipId} />
         </TabsContent>
         <TabsContent value="matches">
-          <Card>
-            <CardContent className="py-6 text-sm text-muted-foreground">
-              {t("matchesComingSoon")}
-            </CardContent>
-          </Card>
+          <MatchesTab clubId={clubId} teamId={teamId} championshipId={championshipId} />
         </TabsContent>
         <TabsContent value="standings">
           <Card>
