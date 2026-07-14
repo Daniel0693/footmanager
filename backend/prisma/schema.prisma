@@ -88,12 +88,16 @@ model Team {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberRoles       MemberRole[]
-  playerTeams       PlayerTeam[]
-  teamStaffs        TeamStaff[]
-  playerEvaluations PlayerEvaluation[]
-  events            Event[]
-  championships     Championship[]
+  memberRoles              MemberRole[]
+  playerTeams              PlayerTeam[]
+  teamStaffs               TeamStaff[]
+  playerEvaluations        PlayerEvaluation[]
+  events                   Event[]
+  championships            Championship[]
+  // Équipe engagée comme participante d'un championnat (le sien ou celui
+  // d'une autre équipe du club) — distinct de `championships` ci-dessus
+  // (les championnats que CETTE équipe organise).
+  championshipParticipations ChampionshipParticipant[]
 
   @@index([clubId])
 }
@@ -676,6 +680,8 @@ model ExternalTeam {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  participations ChampionshipParticipant[]
+
   @@index([clubId])
 }
 
@@ -712,8 +718,31 @@ model Championship {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
+  participants ChampionshipParticipant[]
+
   @@index([seasonId])
   @@index([teamId])
+}
+
+// Équipe participante à un championnat (docs/schema/championnats.md
+// §ChampionshipParticipant) : soit une de nos équipes (`internalTeamId`),
+// soit une équipe adverse (`externalTeamId`) — exactement l'une des deux,
+// jamais les deux ni aucune. Pas de contrainte SQL native pour "exactement
+// l'un des deux" avec Prisma (pas de CHECK constraint généré) : vérifiée en
+// applicatif (ChampionshipParticipantsService, B8), même approche que le
+// non-chevauchement des dates de Season.
+model ChampionshipParticipant {
+  id             Int           @id @default(autoincrement())
+  championshipId Int
+  championship   Championship  @relation(fields: [championshipId], references: [id])
+  internalTeamId Int?
+  internalTeam   Team?         @relation(fields: [internalTeamId], references: [id])
+  externalTeamId Int?
+  externalTeam   ExternalTeam? @relation(fields: [externalTeamId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([championshipId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────

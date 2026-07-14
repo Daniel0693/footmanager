@@ -199,9 +199,9 @@ Tests à la fin de la Partie A (après révision A14-A20) : 449 tests backend + 
 | B2 | Backend `external-teams` CRUD ✅ |
 | B3 | Frontend gestion des équipes adverses + nouvelle entrée nav "Championnats" (scopée équipe, décidée avec l'utilisateur — remplace l'hypothèse initiale d'un onglet sous Saisons, devenue caduque après la révision A14) ✅ |
 | B4 | Schéma `Championship` ✅ |
-| B5 | Backend `championships` CRUD + presets |
-| B6 | Frontend `championships` liste + formulaire règles |
-| B7 | Schéma `ChampionshipParticipant` |
+| B5 | Backend `championships` CRUD + presets (route adaptée à teamId dans l'URL, `seasonId` en body — voir B4) ✅ |
+| B6 | Frontend `championships` liste + formulaire règles ✅ |
+| B7 | Schéma `ChampionshipParticipant` ✅ |
 | B8 | Backend `championship-participants` CRUD |
 | B9 | Frontend onglet Participants |
 | B10 | Schéma `ChampionshipMatch` |
