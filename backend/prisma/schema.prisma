@@ -77,6 +77,7 @@ model Club {
   playingStyleTags     PlayingStyleTag[]
   scoutingCriteria     PlayerScoutingCriterion[]
   seasons              Season[]
+  externalTeams        ExternalTeam[]
 }
 
 model Team {
@@ -617,9 +618,10 @@ model PlayerEvaluationScore {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Saisons & Championnats (Partie A — Season) — docs/schema/championnats.md,
-// docs/modules/saisons-championnats.md. Championship/ChampionshipParticipant/
-// ChampionshipMatch/ExternalTeam arrivent en Partie B (Phase 3, roadmap.md).
+// Saisons & Championnats (Partie A — Season, Partie B — Championship en
+// cours) — docs/schema/championnats.md, docs/modules/saisons-championnats.md.
+// Championship/ChampionshipParticipant/ChampionshipMatch arrivent plus loin
+// en Partie B (Phase 3, roadmap.md B4/B7/B10).
 // ─────────────────────────────────────────────────────────────────────────
 
 enum SeasonStatus {
@@ -652,6 +654,26 @@ model Season {
   updatedAt DateTime     @updatedAt
 
   @@index([clubId, status])
+}
+
+// Équipe adverse (docs/schema/championnats.md §ExternalTeam) — scopée au
+// CLUB (pas au Championship ni à la Team) : créée une fois, réutilisable
+// d'un championnat/d'une saison à l'autre, potentiellement affrontée par
+// plusieurs équipes du même club. `ExternalPlayer` (joueur d'une équipe
+// adverse) est hors scope Partie B — arrive en Phase 7 Scouting, malgré sa
+// présence dans le même fichier de doc.
+model ExternalTeam {
+  id        Int      @id @default(autoincrement())
+  clubId    Int
+  club      Club     @relation(fields: [clubId], references: [id])
+  name      String
+  city      String?
+  country   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clubId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────
