@@ -903,6 +903,14 @@
       "INTERNAL_TEAM_MUST_BE_OWNER": "Seule l'équipe propriétaire du championnat peut être ajoutée comme équipe interne",
       "EXTERNAL_TEAM_NOT_FOUND": "Cette équipe adverse n'appartient pas à ce club",
       "ALREADY_PARTICIPANT": "Cette équipe participe déjà à ce championnat"
+    },
+    "CHAMPIONSHIP_MATCHES": {
+      "NOT_FOUND": "Rencontre introuvable",
+      "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
+      "CHAMPIONSHIP_NOT_FOUND": "Championnat introuvable",
+      "PARTICIPANT_NOT_FOUND": "Ce participant n'appartient pas à ce championnat",
+      "SAME_PARTICIPANT": "Les deux équipes d'une rencontre doivent être différentes",
+      "FINISHED_REQUIRES_SCORE": "Le score complet est requis pour terminer une rencontre"
     }
   },
   "stepperExample": {

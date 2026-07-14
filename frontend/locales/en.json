@@ -903,6 +903,14 @@
       "INTERNAL_TEAM_MUST_BE_OWNER": "Only the championship's owning team can be added as an internal team",
       "EXTERNAL_TEAM_NOT_FOUND": "This external team does not belong to this club",
       "ALREADY_PARTICIPANT": "This team is already a participant in this championship"
+    },
+    "CHAMPIONSHIP_MATCHES": {
+      "NOT_FOUND": "Match not found",
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "CHAMPIONSHIP_NOT_FOUND": "Championship not found",
+      "PARTICIPANT_NOT_FOUND": "This participant does not belong to this championship",
+      "SAME_PARTICIPANT": "The two teams in a match must be different",
+      "FINISHED_REQUIRES_SCORE": "A full score is required to finish a match"
     }
   },
   "stepperExample": {
