@@ -29,8 +29,8 @@ jest.mock("@/lib/api", () => {
   };
 });
 
-function jsonResponse(body: unknown, ok = true) {
-  return { ok, json: () => Promise.resolve(body) };
+function jsonResponse(body: unknown, ok = true, status = ok ? 200 : 400) {
+  return { ok, status, json: () => Promise.resolve(body) };
 }
 
 const draftSeason = {
@@ -45,10 +45,12 @@ const draftSeason = {
 const archivedSeason = { ...draftSeason, id: 99, status: "ARCHIVED" };
 
 // Mock par défaut : ne renvoie aucune saison ACTIVE du club (première
-// saison) — utilisé par les tests qui ne portent pas sur l'activation.
+// saison) et aucun championnat pour cette saison — utilisé par les tests
+// qui ne portent pas sur l'activation ou les championnats.
 function mockApiFetchDefault(season: unknown, ok = true) {
   mockApiFetch.mockImplementation((url: string) => {
     if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse({ data: [] }));
+    if (url.includes("/championships")) return Promise.resolve(jsonResponse([]));
     return Promise.resolve(jsonResponse(season, ok));
   });
 }
@@ -123,6 +125,7 @@ describe("SeasonDetailPage (club-wide, révision A14-A17)", () => {
     const user = userEvent.setup();
     mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
       if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse({ data: [] }));
+      if (url.includes("/championships")) return Promise.resolve(jsonResponse([]));
       if (options?.method === "PATCH") {
         return Promise.resolve(jsonResponse({ ...draftSeason, name: "Nouveau nom" }));
       }
@@ -157,6 +160,7 @@ describe("SeasonDetailPage (club-wide, révision A14-A17)", () => {
     const user = userEvent.setup();
     mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
       if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse({ data: [] }));
+      if (url.includes("/championships")) return Promise.resolve(jsonResponse([]));
       if (options?.method === "DELETE") return Promise.resolve(jsonResponse({}));
       return Promise.resolve(jsonResponse(draftSeason));
     });
@@ -176,17 +180,55 @@ describe("SeasonDetailPage (club-wide, révision A14-A17)", () => {
     expect(push).toHaveBeenCalledWith("/clubs/1/seasons");
   });
 
-  it("l'onglet Championnats affiche un message d'attente", async () => {
-    const user = userEvent.setup();
+  it("affiche directement les dates et les championnats de la saison, sans onglets", async () => {
     mockApiFetchDefault(draftSeason);
 
     renderPage();
     await screen.findByRole("heading", { name: "Saison 2026-2027" });
-    await user.click(screen.getByRole("tab", { name: "Championnats" }));
 
-    expect(
-      await screen.findByText("La gestion des championnats arrivera dans une prochaine phase."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Aucun championnat pour cette saison")).toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+  });
+
+  it("liste les championnats de la saison, tous équipes confondues, avec un lien vers chacun", async () => {
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse({ data: [] }));
+      if (url.includes("/championships")) {
+        return Promise.resolve(
+          jsonResponse([
+            {
+              id: 900,
+              name: "Championnat Automne",
+              startDate: "2026-09-01T00:00:00.000Z",
+              endDate: "2026-12-15T00:00:00.000Z",
+              team: { id: 5, name: "U15" },
+            },
+          ]),
+        );
+      }
+      return Promise.resolve(jsonResponse(draftSeason));
+    });
+
+    renderPage();
+    await screen.findByRole("heading", { name: "Saison 2026-2027" });
+
+    const link = await screen.findByRole("link", { name: "Championnat Automne" });
+    expect(link).toHaveAttribute("href", "/clubs/1/teams/5/championships/900");
+    expect(screen.getByText("U15")).toBeInTheDocument();
+  });
+
+  it("masque silencieusement le panneau des championnats si l'accès est refusé (403, Coach/Player)", async () => {
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse({ data: [] }));
+      if (url.includes("/championships")) return Promise.resolve(jsonResponse(null, false, 403));
+      return Promise.resolve(jsonResponse(draftSeason));
+    });
+
+    renderPage();
+    await screen.findByRole("heading", { name: "Saison 2026-2027" });
+
+    expect(await screen.findByText("Réservé aux administrateurs du club")).toBeInTheDocument();
+    expect(screen.queryByText("Aucun championnat pour cette saison")).not.toBeInTheDocument();
   });
 
   describe("activation (révision A14-A17 — plus de wizard, action ponctuelle)", () => {
@@ -194,6 +236,7 @@ describe("SeasonDetailPage (club-wide, révision A14-A17)", () => {
       const user = userEvent.setup();
       mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
         if (url.includes("status=ACTIVE")) return Promise.resolve(jsonResponse({ data: [] }));
+        if (url.includes("/championships")) return Promise.resolve(jsonResponse([]));
         if (options?.method === "POST") return Promise.resolve(jsonResponse({ ...draftSeason, status: "ACTIVE" }));
         return Promise.resolve(jsonResponse(draftSeason));
       });
@@ -228,6 +271,7 @@ describe("SeasonDetailPage (club-wide, révision A14-A17)", () => {
       mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
         if (url.includes("status=ACTIVE"))
           return Promise.resolve(jsonResponse({ data: [currentActive] }));
+        if (url.includes("/championships")) return Promise.resolve(jsonResponse([]));
         if (options?.method === "POST") return Promise.resolve(jsonResponse({ ...draftSeason, status: "ACTIVE" }));
         return Promise.resolve(jsonResponse(draftSeason));
       });

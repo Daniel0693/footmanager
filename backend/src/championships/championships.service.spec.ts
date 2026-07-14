@@ -182,6 +182,30 @@ describe('ChampionshipsService', () => {
     });
   });
 
+  describe('findAllBySeason', () => {
+    it('liste les championnats de la saison, toutes équipes confondues', async () => {
+      championshipFindMany.mockResolvedValue([championship]);
+
+      const result = await service.findAllBySeason(1, 10);
+
+      expect(result).toEqual([championship]);
+      expect(championshipFindMany).toHaveBeenCalledWith({
+        where: { seasonId: 10 },
+        include: { team: { select: { id: true, name: true } } },
+        orderBy: { startDate: 'desc' },
+      });
+    });
+
+    it('renvoie 404 si la saison est introuvable dans ce club', async () => {
+      seasonFindFirst.mockResolvedValue(null);
+
+      await expect(service.findAllBySeason(1, 999)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+      });
+      expect(championshipFindMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('findOne', () => {
     it('renvoie 404 si le championnat est introuvable dans cette équipe', async () => {
       championshipFindFirst.mockResolvedValue(null);

@@ -14,7 +14,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link, useRouter } from "@/i18n/navigation";
 import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -23,8 +22,8 @@ import {
   ChampionshipFormDialog,
   type ExistingChampionship,
 } from "@/components/championships/championship-form-dialog";
-import { ParticipantsTab } from "@/components/championships/participants-tab";
-import { MatchesTab } from "@/components/championships/matches-tab";
+import { ParticipantsDialog } from "@/components/championships/participants-dialog";
+import { ChampionshipMatchesPanel } from "@/components/championships/championship-matches-panel";
 import { StandingsTab } from "@/components/championships/standings-tab";
 
 interface ChampionshipDetail extends ExistingChampionship {
@@ -34,9 +33,14 @@ interface ChampionshipDetail extends ExistingChampionship {
 
 // Composant nommé séparé du default export : voir la note dans
 // teams/page.tsx (TeamsPageContent) — `use(params)` ne se résout pas de
-// façon fiable sous Jest/jsdom. Fiche d'un championnat (Partie B) :
-// Participants (B9), Calendrier (B13) et Classement (B14) pleinement
-// fonctionnels. Édition/suppression via ChampionshipFormDialog et une
+// façon fiable sous Jest/jsdom. Fiche d'un championnat (Partie B, refonte
+// B16 — retour utilisateur explicite) : plus d'onglets. Classement (B14,
+// inchangé) en colonne principale (3/4), calendrier compact (B16, mise en
+// valeur des rencontres de l'équipe propriétaire) en colonne latérale
+// (1/4) — le classement liste déjà toutes les équipes participantes, un
+// onglet Participants dédié était redondant ; leur gestion (ajout/retrait)
+// reste possible via une modale dédiée (ParticipantsDialog), pas un onglet.
+// Édition/suppression du championnat via ChampionshipFormDialog et une
 // confirmation dédiée, jamais un formulaire inline — cohérence avec le
 // reste de l'application (fiche de saison, notamment).
 export function ChampionshipDetailPageContent({
@@ -133,6 +137,7 @@ export function ChampionshipDetailPageContent({
         </div>
         {championship.canManage && (
           <div className="flex items-center gap-2">
+            <ParticipantsDialog clubId={clubId} teamId={teamId} championshipId={championshipId} />
             <ChampionshipFormDialog
               clubId={clubId}
               teamId={teamId}
@@ -169,22 +174,14 @@ export function ChampionshipDetailPageContent({
         )}
       </div>
 
-      <Tabs defaultValue="participants">
-        <TabsList>
-          <TabsTrigger value="participants">{t("tabs.participants")}</TabsTrigger>
-          <TabsTrigger value="matches">{t("tabs.matches")}</TabsTrigger>
-          <TabsTrigger value="standings">{t("tabs.standings")}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="participants">
-          <ParticipantsTab clubId={clubId} teamId={teamId} championshipId={championshipId} />
-        </TabsContent>
-        <TabsContent value="matches">
-          <MatchesTab clubId={clubId} teamId={teamId} championshipId={championshipId} />
-        </TabsContent>
-        <TabsContent value="standings">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4 lg:gap-10">
+        <div className="lg:col-span-3">
           <StandingsTab clubId={clubId} teamId={teamId} championshipId={championshipId} />
-        </TabsContent>
-      </Tabs>
+        </div>
+        <div className="lg:col-span-1">
+          <ChampionshipMatchesPanel clubId={clubId} teamId={teamId} championshipId={championshipId} />
+        </div>
+      </div>
     </div>
   );
 }

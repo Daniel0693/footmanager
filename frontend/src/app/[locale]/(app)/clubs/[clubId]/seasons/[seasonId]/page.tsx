@@ -15,10 +15,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link, useRouter } from "@/i18n/navigation";
 import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -26,6 +24,7 @@ import { seasonStatusBadgeVariant, type SeasonStatus } from "@/lib/season-status
 import { formatDate } from "@/lib/date-format";
 import { resolveAnyTeamId } from "@/lib/resolve-any-team";
 import { SeasonFormDialog } from "@/components/seasons/season-form-dialog";
+import { SeasonChampionshipsPanel } from "@/components/seasons/season-championships-panel";
 
 interface SeasonDetail {
   id: number;
@@ -47,6 +46,11 @@ interface SeasonDetail {
 // jamais déduit d'un rôle côté client. Création/édition via
 // `SeasonFormDialog` (modale), jamais un formulaire inline sur cette page —
 // cohérence avec le reste de l'application (retour utilisateur explicite).
+// Refonte B16 (retour utilisateur explicite) : plus d'onglets — l'onglet
+// "Informations" ne contenait que 2 dates, pas assez pour justifier un
+// onglet dédié. Layout à deux colonnes : dates en petite colonne (1/4),
+// championnats de la saison (toutes équipes du club, surtout utile à
+// l'AdminClub) en colonne large (3/4) via `SeasonChampionshipsPanel`.
 export function SeasonDetailPageContent({
   clubId,
   seasonId,
@@ -278,33 +282,21 @@ export function SeasonDetailPageContent({
         <p className="text-sm text-muted-foreground">{t("archivedNotice")}</p>
       )}
 
-      <Tabs defaultValue="info">
-        <TabsList>
-          <TabsTrigger value="info">{t("tabs.info")}</TabsTrigger>
-          <TabsTrigger value="championships">{t("tabs.championships")}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="info">
-          <Card>
-            <CardContent className="flex flex-col gap-3 pt-6 text-sm">
-              <div className="flex justify-between gap-2">
-                <span className="text-muted-foreground">{t("startDate")}</span>
-                <span>{formatDate(season.startDate)}</span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span className="text-muted-foreground">{t("endDate")}</span>
-                <span>{formatDate(season.endDate)}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="championships">
-          <Card>
-            <CardContent className="py-6 text-sm text-muted-foreground">
-              {t("championshipsComingSoon")}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4 lg:gap-10">
+        <div className="flex flex-col gap-3 text-sm lg:col-span-1">
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">{t("startDate")}</span>
+            <span>{formatDate(season.startDate)}</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground">{t("endDate")}</span>
+            <span>{formatDate(season.endDate)}</span>
+          </div>
+        </div>
+        <div className="lg:col-span-3">
+          <SeasonChampionshipsPanel clubId={clubId} seasonId={seasonId} />
+        </div>
+      </div>
     </div>
   );
 }

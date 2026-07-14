@@ -404,10 +404,6 @@
     "loadFailed": "Impossible de charger la saison",
     "archivedNotice": "Cette saison est archivée. Les modifications apportées via « Modifier » impactent les statistiques déjà calculées pour cette période — comportement attendu, pas une erreur.",
     "edit": "Modifier",
-    "tabs": {
-      "info": "Informations",
-      "championships": "Championnats"
-    },
     "startDate": "Date de début",
     "endDate": "Date de fin",
     "delete": "Supprimer",
@@ -417,7 +413,13 @@
     "deleteConfirm": "Supprimer définitivement",
     "deleted": "Saison supprimée avec succès",
     "deleteFailed": "Échec de la suppression de la saison",
-    "championshipsComingSoon": "La gestion des championnats arrivera dans une prochaine phase.",
+    "championshipsTitle": "Championnats de la saison",
+    "championshipsEmpty": "Aucun championnat pour cette saison",
+    "championshipsLoadFailed": "Impossible de charger les championnats",
+    "championshipsRestricted": "Réservé aux administrateurs du club",
+    "columnChampionshipName": "Championnat",
+    "columnChampionshipTeam": "Équipe",
+    "columnChampionshipDates": "Dates",
     "activate": "Activer",
     "activateDialogTitle": "Activer cette saison ?",
     "activateDialogDescriptionWithOldSeason": "La saison « {name} » sera archivée. Vous pouvez corriger sa date de fin ci-dessous.",
@@ -464,12 +466,7 @@
     "cancel": "Annuler",
     "deleteConfirm": "Supprimer définitivement",
     "deleted": "Championnat supprimé avec succès",
-    "deleteFailed": "Échec de la suppression du championnat",
-    "tabs": {
-      "participants": "Participants",
-      "matches": "Calendrier",
-      "standings": "Classement"
-    }
+    "deleteFailed": "Échec de la suppression du championnat"
   },
   "standings": {
     "loadFailed": "Impossible de charger le classement",
@@ -486,6 +483,7 @@
     "columnPoints": "Pts"
   },
   "championshipParticipants": {
+    "manageButton": "Gérer les participants",
     "loadFailed": "Impossible de charger les participants",
     "empty": "Aucun participant pour l'instant",
     "columnName": "Équipe",
@@ -502,12 +500,10 @@
     "removeFailed": "Échec du retrait du participant"
   },
   "championshipMatches": {
+    "title": "Calendrier",
     "addButton": "Planifier une rencontre",
-    "columnRound": "Journée",
-    "columnMatch": "Rencontre",
-    "columnDate": "Date",
-    "columnScore": "Score",
-    "columnStatus": "Statut",
+    "bulkAddButton": "Ajout en masse",
+    "roundLabel": "J{round}",
     "actions": "Actions",
     "empty": "Aucune rencontre planifiée pour l'instant",
     "loadFailed": "Impossible de charger les rencontres",
@@ -525,6 +521,15 @@
       "CANCELLED": "Annulée",
       "POSTPONED": "Reportée"
     }
+  },
+  "bulkMatchForm": {
+    "title": "Ajouter plusieurs rencontres",
+    "description": "Remplis autant de lignes que nécessaire, puis crée-les toutes en une seule fois.",
+    "addRow": "Ajouter une ligne",
+    "removeRow": "Retirer la ligne",
+    "submit": "Créer les rencontres",
+    "noRowsToCreate": "Renseigne au moins une rencontre complète (équipes et date)",
+    "created": "{count, plural, one {# rencontre créée avec succès} other {# rencontres créées avec succès}}"
   },
   "matchForm": {
     "createTitle": "Planifier une rencontre",

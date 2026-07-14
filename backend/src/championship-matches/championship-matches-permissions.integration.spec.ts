@@ -179,6 +179,7 @@ function buildContext(
 
 /* eslint-disable @typescript-eslint/unbound-method */
 const createHandler = ChampionshipMatchesController.prototype.create;
+const createBulkHandler = ChampionshipMatchesController.prototype.createBulk;
 const findAllHandler = ChampionshipMatchesController.prototype.findAll;
 const updateHandler = ChampionshipMatchesController.prototype.update;
 const removeHandler = ChampionshipMatchesController.prototype.remove;
@@ -233,6 +234,7 @@ describe('Module ChampionshipMatch — scénario multi-rôles (ChampionshipMatch
         findMany: jest.fn().mockResolvedValue([]),
         create: matchCreate,
       },
+      $transaction: jest.fn((operations: unknown[]) => Promise.all(operations)),
     } as unknown as PrismaService;
     service = new ChampionshipMatchesService(prismaStub, permissionsService);
   });
@@ -254,6 +256,44 @@ describe('Module ChampionshipMatch — scénario multi-rôles (ChampionshipMatch
       scheduledAt: new Date('2026-09-15'),
     });
     expect(matchCreate).toHaveBeenCalled();
+  });
+
+  it('Coach planifie plusieurs rencontres en une seule requête (B16, ajout en masse)', async () => {
+    const request = {
+      params: { clubId: '1', teamId: '5' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, createBulkHandler)),
+    ).resolves.toBe(true);
+    expect(request.permissionScope).toBe('TEAM');
+
+    await service.createBulk(1, 5, 100, [
+      {
+        homeParticipantId: 1,
+        awayParticipantId: 2,
+        scheduledAt: new Date('2026-09-15'),
+      },
+      {
+        homeParticipantId: 2,
+        awayParticipantId: 1,
+        scheduledAt: new Date('2026-09-22'),
+      },
+    ]);
+    expect(matchCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("Player n'a pas la permission d'ajouter des rencontres en masse", async () => {
+    const request = {
+      params: { clubId: '1', teamId: '5' },
+      user: { userId: 7 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, createBulkHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+    expect(matchCreate).not.toHaveBeenCalled();
   });
 
   it("Coach n'a aucun droit sur une AUTRE équipe", async () => {

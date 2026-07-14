@@ -74,6 +74,55 @@ export class ChampionshipMatchesService {
     });
   }
 
+  // Ajout en masse (docs/roadmap.md B16) : mêmes règles de validation que
+  // `create` (participants distincts, appartenance au championnat),
+  // appliquées à chaque ligne AVANT toute écriture — puis création en une
+  // seule transaction, tout ou rien (pas de lot partiellement créé si une
+  // ligne est invalide, plus simple à comprendre pour l'utilisateur qu'un
+  // résultat mixte succès/échec par ligne).
+  async createBulk(
+    clubId: number,
+    teamId: number,
+    championshipId: number,
+    dtos: CreateChampionshipMatchDto[],
+  ) {
+    await this.findChampionshipOrThrow(clubId, teamId, championshipId);
+
+    for (const dto of dtos) {
+      if (dto.homeParticipantId === dto.awayParticipantId) {
+        throw new AppException(
+          'CHAMPIONSHIP_MATCHES.SAME_PARTICIPANT',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      await this.assertParticipantInChampionship(
+        championshipId,
+        dto.homeParticipantId,
+      );
+      await this.assertParticipantInChampionship(
+        championshipId,
+        dto.awayParticipantId,
+      );
+    }
+
+    return this.prisma.$transaction(
+      dtos.map((dto) =>
+        this.prisma.championshipMatch.create({
+          data: {
+            championshipId,
+            homeParticipantId: dto.homeParticipantId,
+            awayParticipantId: dto.awayParticipantId,
+            scheduledAt: dto.scheduledAt,
+            round: dto.round,
+            numberOfPeriods: dto.numberOfPeriods,
+            periodDurationMinutes: dto.periodDurationMinutes,
+          },
+          include: MATCH_INCLUDE,
+        }),
+      ),
+    );
+  }
+
   async findAllByChampionship(
     clubId: number,
     teamId: number,

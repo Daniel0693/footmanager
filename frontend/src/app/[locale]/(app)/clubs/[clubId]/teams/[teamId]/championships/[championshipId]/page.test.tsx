@@ -43,9 +43,10 @@ const championship = {
   canManage: true,
 };
 
-// Router par URL : la fiche charge le championnat, puis chaque onglet
-// (Participants par défaut, Calendrier/Classement dès qu'ils sont activés)
-// charge ses propres données.
+// Router par URL : la fiche charge le championnat, puis le classement et le
+// calendrier chargent leurs propres données directement (refonte B16, plus
+// d'onglets) ; les participants ne se chargent qu'à l'ouverture de la modale
+// de gestion.
 function mockApiFetchDefault(champ: unknown = championship, ok = true) {
   mockApiFetch.mockImplementation((url: string) => {
     if (url.includes("/participants")) {
@@ -98,34 +99,18 @@ describe("ChampionshipDetailPageContent", () => {
     expect(await screen.findByText("Impossible de charger le championnat")).toBeInTheDocument();
   });
 
-  it("affiche l'onglet Participants par défaut", async () => {
+  it("affiche directement le classement et le calendrier, sans onglets", async () => {
     mockApiFetchDefault();
 
     renderPage();
     await screen.findByRole("heading", { name: "Championnat Automne" });
 
-    expect(await screen.findByText("Aucun participant pour l'instant")).toBeInTheDocument();
+    expect(await screen.findByText("Aucun classement disponible pour l'instant")).toBeInTheDocument();
+    expect(screen.getByText("Aucune rencontre planifiée pour l'instant")).toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 
-  it("les onglets Calendrier et Classement chargent leurs propres données", async () => {
-    mockApiFetchDefault();
-    const user = userEvent.setup();
-
-    renderPage();
-    await screen.findByRole("heading", { name: "Championnat Automne" });
-
-    await user.click(screen.getByRole("tab", { name: "Calendrier" }));
-    expect(
-      await screen.findByText("Aucune rencontre planifiée pour l'instant"),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: "Classement" }));
-    expect(
-      await screen.findByText("Aucun classement disponible pour l'instant"),
-    ).toBeInTheDocument();
-  });
-
-  it("cache Modifier/Supprimer quand canManage est false", async () => {
+  it("cache Modifier/Supprimer/Gérer les participants quand canManage est false", async () => {
     mockApiFetchDefault({ ...championship, canManage: false });
 
     renderPage();
@@ -133,6 +118,7 @@ describe("ChampionshipDetailPageContent", () => {
     await screen.findByRole("heading", { name: "Championnat Automne" });
     expect(screen.queryByRole("button", { name: "Modifier" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Supprimer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Gérer les participants" })).not.toBeInTheDocument();
   });
 
   it("Modifier ouvre la modale d'édition pré-remplie", async () => {
@@ -150,10 +136,28 @@ describe("ChampionshipDetailPageContent", () => {
     expect(screen.getByLabelText("Nom")).toHaveValue("Championnat Automne");
   });
 
+  it("Gérer les participants ouvre la modale de gestion des participants", async () => {
+    mockApiFetchDefault();
+    const user = userEvent.setup();
+
+    renderPage();
+    await screen.findByRole("heading", { name: "Championnat Automne" });
+
+    await user.click(screen.getByRole("button", { name: "Gérer les participants" }));
+
+    expect(await screen.findByText("Aucun participant pour l'instant")).toBeInTheDocument();
+  });
+
   it("supprime le championnat après confirmation et redirige vers la liste", async () => {
     mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
       if (url.includes("/participants")) {
         return Promise.resolve(jsonResponse({ data: [], canManage: true }));
+      }
+      if (url.includes("/matches")) {
+        return Promise.resolve(jsonResponse({ data: [], canManage: true }));
+      }
+      if (url.includes("/standings")) {
+        return Promise.resolve(jsonResponse([]));
       }
       if (options?.method === "DELETE") return Promise.resolve(jsonResponse({}));
       return Promise.resolve(jsonResponse(championship));

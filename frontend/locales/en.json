@@ -404,10 +404,6 @@
     "loadFailed": "Unable to load the season",
     "archivedNotice": "This season is archived. Changes made via \"Edit\" affect statistics already computed for this period — this is expected, not an error.",
     "edit": "Edit",
-    "tabs": {
-      "info": "Information",
-      "championships": "Championships"
-    },
     "startDate": "Start date",
     "endDate": "End date",
     "delete": "Delete",
@@ -417,7 +413,13 @@
     "deleteConfirm": "Delete permanently",
     "deleted": "Season deleted successfully",
     "deleteFailed": "Failed to delete season",
-    "championshipsComingSoon": "Championship management is coming in a future phase.",
+    "championshipsTitle": "Season championships",
+    "championshipsEmpty": "No championships for this season",
+    "championshipsLoadFailed": "Unable to load championships",
+    "championshipsRestricted": "Restricted to club administrators",
+    "columnChampionshipName": "Championship",
+    "columnChampionshipTeam": "Team",
+    "columnChampionshipDates": "Dates",
     "activate": "Activate",
     "activateDialogTitle": "Activate this season?",
     "activateDialogDescriptionWithOldSeason": "Season \"{name}\" will be archived. You can correct its end date below.",
@@ -464,12 +466,7 @@
     "cancel": "Cancel",
     "deleteConfirm": "Delete permanently",
     "deleted": "Championship deleted successfully",
-    "deleteFailed": "Failed to delete the championship",
-    "tabs": {
-      "participants": "Participants",
-      "matches": "Schedule",
-      "standings": "Standings"
-    }
+    "deleteFailed": "Failed to delete the championship"
   },
   "standings": {
     "loadFailed": "Unable to load the standings",
@@ -486,6 +483,7 @@
     "columnPoints": "Pts"
   },
   "championshipParticipants": {
+    "manageButton": "Manage participants",
     "loadFailed": "Unable to load participants",
     "empty": "No participants yet",
     "columnName": "Team",
@@ -502,12 +500,10 @@
     "removeFailed": "Failed to remove the participant"
   },
   "championshipMatches": {
+    "title": "Schedule",
     "addButton": "Schedule a match",
-    "columnRound": "Round",
-    "columnMatch": "Match",
-    "columnDate": "Date",
-    "columnScore": "Score",
-    "columnStatus": "Status",
+    "bulkAddButton": "Bulk add",
+    "roundLabel": "R{round}",
     "actions": "Actions",
     "empty": "No matches scheduled yet",
     "loadFailed": "Unable to load matches",
@@ -525,6 +521,15 @@
       "CANCELLED": "Cancelled",
       "POSTPONED": "Postponed"
     }
+  },
+  "bulkMatchForm": {
+    "title": "Add multiple matches",
+    "description": "Fill in as many rows as you need, then create them all at once.",
+    "addRow": "Add a row",
+    "removeRow": "Remove row",
+    "submit": "Create matches",
+    "noRowsToCreate": "Fill in at least one complete match (teams and date)",
+    "created": "{count, plural, one {# match created successfully} other {# matches created successfully}}"
   },
   "matchForm": {
     "createTitle": "Schedule a match",

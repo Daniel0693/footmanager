@@ -89,6 +89,7 @@ describe('ChampionshipMatchesService', () => {
         update: matchUpdate,
         delete: matchDelete,
       },
+      $transaction: jest.fn((operations: unknown[]) => Promise.all(operations)),
     } as unknown as PrismaService;
 
     permissionsCan = jest.fn().mockResolvedValue('TEAM');
@@ -152,6 +153,81 @@ describe('ChampionshipMatchesService', () => {
           awayParticipantId: 999,
           scheduledAt: match.scheduledAt,
         }),
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+      expect(matchCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createBulk', () => {
+    it('crée toutes les rencontres en une transaction', async () => {
+      matchCreate.mockResolvedValue(match);
+
+      const result = await service.createBulk(1, 5, 100, [
+        {
+          homeParticipantId: 1,
+          awayParticipantId: 2,
+          scheduledAt: match.scheduledAt,
+          round: 1,
+        },
+        {
+          homeParticipantId: 2,
+          awayParticipantId: 1,
+          scheduledAt: match.scheduledAt,
+          round: 2,
+        },
+      ]);
+
+      expect(result).toEqual([match, match]);
+      expect(matchCreate).toHaveBeenCalledTimes(2);
+    });
+
+    it('refuse tout le lot si une ligne a deux participants identiques', async () => {
+      await expect(
+        service.createBulk(1, 5, 100, [
+          {
+            homeParticipantId: 1,
+            awayParticipantId: 2,
+            scheduledAt: match.scheduledAt,
+          },
+          {
+            homeParticipantId: 1,
+            awayParticipantId: 1,
+            scheduledAt: match.scheduledAt,
+          },
+        ]),
+      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+      expect(matchCreate).not.toHaveBeenCalled();
+    });
+
+    it('refuse tout le lot si une ligne référence un participant hors du championnat', async () => {
+      await expect(
+        service.createBulk(1, 5, 100, [
+          {
+            homeParticipantId: 1,
+            awayParticipantId: 2,
+            scheduledAt: match.scheduledAt,
+          },
+          {
+            homeParticipantId: 1,
+            awayParticipantId: 999,
+            scheduledAt: match.scheduledAt,
+          },
+        ]),
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+      expect(matchCreate).not.toHaveBeenCalled();
+    });
+
+    it('renvoie 404 si le championnat est introuvable', async () => {
+      championshipFindFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createBulk(1, 5, 100, [
+          {
+            homeParticipantId: 1,
+            awayParticipantId: 2,
+            scheduledAt: match.scheduledAt,
+          },
+        ]),
       ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(matchCreate).not.toHaveBeenCalled();
     });

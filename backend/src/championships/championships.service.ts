@@ -95,6 +95,28 @@ export class ChampionshipsService {
     return { data, canManage };
   }
 
+  // Vue transverse "tous les championnats d'une saison, toutes équipes
+  // confondues" — consommée par la fiche de saison (docs/roadmap.md B16),
+  // surtout utile à l'AdminClub. Pas de `?teamId=` ici : contrairement aux
+  // routes scopées équipe ci-dessus, cet endpoint ne porte que sur
+  // `championship READ`, résolu sans teamId — seul un scope CLUB/ALL
+  // (AdminClub+) le satisfait, un Coach/Player (scope TEAM) reçoit 403 par
+  // construction (aucun contournement `?teamId=` prévu, cette vue
+  // cross-équipe n'a pas de sens pour un rôle limité à sa propre équipe).
+  async findAllBySeason(clubId: number, seasonId: number) {
+    await assertSeasonInClub(
+      this.prisma,
+      clubId,
+      seasonId,
+      'CHAMPIONSHIPS.SEASON_NOT_FOUND',
+    );
+    return this.prisma.championship.findMany({
+      where: { seasonId },
+      include: { team: { select: { id: true, name: true } } },
+      orderBy: { startDate: 'desc' },
+    });
+  }
+
   async findOne(clubId: number, teamId: number, id: number, memberId: number) {
     const [championship, canManage] = await Promise.all([
       this.findChampionshipOrThrow(clubId, teamId, id),

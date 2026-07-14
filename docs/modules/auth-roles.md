@@ -220,6 +220,25 @@ de saison, et pour masquer le lien "Saisons" de la sidebar (`SidebarNav`) quand 
 403 explicite (ex. Parent, qui n'a aucune permission `season`, voir
 `docs/modules/saisons-championnats.md` §Droits par rôle) — jamais déduit d'un rôle côté client.
 
+**Quatrième cas, à l'opposé du troisième : une vue club-wide en LECTURE SEULE, volontairement
+réservée au scope `CLUB`/`ALL`, sans repli `?teamId=` pour un scope `TEAM`.** Introduit en B16 :
+`GET /clubs/:clubId/seasons/:seasonId/championships` (`SeasonChampionshipsController`) liste les
+championnats d'une saison **toutes équipes du club confondues**, pour la fiche de saison —
+consommée principalement par l'AdminClub qui veut naviguer rapidement entre équipes. Contrairement
+au troisième cas (`season`, où n'importe quel `teamId` de l'appelant suffit puisque `Season` ne
+filtre par aucune équipe), ici la ressource listée (`Championship`) **porte** un `teamId`, et un
+Coach ne doit voir que les championnats des équipes où il a réellement un rôle — pas de proxy
+`?teamId=` simple à appliquer sans repasser par une logique de filtrage par équipe(s) autorisée(s),
+non implémentée en B16 faute de besoin exprimé. Choix : la permission `championship READ` est
+vérifiée **sans aucun** `teamId` transmis, donc seul un scope `CLUB`/`ALL` (AdminClub+) passe le
+guard ; un Coach/Player (scope `TEAM`) reçoit toujours 403, quel que soit le `?teamId=` fourni
+(non lu par le frontend pour cette route). Le frontend traite ce 403 comme "rien à afficher" (pas
+un toast d'erreur) — cohérent avec le corollaire UI de `CLAUDE.md` (masquage = confort, jamais la
+seule protection). **Si un besoin Coach apparaît plus tard**, ne pas ouvrir cette route par un
+simple `?teamId=` (elle resterait limitée à UNE équipe, pas à "toutes les équipes où je suis
+Coach") — prévoir plutôt un filtrage explicite par les `teamId` où l'appelant a réellement
+`championship READ`.
+
 **Le paramètre `?teamId=` transmis en query n'est vérifié par `PermissionsGuard` que pour
 résoudre le SCOPE (Coach a-t-il un rôle sur CE teamId ?) — jamais pour vérifier que la
 RESSOURCE ciblée par l'URL appartient bien à cette équipe.** Faille trouvée en concevant A7.3

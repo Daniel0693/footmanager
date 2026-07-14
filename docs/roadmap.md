@@ -256,6 +256,53 @@ Tests à la fin de la Partie B (après B15) : 533 tests backend + 487 tests fron
 la Phase 3 (Parties A et B confondues, la branche B ayant repris directement là où A s'est
 arrêtée).
 
+#### B16 — Refonte UX (retour utilisateur post-clôture)
+
+Retour utilisateur après B15, avant merge dans `develop` : les onglets des fiches
+championnat et saison n'étaient pas le bon format — trop de clics pour une info dense
+(classement + calendrier) ou trop peu de contenu pour en justifier un (fiche saison,
+seulement 2 dates). Trois changements, tous en frontend + un endpoint backend :
+
+- **Fiche championnat** : plus d'onglets. Classement (B14, inchangé) en colonne principale
+  (3/4), calendrier compact en colonne latérale (1/4) — liste triée par date (pas par
+  journée), une ligne par rencontre (journée/date/équipe domicile+score/équipe extérieur+score),
+  mise en valeur des rencontres impliquant l'équipe propriétaire du championnat pour un repérage
+  immédiat. L'onglet Participants a disparu (le classement liste déjà toutes les équipes
+  participantes, B14) — sa gestion (ajout/retrait) reste possible via une modale dédiée
+  (`ParticipantsDialog`, réutilise `ParticipantsTab` tel quel), pas un onglet.
+- **Équipes adverses réutilisables d'une saison à l'autre** : déjà le comportement existant
+  (`ExternalTeam` est scopée au *club*, pas au championnat ni à la saison — voir
+  `docs/schema/championnats.md` §ExternalTeam) — le sélecteur d'ajout de participant liste déjà
+  toutes les équipes adverses du club, quelle que soit la saison où elles ont été créées. Aucun
+  changement de code nécessaire, confirmé avec l'utilisateur.
+- **Fiche saison** : plus d'onglets. Dates de début/fin en petite colonne (1/4), championnats de
+  la saison — toutes équipes du club confondues — en colonne large (3/4), chacun lié à sa fiche
+  championnat. Nouvel endpoint `GET /clubs/:clubId/seasons/:seasonId/championships`
+  (`SeasonChampionshipsController`, permission `championship READ` sans `?teamId=` : seul un
+  scope CLUB/ALL — AdminClub+ — y a accès, cohérent avec l'usage principal signalé par
+  l'utilisateur ; un Coach/Player reçoit un 403 traité côté frontend comme "rien à afficher",
+  pas une erreur).
+
+Tests après B16 : 538 tests backend (+5) + 497 tests frontend (+10, net après suppression de
+`matches-tab.test.tsx` remplacé par `championship-matches-panel.test.tsx`).
+
+#### B17 — Ajustements UX supplémentaires (retour utilisateur sur B16)
+
+- **Espacement des colonnes** : `gap-4` → `gap-6 lg:gap-10` sur les grilles à deux colonnes des
+  fiches championnat et saison (B16) — la mise en page tenait déjà, il manquait juste de l'air
+  entre le contenu principal et la colonne latérale.
+- **Ajout de rencontres en masse** : planifier un championnat complet une rencontre à la fois
+  (B13) était trop lent. Nouveau `POST .../championships/:championshipId/matches/bulk`
+  (`ChampionshipMatchesService.createBulk`, même pattern que `EventsService.createBulk` du
+  Calendrier, B4) — valide chaque ligne (participants distincts, appartenance au championnat)
+  avant toute écriture, puis crée tout en une seule transaction Prisma (tout ou rien). Côté
+  frontend, `BulkMatchFormDialog` (formulaire tableau : domicile/extérieur/date/journée par
+  ligne, "Ajouter une ligne" à volonté, une seule requête pour tout créer) complète
+  `MatchFormDialog` sans le remplacer, accessible depuis le même bouton d'en-tête du calendrier
+  compact (B16).
+
+Tests après B17 : 544 tests backend (+6) + 503 tests frontend (+6).
+
 ---
 
 ## Phase 4 — Matchs (notre équipe) ⬜

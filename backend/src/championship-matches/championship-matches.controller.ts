@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { ChampionshipMatchesService } from './championship-matches.service';
 import { CreateChampionshipMatchDto } from './dto/create-championship-match.dto';
+import { CreateChampionshipMatchesBulkDto } from './dto/create-championship-matches-bulk.dto';
 import { FindChampionshipMatchesQueryDto } from './dto/find-championship-matches-query.dto';
 import { UpdateChampionshipMatchDto } from './dto/update-championship-match.dto';
 
@@ -40,6 +41,26 @@ export class ChampionshipMatchesController {
       teamId,
       championshipId,
       dto,
+    );
+  }
+
+  // Déclaré avant les routes :id (PATCH/DELETE) — pas d'ambiguïté ici
+  // puisqu'aucune route :id n'existe en POST, mais on garde 'bulk' en
+  // chemin explicite plutôt que ':id', même convention que
+  // EventsController.createBulk (Calendrier, B4).
+  @RequirePermission('championship_match', 'CREATE')
+  @Post('bulk')
+  createBulk(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @Param('championshipId', ParseIntPipe) championshipId: number,
+    @Body() dto: CreateChampionshipMatchesBulkDto,
+  ) {
+    return this.championshipMatchesService.createBulk(
+      clubId,
+      teamId,
+      championshipId,
+      dto.matches,
     );
   }
 
