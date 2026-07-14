@@ -3,6 +3,7 @@ import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
+import { resolveSeasonPeriod } from '../common/season-period';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerNoteDto } from './dto/create-player-note.dto';
 import { FindPlayerNotesQueryDto } from './dto/find-player-notes-query.dto';
@@ -80,16 +81,31 @@ export class PlayerNotesService {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
 
+    // Filtrage rétroactif par saison (A12) : prioritaire sur dateFrom/dateTo
+    // si transmis — mutuellement exclusifs au niveau UI (voir DTO).
+    let dateFrom = query.dateFrom;
+    let rawDateTo = query.dateTo;
+    if (query.seasonId) {
+      const period = await resolveSeasonPeriod(
+        this.prisma,
+        clubId,
+        query.seasonId,
+        'PLAYER_NOTES.SEASON_NOT_FOUND',
+      );
+      dateFrom = period.startDate;
+      rawDateTo = period.endDate;
+    }
+
     // `createdAt` est un horodatage complet (pas un `@db.Date` comme les
     // filtres de date des autres onglets) : une borne haute "2026-01-15"
     // désérialisée à minuit exclurait à tort les notes créées plus tard ce
     // même jour. On l'étend donc à la fin de journée pour que dateTo reste
     // inclusif du jour choisi.
-    const dateTo = query.dateTo
+    const dateTo = rawDateTo
       ? new Date(
-          query.dateTo.getFullYear(),
-          query.dateTo.getMonth(),
-          query.dateTo.getDate(),
+          rawDateTo.getFullYear(),
+          rawDateTo.getMonth(),
+          rawDateTo.getDate(),
           23,
           59,
           59,
@@ -98,7 +114,7 @@ export class PlayerNotesService {
       : undefined;
 
     const notes = await this.prisma.playerNote.findMany({
-      where: { playerId, createdAt: { gte: query.dateFrom, lte: dateTo } },
+      where: { playerId, createdAt: { gte: dateFrom, lte: dateTo } },
       include: { author: true },
       orderBy: { createdAt: query.sortOrder ?? 'desc' },
     });

@@ -116,18 +116,125 @@ Tests à la fin de la Partie B (après B9 + correctifs) : 340 tests backend + 25
 
 ---
 
-## Phase 3 — Saisons & Championnats ⬜
+## Phase 3 — Saisons & Championnats 🚧
 
 _~2–3 semaines_
 
-- `Season` (états DRAFT/ACTIVE/ARCHIVED), `Championship`, `ChampionshipParticipant`,
-  `ChampionshipMatch`, `ExternalTeam`.
-- Wizard de création de saison (import roster, confirmation, activation).
-- Configuration du format de jeu et des règles de points par championnat.
-- Presets de règles de départage + configuration personnalisée.
-- Saisie des résultats des matchs adverses.
-- Classement calculé à la volée.
-- Filtrage des statistiques joueur par saison / championnat / catégorie / dates libres.
+Découpage établi le 2026-07-13, sur le modèle de la Phase 2 (Partie A / Partie B, incréments
+granulaires, une branche `feature/` par partie, mergée dans `develop` seulement une fois
+entièrement terminée et testée). Conception fonctionnelle complète (schéma, wizard, droits,
+algorithme de classement) déjà figée dans `docs/schema/championnats.md` et
+`docs/modules/saisons-championnats.md` avant le premier incrément.
+
+**Hors scope explicite** : `ExternalPlayer` (Phase 7 Scouting, malgré sa présence dans le même
+fichier `docs/schema/championnats.md`) ; `Match`/gestion live (Phase 4) — toutes les rencontres
+de championnat, y compris les nôtres, sont saisies manuellement sur `ChampionshipMatch` en
+attendant Phase 4 (`matchId` posé nullable dès maintenant, sans `@relation`, pour la migration
+future).
+
+### Partie A — Module Season ✅
+
+| Étape | Contenu |
+|---|---|
+| A0 | Prérequis transverse (seed permissions, nav, i18n) |
+| A1 | Schéma `Season` (scopée équipe à l'origine — voir révision A14 ci-dessous) |
+| A2 | Backend `seasons` CRUD scopé équipe |
+| A3 | Frontend liste des saisons |
+| A4 | Composant `Stepper` générique (débranché de Season depuis A17, reste disponible) |
+| A5 | Frontend wizard étape 1 (création DRAFT) — **supprimé en A17** |
+| A6 | Backend import roster (étape 2) — **supprimé en A15** |
+| A7 | Frontend wizard étape 2 (import roster) — **supprimé en A17** |
+| A8 | Wizard étape 3 — placeholder — **supprimé en A17** (Championship ne dépendra plus du wizard, voir révision) |
+| A9 | Backend activation (étape 4) — repliée dans `SeasonsService.activate` en A15 |
+| A10 | Frontend wizard étape 4 (résumé + activation) — **supprimé en A17** |
+| A11 | Frontend détail de saison + édition |
+| A12 | Filtrage rétroactif par saison des 5 entités A7.x (Phase 2) |
+| A13 | Tests multi-rôles bout-en-bout Partie A |
+
+Détail complet de chaque étape : voir le plan de développement archivé au moment de la
+conception de la Phase 3 et `docs/modules/saisons-championnats.md`.
+
+#### Révision A14-A19 — Saisons au niveau du club
+
+Retour utilisateur après A13 : toutes les équipes d'un club partagent le même calendrier de
+saisons — avoir une `Season` distincte par équipe (conception A0-A13) dupliquait une
+information censée être unique pour le club. Révision effectuée avant le démarrage de la
+Partie B pour ne pas construire `Championship` sur le mauvais modèle.
+
+| Étape | Contenu |
+|---|---|
+| A14 | Schéma : `Season.teamId`→`clubId`, suppression `teamNameSnapshot`/`categorySnapshot` (jamais alimentés), migration destructive (données de dev réinitialisées), permissions (Coach perd l'écriture) |
+| A15 | Backend `seasons` : routes/service club-wide, activation repliée dans `SeasonsService` (suppression de `SeasonRosterImportService`/`SeasonActivationService`), contrôle de non-chevauchement des dates, `resolveSeasonPeriod` scopé club |
+| A16 | Backend Effectif : recherche club-wide de joueurs (`PlayersService.findAllByClub` + `search`), base du transfert entre équipes |
+| A17 | Frontend : routes déplacées vers `clubs/:clubId/seasons/**`, wizard/`Stepper` retirés, création/édition via `SeasonFormDialog` (modale, cohérence avec le reste de l'app — retour utilisateur explicite), activation en action ponctuelle |
+| A18 | Frontend : sélecteur "Joueur existant du club" dans `PlayerFormDialog` (recherche affichée **par défaut**, avant "Nouveau joueur" — retour utilisateur), pour les promotions/transferts entre équipes (ex. U15→U16) sans recréer le profil |
+| A19 | Docs (ce bloc) + retest multi-rôles + vérification bout-en-bout |
+| A20 | Correctif : Coach/Player ne pouvaient pas charger la liste des saisons (bug, pas une limite de droits — le frontend ne transmettait jamais `?teamId=` sur une page club-wide sans contexte équipe naturel, voir `resolveAnyTeamId` dans `docs/modules/auth-roles.md` §"Patterns découverts") ; `canManage` (backend) masque les boutons Nouvelle saison/Modifier/Activer/Supprimer pour un rôle en lecture seule ; masquage du lien "Saisons" dans la sidebar pour un rôle sans aucun droit dessus (ex. Parent, 403) ; colonne Actions (menu ⋮ — Activer/Modifier/Supprimer) ajoutée à la liste des saisons pour éviter de systématiquement ouvrir la fiche détail (retour utilisateur) |
+
+**Pourquoi le wizard a disparu** : `Championship` (Partie B) sera créé par les Coachs,
+par équipe, de façon récurrente et découplée de la création de la saison — une équipe de
+jeunes peut avoir plusieurs championnats sur une même saison (ex. "Championnat d'Automne" et
+"Championnat du Printemps"). Regrouper "créer la saison" et "configurer les championnats"
+dans un seul wizard séquentiel n'avait donc plus de sens une fois `Season` club-wide.
+`PlayerTeam` n'ayant pas de FK directe vers `Season`, l'étape "importer le roster" a aussi
+disparu : les mouvements de joueurs entre équipes (départs, arrivées, promotions) se gèrent
+au fil de l'eau via l'Effectif (voir A16/A18), pas via une cérémonie annuelle en bloc.
+
+Scénario multi-rôles bout-en-bout (A13, réécrit en A15 pour le modèle club-wide —
+docs/modules/auth-roles.md §"Multi-rôles — règle de test obligatoire") :
+`backend/src/common/season-multi-role.integration.spec.ts` — un persona AdminClub crée/active
+une saison club-wide en flux réel ; Coach et Player (Marc) n'ont que la lecture (via
+`?teamId=`, depuis A14) et filtrent leur profil par une saison partagée entre leurs équipes,
+sans pouvoir lire les bornes d'une saison d'un **autre club** (404) ; Parent Club B aucun accès
+à `season` ni au filtrage par saison.
+
+Tests à la fin de la Partie A (après révision A14-A20) : 449 tests backend + 428 tests frontend.
+
+### Partie B — Module Championship ⬜
+
+| Étape | Contenu |
+|---|---|
+| B0 | Prérequis transverse (seed + doc pattern ExternalTeam) |
+| B1 | Schéma `ExternalTeam` |
+| B2 | Backend `external-teams` CRUD |
+| B3 | Frontend gestion des équipes adverses |
+| B4 | Schéma `Championship` |
+| B5 | Backend `championships` CRUD + presets |
+| B6 | Frontend `championships` liste + formulaire règles |
+| B7 | Schéma `ChampionshipParticipant` |
+| B8 | Backend `championship-participants` CRUD |
+| B9 | Frontend onglet Participants |
+| B10 | Schéma `ChampionshipMatch` |
+| B11 | Backend `championship-matches` CRUD (saisie résultats) |
+| B12 | Algorithme de classement (fonction pure) + endpoint |
+| B13 | Frontend calendrier des rencontres + saisie résultats |
+| B14 | Frontend classement |
+| B15 | Tests multi-rôles bout-en-bout Partie B + clôture |
+
+Démarre sur une branche `feature/saisons-module-championship` séparée, une fois la Partie A
+mergée dans `develop`.
+
+**Points reportés (à ne pas oublier)** :
+- **`Championship` doit porter son propre `teamId`, en plus de `seasonId`** (à trancher dès B4,
+  schéma) — conséquence directe de la révision A14-A19 : `Season` est désormais club-wide, donc
+  la seule FK `seasonId` ne suffit plus à identifier l'équipe d'un championnat. Chaque équipe
+  joue son propre championnat au sein de la même saison partagée, et une équipe peut avoir
+  plusieurs championnats sur une même saison (pas de contrainte d'unicité `teamId`+`seasonId`) —
+  voir `docs/schema/championnats.md` §Championship et `docs/modules/saisons-championnats.md`
+  §Vision. Les Coachs créent leurs championnats eux-mêmes, à tout moment, indépendamment de la
+  création de la saison — pas de wizard reliant les deux (le wizard de saison A5-A10 a été
+  entièrement supprimé en A17, voir §Révision A14-A19 ci-dessus ; B15 n'a donc plus de
+  "rebranchement" à faire, contrairement à la conception d'origine).
+- Filtrage des 5 entités A7.x par **championnat précis** (`WHERE championshipMatchId...`) :
+  non applicable, ces entités n'ont aucune FK directe vers `ChampionshipMatch` — seul le
+  filtrage par saison (bornes de dates) est implémenté en A12.
+- Filtrage par **catégorie d'âge** : différé — le champ `Season.categorySnapshot` envisagé en
+  conception n'a jamais été implémenté (aucun formulaire ne l'exposait) et a été retiré du
+  schéma en A14 (n'aurait plus de sens au niveau club, qui regroupe plusieurs équipes de
+  catégories différentes). Voir `docs/schema/joueurs.md` §Filtrage des statistiques par période.
+- `ChampionshipParticipant.internalTeamId` restreint à la `teamId` de l'URL (une seule équipe
+  interne par championnat créé depuis cette équipe) — limite MVP, deux équipes du même club
+  dans le même championnat hors scope.
 
 ---
 

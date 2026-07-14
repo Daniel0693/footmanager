@@ -179,6 +179,34 @@ actuelles). Deux filtres de poste combinables (en plus du filtre Statut) :
 - **Par poste précis** (15 postes réels, voir `docs/schema/index.md`) — filtre sur
   `mainPosition` uniquement ; les postes secondaires sont affichés mais non filtrables.
 
+### Ajouter un joueur existant du club (A18 — promotions/transferts entre équipes)
+
+Depuis la révision A14-A18 (`docs/roadmap.md`), `PlayerFormDialog` propose deux modes,
+sélectionnables par deux boutons en tête de la modale :
+- **Joueur existant du club** (affiché et sélectionné **par défaut** — retour utilisateur
+  explicite, la plupart des ajouts en cours de saison sont des mouvements entre équipes du même
+  club plutôt que de nouvelles recrues) : recherche club-wide débouncée (300 ms) sur `GET
+  /clubs/:clubId/players?search=...` (`PlayersService.findAllByClub`, A16), affichant nom et
+  équipe actuelle de chaque candidat (ou "Actuellement sans équipe"). Une fois un candidat
+  sélectionné, les champs d'identité (déjà existants sur son profil) sont masqués — seuls les
+  champs propres à la nouvelle affectation restent (numéro de maillot, poste, date d'arrivée).
+  La soumission n'envoie **qu'un seul** `POST /clubs/:clubId/teams/:teamId/players` avec le
+  `playerId` trouvé — aucun `Member`/`PlayerProfile` recréé, réutilise l'endpoint déjà conçu
+  pour accepter un `playerId` existant (`PlayerTeamsController.create`, jamais modifié pour
+  cette fonctionnalité).
+- **Nouveau joueur** : flux historique inchangé (création `Member` → `PlayerProfile` →
+  `PlayerTeam`, 3 appels séquentiels).
+
+**Aucune fermeture automatique de l'ancienne affectation** : sélectionner un joueur déjà actif
+dans une autre équipe (ex. promotion U15 → U16) ne clôt jamais son ancienne `PlayerTeam` —
+ce serait d'ailleurs impossible à autoriser proprement (le Coach de la nouvelle équipe n'a
+aucun droit d'écriture sur l'ancienne équipe, règle d'or des permissions). Archiver l'ancienne
+affectation reste un geste séparé et volontaire, laissé au Coach de l'équipe quittée (action
+"Archiver" déjà existante, B2). Un joueur peut donc, temporairement ou durablement, avoir
+plusieurs affectations `PlayerTeam` actives simultanément sur des équipes différentes du même
+club — cas non empêché par le backend (`PlayerTeamsService.create` ne bloque qu'un doublon sur
+la **même** équipe), volontairement laissé à l'appréciation des Coachs.
+
 ## Profil joueur — mise en page 2 colonnes
 
 La fiche joueur est structurée en deux colonnes :

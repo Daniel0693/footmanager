@@ -8,7 +8,8 @@
   "nav": {
     "home": "Home",
     "roster": "Roster",
-    "calendar": "Calendar"
+    "calendar": "Calendar",
+    "seasons": "Seasons"
   },
   "header": {
     "toggleSidebar": "Open navigation menu",
@@ -364,6 +365,72 @@
     "editScopeDialogTitle": "Edit recurring event",
     "editScopeDialogDescription": "This event is part of a recurring series. Apply changes to:"
   },
+  "seasons": {
+    "title": "Seasons",
+    "newSeason": "New season",
+    "columnName": "Name",
+    "columnDates": "Dates",
+    "columnStatus": "Status",
+    "columnActions": "Actions",
+    "actions": "Actions",
+    "empty": "No seasons yet",
+    "loadFailed": "Unable to load seasons",
+    "status": {
+      "DRAFT": "Draft",
+      "ACTIVE": "Active",
+      "ARCHIVED": "Archived"
+    },
+    "formDialog": {
+      "createTitle": "New season",
+      "editTitle": "Edit season",
+      "name": "Season name",
+      "namePlaceholder": "E.g. Season 2026-2027",
+      "nameRequired": "Name is required",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "dateRequired": "Date is required",
+      "endDateBeforeStartDate": "End date must be after start date",
+      "submitCreate": "Create season",
+      "submitEdit": "Save",
+      "created": "Season created successfully",
+      "createFailed": "Failed to create season",
+      "updated": "Season updated successfully",
+      "updateFailed": "Failed to update season"
+    }
+  },
+  "seasonDetail": {
+    "backToSeasons": "Back to seasons",
+    "loadFailed": "Unable to load the season",
+    "archivedNotice": "This season is archived. Changes made via \"Edit\" affect statistics already computed for this period — this is expected, not an error.",
+    "edit": "Edit",
+    "tabs": {
+      "info": "Information",
+      "championships": "Championships"
+    },
+    "startDate": "Start date",
+    "endDate": "End date",
+    "delete": "Delete",
+    "deleteDialogTitle": "Delete this season?",
+    "deleteDialogDescription": "This season is a draft and will be permanently deleted. This action cannot be undone.",
+    "cancel": "Cancel",
+    "deleteConfirm": "Delete permanently",
+    "deleted": "Season deleted successfully",
+    "deleteFailed": "Failed to delete season",
+    "championshipsComingSoon": "Championship management is coming in a future phase.",
+    "activate": "Activate",
+    "activateDialogTitle": "Activate this season?",
+    "activateDialogDescriptionWithOldSeason": "Season \"{name}\" will be archived. You can correct its end date below.",
+    "activateDialogDescriptionFirstSeason": "No active season to archive — this will be the club's first active season.",
+    "oldSeasonEndDate": "Previous season end date",
+    "activateConfirm": "Activate season",
+    "activated": "Season activated successfully",
+    "activateFailed": "Failed to activate season"
+  },
+  "seasonFilter": {
+    "label": "Season",
+    "customRange": "Custom range",
+    "loadFailed": "Unable to load seasons"
+  },
   "objectives": {
     "filtersTitle": "Filters",
     "statusFilter": "Status",
@@ -524,6 +591,15 @@
   "playerForm": {
     "createTitle": "Add a player",
     "editTitle": "Edit player",
+    "entryModeNew": "New player",
+    "entryModeExisting": "Existing club player",
+    "searchLabel": "Search a club player",
+    "searchPlaceholder": "Player name...",
+    "searchEmpty": "No player found",
+    "currentlyInTeam": "Currently in {team}",
+    "notInAnyTeam": "Currently without a team",
+    "changePlayer": "Change",
+    "noPlayerSelected": "Select a player",
     "firstName": "First name",
     "lastName": "Last name",
     "phone": "Phone",
@@ -627,15 +703,18 @@
     },
     "PLAYER_INTERVIEWS": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
-      "NOT_FOUND": "Interview not found"
+      "NOT_FOUND": "Interview not found",
+      "SEASON_NOT_FOUND": "Season not found for this team"
     },
     "PLAYER_NOTES": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
-      "NOT_FOUND": "Note not found"
+      "NOT_FOUND": "Note not found",
+      "SEASON_NOT_FOUND": "Season not found for this team"
     },
     "PLAYER_OBJECTIVES": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
-      "NOT_FOUND": "Objective not found"
+      "NOT_FOUND": "Objective not found",
+      "SEASON_NOT_FOUND": "Season not found for this team"
     },
     "PLAYER_ABSENCES": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
@@ -644,7 +723,8 @@
     "PLAYER_EVALUATIONS": {
       "PLAYER_NOT_IN_CLUB": "This player does not belong to this club",
       "NOT_FOUND": "Evaluation not found",
-      "CRITERION_NOT_IN_CLUB": "This criterion does not belong to this club"
+      "CRITERION_NOT_IN_CLUB": "This criterion does not belong to this club",
+      "SEASON_NOT_FOUND": "Season not found for this team"
     },
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
@@ -659,6 +739,20 @@
     "EVENTS": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
       "NOT_FOUND": "Event not found"
+    },
+    "SEASONS": {
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "NOT_FOUND": "Season not found",
+      "CANNOT_DELETE_NON_DRAFT": "Only a draft season can be deleted",
+      "ROSTER_IMPORT_ONLY_FOR_DRAFT": "Roster import is only possible for a draft season",
+      "ACTIVATION_ONLY_FOR_DRAFT": "Activation is only possible for a draft season",
+      "MULTIPLE_ACTIVE_SEASONS": "Inconsistency detected: multiple active seasons for this team"
     }
+  },
+  "stepperExample": {
+    "create": "Create",
+    "roster": "Roster",
+    "championships": "Championships",
+    "activate": "Activate"
   }
 }

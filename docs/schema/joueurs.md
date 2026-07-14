@@ -388,21 +388,31 @@ enum AbsenceReason {
 Toutes les stats d'un joueur (buts, présences, évaluations...) sont filtrables car chaque
 entité source est horodatée. Modes de filtrage disponibles dans l'UI :
 
-**Phasage (décision du 2026-07-06)** : `Season`/`Championship` n'existent pas avant la Phase 3.
-Les onglets Mesures/Évaluation/Objectifs/Entretien/Notes construits en Phase 2 (étape A7)
-n'implémentent donc que le filtrage par plage de dates libre ; le filtrage par saison/championnat
-ci-dessous est à ajouter rétroactivement en Phase 3 — voir `docs/roadmap.md` §Partie A/étape A7.
+**Filtrage par saison (Phase 3, étape A12)** : implémenté pour les 4 onglets
+Évaluation/Objectifs/Entretien/Notes — `PlayerEvaluationsService`/`PlayerObjectivesService`/
+`PlayerInterviewsService`/`PlayerNotesService` acceptent `seasonId?: number`, résolu côté
+backend (`backend/src/common/season-period.ts` → `resolveSeasonPeriod`) en bornes
+`season.startDate`/`season.endDate` appliquées sur la date pertinente de chaque entité
+(`date`/`startDate`/`createdAt` selon l'entité). `seasonId` et la plage libre `dateFrom`/
+`dateTo` sont mutuellement exclusifs côté UI (`frontend/src/components/seasons/
+season-filter-select.tsx`, affiché une seule fois au-dessus des `Tabs` sur
+`PlayerDetailPageContent`, valeur par défaut = saison ACTIVE du club — `Season` est club-wide
+depuis la révision A14, docs/roadmap.md).
 
 | Mode | Requête |
 |---|---|
-| Saison courante | `WHERE event.startAt BETWEEN season.startDate AND season.endDate` |
-| Saison précise | même filtre sur la saison choisie |
-| Championnat précis | `WHERE championshipMatchId IN (championship X)` |
-| Catégorie d'âge | `WHERE season.categorySnapshot = 'U15'` |
-| Tranche de dates libre | `WHERE event.startAt BETWEEN dateA AND dateB` |
+| Saison précise (implémenté) | `WHERE <date> BETWEEN season.startDate AND season.endDate` |
+| Tranche de dates libre (implémenté) | `WHERE <date> BETWEEN dateA AND dateB` |
 | Tout (depuis entrée au club) | pas de filtre |
+| Championnat précis | **non applicable** — aucune de ces 4 entités n'a de FK vers
+  `ChampionshipMatch`, mode non pertinent, volontairement absent de l'UI |
+| Catégorie d'âge | **non applicable** — le champ `Season.categorySnapshot` envisagé en
+  conception n'a jamais été implémenté et a été retiré du schéma en A14 (n'aurait plus de sens
+  au niveau club, qui regroupe plusieurs équipes de catégories différentes) |
 
-`PlayerMeasurement` : toujours en graphique d'évolution temporelle complète, sans filtre de saison.
+`PlayerMeasurement` : **exclu volontairement** du filtrage par saison — toujours en graphique
+d'évolution temporelle complète, seule la plage de dates libre s'applique (décision reconduite
+depuis la Phase 2, la courbe de croissance perd son sens si elle est tronquée par saison).
 
 ---
 

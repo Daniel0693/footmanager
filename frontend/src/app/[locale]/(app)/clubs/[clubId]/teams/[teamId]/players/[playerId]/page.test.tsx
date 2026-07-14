@@ -31,6 +31,7 @@ function mockApiFetchDefault(playerBody: unknown, playerOk = true) {
   mockApiFetch.mockImplementation((url: string) => {
     if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
     if (url.includes("/absences")) return Promise.resolve(jsonResponse([]));
+    if (url.includes("/seasons")) return Promise.resolve(jsonResponse({ data: [] }));
     return Promise.resolve(jsonResponse(playerBody, playerOk));
   });
 }
@@ -151,6 +152,35 @@ describe("PlayerDetailPageContent", () => {
     ).toBeInTheDocument();
   });
 
+  it("filtrage par saison (A12) : sélectionne la saison ACTIVE par défaut et la propage à l'onglet Objectifs", async () => {
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("/absences")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("/seasons")) {
+        return Promise.resolve(
+          jsonResponse({ data: [{ id: 10, name: "Saison 2026-2027", status: "ACTIVE" }] }),
+        );
+      }
+      if (url.includes("/objectives")) return Promise.resolve(jsonResponse([]));
+      return Promise.resolve(jsonResponse(playerDetail()));
+    });
+    const user = userEvent.setup();
+
+    renderPage("1", "5", "1");
+    await screen.findByText("Tom Joueur");
+    await screen.findByText("Saison 2026-2027");
+    mockApiFetch.mockClear();
+
+    await user.click(screen.getByRole("tab", { name: "Objectifs" }));
+
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        expect.stringMatching(/\/objectives\?.*seasonId=10/),
+        expect.anything(),
+      ),
+    );
+  });
+
   it("l'onglet Absence (B8) affiche AbsenceTab, plus le placeholder \"bientôt disponible\"", async () => {
     mockApiFetchDefault(playerDetail());
     const user = userEvent.setup();
@@ -185,6 +215,7 @@ describe("PlayerDetailPageContent", () => {
         );
       }
       if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("/seasons")) return Promise.resolve(jsonResponse({ data: [] }));
       return Promise.resolve(jsonResponse(playerDetail()));
     });
     // player.member.user.id (501, voir playerDetail()) === l'utilisateur
@@ -231,6 +262,7 @@ describe("PlayerDetailPageContent", () => {
   it("cliquer un poste sur le terrain sauvegarde immédiatement (PATCH), sans bouton Enregistrer", async () => {
     mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
       if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("/seasons")) return Promise.resolve(jsonResponse({ data: [] }));
       if (options?.method === "PATCH") return Promise.resolve(jsonResponse({}));
       return Promise.resolve(jsonResponse(playerDetail()));
     });
@@ -257,6 +289,7 @@ describe("PlayerDetailPageContent", () => {
   it("échec du PATCH de poste : la sélection est restaurée et une erreur est affichée", async () => {
     mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
       if (url.includes("/measurements")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("/seasons")) return Promise.resolve(jsonResponse({ data: [] }));
       if (options?.method === "PATCH") return Promise.resolve(jsonResponse(null, false));
       return Promise.resolve(jsonResponse(playerDetail()));
     });

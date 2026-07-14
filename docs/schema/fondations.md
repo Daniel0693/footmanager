@@ -57,8 +57,11 @@ renommer ou ajouter ses propres catégories.
 | `clubId` | FK → Club | |
 | `name` | String | ex. "U15 A" |
 
-L'historique des catégories et noms par saison est capturé dans `Season.categorySnapshot` et
-`Season.teamNameSnapshot` — voir `championnats.md`.
+`Season` (calendrier de saisons) est désormais rattachée au `Club`, pas à `Team` — révision A14,
+voir `championnats.md`. Aucun historique de catégorie/nom par saison n'est capturé pour
+l'instant (les champs `teamNameSnapshot`/`categorySnapshot` envisagés en conception n'ont
+jamais été implémentés et n'auraient de toute façon plus de sens au niveau club, qui regroupe
+plusieurs équipes de noms/catégories différents).
 
 ---
 

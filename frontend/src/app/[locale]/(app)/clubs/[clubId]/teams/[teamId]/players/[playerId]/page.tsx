@@ -30,6 +30,7 @@ import { MeasurementsTab } from "@/components/players/measurements-tab";
 import { NotesTab } from "@/components/players/notes-tab";
 import { ObjectivesTab } from "@/components/players/objectives-tab";
 import { PositionPitch } from "@/components/players/position-pitch";
+import { SeasonFilterSelect } from "@/components/seasons/season-filter-select";
 
 interface PlayerDetail {
   id: number;
@@ -87,6 +88,10 @@ export function PlayerDetailPageContent({
   const [player, setPlayer] = useState<PlayerDetail | null>(null);
   const [hasError, setHasError] = useState(false);
   const [isSavingPosition, setIsSavingPosition] = useState(false);
+  // Filtrage rétroactif par saison (A12) — propagé aux 4 onglets concernés
+  // (Mesures exclu, toujours vue complète). null = "Période personnalisée",
+  // chaque onglet reprend alors la main avec ses propres dateFrom/dateTo.
+  const [seasonId, setSeasonId] = useState<number | null>(null);
 
   const fetchPlayer = useCallback(async () => {
     // teamId en query : /clubs/:clubId/players/:id ne porte pas de teamId
@@ -348,13 +353,16 @@ export function PlayerDetailPageContent({
         </div>
 
         <Tabs defaultValue="measurements" className="lg:h-full lg:min-h-0">
-          <TabsList className="shrink-0 flex-wrap">
-            {DETAIL_TABS.map((tab) => (
-              <TabsTrigger key={tab} value={tab}>
-                {t(`tabs.${tab}`)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+            <TabsList className="flex-wrap">
+              {DETAIL_TABS.map((tab) => (
+                <TabsTrigger key={tab} value={tab}>
+                  {t(`tabs.${tab}`)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            <SeasonFilterSelect clubId={clubId} teamId={teamId} onSeasonChange={setSeasonId} />
+          </div>
           {/* lg:min-h-0 : borne la hauteur à l'espace restant du Tabs (à
               partir de lg, colonnes côte à côte) plutôt que de suivre la
               hauteur du contenu, pour que seule la zone défilante à
@@ -375,6 +383,7 @@ export function PlayerDetailPageContent({
               teamId={teamId}
               playerId={playerId}
               isOwnProfile={isOwnProfile}
+              seasonId={seasonId}
             />
           </TabsContent>
           <TabsContent value="notes" className="lg:flex lg:min-h-0 lg:flex-col">
@@ -383,6 +392,7 @@ export function PlayerDetailPageContent({
               teamId={teamId}
               playerId={playerId}
               isOwnProfile={isOwnProfile}
+              seasonId={seasonId}
             />
           </TabsContent>
           <TabsContent value="objectives" className="lg:flex lg:min-h-0 lg:flex-col">
@@ -391,6 +401,7 @@ export function PlayerDetailPageContent({
               teamId={teamId}
               playerId={playerId}
               isOwnProfile={isOwnProfile}
+              seasonId={seasonId}
             />
           </TabsContent>
           <TabsContent value="evaluation" className="lg:flex lg:min-h-0 lg:flex-col">
@@ -399,6 +410,7 @@ export function PlayerDetailPageContent({
               teamId={teamId}
               playerId={playerId}
               isOwnProfile={isOwnProfile}
+              seasonId={seasonId}
             />
           </TabsContent>
           <TabsContent value="absence" className="lg:flex lg:min-h-0 lg:flex-col">

@@ -27,7 +27,7 @@
 | ExternalPlayer | Table dédiée, liée à `ExternalTeam`, réutilisable entre rapports (historisation). |
 | Tags de style de jeu | Liste prédéfinie système + tags libres créés et stockés par club. |
 | Visibilité des rapports de scouting | Scopés au Club. Staff technique uniquement. Players et Parents exclus. |
-| Historisation des saisons | `Season.teamNameSnapshot` + `Season.categorySnapshot`. `Team` reste l'ancre stable. Roster et staff historisés via `joinDate`/`leaveDate` sur `PlayerTeam`/`TeamStaff`. |
+| Historisation des saisons | Révisé en Phase 3 (A14) : `Season` est club-wide, pas d'historisation de nom/catégorie par équipe (`teamNameSnapshot`/`categorySnapshot` envisagés puis retirés du schéma, jamais alimentés). Roster et staff historisés via `joinDate`/`leaveDate` sur `PlayerTeam`/`TeamStaff`. |
 | 6 catégories du radar d'évaluation | Technique · Tactique · Physique · Mental · Émotionnel · Vie de groupe. Système rendu dynamique via `EvaluationCategory` + `ClubEvaluationConfig`. Configurable par club. Extensible par sport. |
 | Modèle de visibilité Privé/Semi-privé/Public | Privé = staff seulement. Semi-privé = joueur + staff. Public = parents + joueur + staff. Coaches d'autres équipes du même club exclus (même en PUBLIC). Voir `effectif-joueurs.md`. |
 | Club.sport | Ajouté sur `Club` dès le MVP (`SportType` enum, défaut FOOTBALL). |

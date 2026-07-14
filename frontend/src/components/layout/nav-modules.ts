@@ -1,4 +1,4 @@
-import { Calendar, Home, Users, type LucideIcon } from "lucide-react";
+import { Calendar, Home, Trophy, Users, type LucideIcon } from "lucide-react";
 
 type RouteParams = Record<string, string | string[] | undefined>;
 
@@ -14,8 +14,8 @@ function paramString(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-// Modules Effectif et Calendrier existent pour l'instant (voir docs/roadmap.md, Phase 2).
-// Ajouter un futur module (Matchs, Entraînement...) = une entrée de plus ici.
+// Modules Effectif, Calendrier et Saisons existent pour l'instant (voir docs/roadmap.md,
+// Phases 2 et 3). Ajouter un futur module (Matchs, Entraînement...) = une entrée de plus ici.
 export const navModules: NavModule[] = [
   {
     key: "home",
@@ -34,7 +34,8 @@ export const navModules: NavModule[] = [
       if (!clubId) return "/home";
       return teamId ? `/clubs/${clubId}/teams/${teamId}/players` : `/clubs/${clubId}/teams`;
     },
-    isActive: (pathname) => pathname.startsWith("/clubs") && !pathname.includes("/calendar"),
+    isActive: (pathname) =>
+      pathname.startsWith("/clubs") && !pathname.includes("/calendar") && !pathname.includes("/seasons"),
   },
   {
     key: "calendar",
@@ -46,5 +47,19 @@ export const navModules: NavModule[] = [
       return `/clubs/${clubId}/calendar`;
     },
     isActive: (pathname) => pathname.includes("/calendar"),
+  },
+  {
+    key: "seasons",
+    icon: Trophy,
+    labelKey: "seasons",
+    // Club-wide depuis la révision A14 (docs/roadmap.md) : plus besoin du
+    // repli "dernière équipe visitée" (last-team.ts), qui reste utile
+    // uniquement pour Effectif (roster.href ci-dessus).
+    href: (params) => {
+      const clubId = paramString(params.clubId);
+      if (!clubId) return "/home";
+      return `/clubs/${clubId}/seasons`;
+    },
+    isActive: (pathname) => pathname.includes("/seasons"),
   },
 ];

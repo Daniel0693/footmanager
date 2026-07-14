@@ -5,30 +5,55 @@
 
 ---
 
-## Season — Saison d'une équipe
+## Season — Saison du club
 
-Cadre temporel d'une équipe sur une période définie. Peut contenir 1..N Championships.
+Cadre temporel **partagé par tout le club** (révision A14, docs/roadmap.md — initialement
+scopée équipe, déplacée au niveau club car toutes les équipes d'un club suivent le même
+calendrier de saisons). Une simple tranche de dates, sans logique de roster attachée : `Team`
+peut avoir 1..N `Championship` rattachés à une `Season` (chaque équipe joue son propre
+championnat au sein de la même saison partagée — voir note Championship ci-dessous).
 
 | Champ | Type | Notes |
 |---|---|---|
 | `id` | PK | |
-| `teamId` | FK → Team | |
+| `clubId` | FK → Club | |
 | `name` | String | ex. "Saison 2024–2025", "Automne 2024" |
-| `teamNameSnapshot` | String, nullable | nom de l'équipe pendant cette saison |
-| `categorySnapshot` | String, nullable | catégorie pendant cette saison (ex. "U15") |
 | `startDate` | Date | |
 | `endDate` | Date | |
 | `status` | enum `SeasonStatus` | |
 
-**Contrainte** : une seule `Season` avec `status = ACTIVE` par `Team` à tout instant.
-Enforced au niveau applicatif.
+**Contraintes** (applicatives, `SeasonsService`) :
+- Une seule `Season` avec `status = ACTIVE` par `Club` à tout instant.
+- Deux `Season` d'un même club ne peuvent jamais avoir de plages de dates qui se chevauchent,
+  quel que soit leur `status` (y compris entre une saison ARCHIVED et une nouvelle).
 
-**Workflow de transition** : voir `docs/modules/saisons-championnats.md` pour le wizard
-complet (DRAFT → import roster → config → activation).
+**Gestion réservée à AdminClub/SuperAdmin/Proprietaire** — Coach et Player n'ont que la lecture
+(`season READ` scope `TEAM`, transmis via `?teamId=`, la route `clubs/:clubId/seasons` ne
+portant pas de `:teamId` — voir `docs/modules/auth-roles.md` §"Patterns découverts").
+
+**Pas de wizard, pas de logique de roster** : création/édition via une modale simple
+(nom + dates), activation via une action ponctuelle (bouton + confirmation) sur la fiche de
+saison. `PlayerTeam` n'a pas de FK directe vers `Season` — les mouvements de joueurs entre
+équipes (départs, arrivées, promotions de catégorie, ex. U15→U16) se gèrent au fil de l'eau via
+l'Effectif (y compris l'assignation d'un joueur déjà existant dans le club à une nouvelle
+équipe, sans re-création de son profil — voir `docs/modules/effectif-joueurs.md`), jamais via
+un wizard de transition de saison. Détail complet : `docs/modules/saisons-championnats.md`.
 
 ---
 
 ## Championship — Championnat dans une saison
+
+> **À trancher au démarrage de la Partie B** (pas encore construite) : depuis la révision A14,
+> `Season` est club-wide et n'a plus de lien direct avec une équipe précise. Un `Championship`
+> devra donc porter **son propre `teamId`** en plus de `seasonId` (chaque équipe joue son propre
+> championnat au sein de la même saison partagée — ex. Championnat U15 ≠ Championnat U16 sur la
+> saison 2026-2027), et rien n'empêchera plusieurs `Championship` pour la même équipe sur la
+> même saison (ex. U15 : "Championnat d'Automne" ET "Championnat du Printemps", cas réel en
+> Suisse signalé par l'utilisateur — pas de contrainte d'unicité `teamId`+`seasonId`). Les
+> Coachs créent leurs championnats eux-mêmes (permission déjà prévue `TEAM` CRUD, voir
+> `docs/roadmap.md` Partie B §B0), de façon récurrente et découplée de la création de la saison
+> — pas de wizard reliant les deux. Le tableau ci-dessous reflète encore la conception d'origine
+> (avant A14) et sera mis à jour au moment de l'implémentation.
 
 | Champ | Type | Notes |
 |---|---|---|
@@ -145,7 +170,7 @@ informations strictement nécessaires (nom, poste, numéro) — pas de données 
 ```prisma
 enum SeasonStatus {
   DRAFT     // en préparation, saison précédente toujours ACTIVE
-  ACTIVE    // saison courante (une seule par équipe)
+  ACTIVE    // saison courante (une seule par club)
   ARCHIVED  // saison terminée, données consultables et modifiables
 }
 
@@ -165,7 +190,7 @@ enum ChampionshipMatchStatus {
 ## Index
 
 ```
-@@index([teamId, status])           sur Season (trouver rapidement la ACTIVE d'une équipe)
+@@index([clubId, status])           sur Season (trouver rapidement la ACTIVE d'un club)
 @@index([seasonId])                 sur Championship
 @@index([championshipId])           sur ChampionshipParticipant, ChampionshipMatch
 @@index([clubId])                   sur ExternalTeam

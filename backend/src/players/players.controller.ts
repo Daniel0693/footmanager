@@ -18,6 +18,7 @@ import { RequirePermission } from '../auth/decorators/require-permission.decorat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CreatePlayerProfileDto } from './dto/create-player-profile.dto';
+import { FindPlayersQueryDto } from './dto/find-players-query.dto';
 import { UpdatePlayerProfileDto } from './dto/update-player-profile.dto';
 import { PlayersService } from './players.service';
 
@@ -41,11 +42,13 @@ export class PlayersController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @CurrentMember() member: Member,
     @CurrentPermissionScope() scope: PermissionScope,
+    @Query() query: FindPlayersQueryDto,
   ) {
-    return this.playersService.findAllByClub(clubId, {
-      memberId: member.id,
-      scope,
-    });
+    return this.playersService.findAllByClub(
+      clubId,
+      { memberId: member.id, scope },
+      query,
+    );
   }
 
   // Pas de @RequirePermission ici : lecture de son propre profil par

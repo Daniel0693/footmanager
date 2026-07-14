@@ -58,6 +58,7 @@ export function ObjectivesTab({
   teamId,
   playerId,
   isOwnProfile,
+  seasonId,
 }: {
   clubId: string;
   teamId: string;
@@ -67,6 +68,10 @@ export function ObjectivesTab({
   // DELETE : masque l'ajout et les actions par ligne plutôt que de les
   // laisser mener à un 403 au clic.
   isOwnProfile: boolean;
+  // Sélection portée par SeasonFilterSelect (A12) au niveau de la page
+  // parente — mutuellement exclusif avec dateFrom/dateTo (null = "Période
+  // personnalisée", auquel cas les champs de plage libre reprennent la main).
+  seasonId?: number | null;
 }) {
   const t = useTranslations("objectives");
   const locale = useLocale();
@@ -88,8 +93,9 @@ export function ObjectivesTab({
       teamId,
       status: statusFilter === ALL ? undefined : statusFilter,
       theme: themeFilter === ALL ? undefined : themeFilter,
-      dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined,
+      seasonId: seasonId ? String(seasonId) : undefined,
+      dateFrom: seasonId ? undefined : dateFrom || undefined,
+      dateTo: seasonId ? undefined : dateTo || undefined,
       sortOrder,
     });
     const response = await apiFetch(
@@ -104,6 +110,7 @@ export function ObjectivesTab({
     teamId,
     statusFilter,
     themeFilter,
+    seasonId,
     dateFrom,
     dateTo,
     sortOrder,
@@ -227,29 +234,31 @@ export function ObjectivesTab({
                 </SelectContent>
               </Select>
             </div>
-            {/* Plage de dates groupée en un seul bloc : les deux champs
-                wrappent ensemble plutôt que de se retrouver séparés sur deux
-                lignes (retour du 2026-07-06). */}
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("dateRangeLabel")}</Label>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="date"
-                  aria-label={t("dateFrom")}
-                  value={dateFrom}
-                  onChange={(event) => setDateFrom(event.target.value)}
-                  className="w-36"
-                />
-                <span className="text-xs text-muted-foreground">–</span>
-                <Input
-                  type="date"
-                  aria-label={t("dateTo")}
-                  value={dateTo}
-                  onChange={(event) => setDateTo(event.target.value)}
-                  className="w-36"
-                />
+            {/* Plage de dates masquée quand une saison est sélectionnée
+                (SeasonFilterSelect, A12) : les bornes viennent alors de la
+                saison, jamais des deux à la fois. */}
+            {!seasonId && (
+              <div className="flex flex-col gap-1.5">
+                <Label>{t("dateRangeLabel")}</Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date"
+                    aria-label={t("dateFrom")}
+                    value={dateFrom}
+                    onChange={(event) => setDateFrom(event.target.value)}
+                    className="w-36"
+                  />
+                  <span className="text-xs text-muted-foreground">–</span>
+                  <Input
+                    type="date"
+                    aria-label={t("dateTo")}
+                    value={dateTo}
+                    onChange={(event) => setDateTo(event.target.value)}
+                    className="w-36"
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
           {!isOwnProfile && (
             <div className="flex justify-end">

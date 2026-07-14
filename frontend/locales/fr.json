@@ -8,7 +8,8 @@
   "nav": {
     "home": "Accueil",
     "roster": "Effectif",
-    "calendar": "Calendrier"
+    "calendar": "Calendrier",
+    "seasons": "Saisons"
   },
   "header": {
     "toggleSidebar": "Ouvrir le menu de navigation",
@@ -364,6 +365,72 @@
     "editScopeDialogTitle": "Modifier l'événement récurrent",
     "editScopeDialogDescription": "Cet événement fait partie d'une série récurrente. Appliquer les changements à :"
   },
+  "seasons": {
+    "title": "Saisons",
+    "newSeason": "Nouvelle saison",
+    "columnName": "Nom",
+    "columnDates": "Dates",
+    "columnStatus": "Statut",
+    "columnActions": "Actions",
+    "actions": "Actions",
+    "empty": "Aucune saison pour l'instant",
+    "loadFailed": "Impossible de charger les saisons",
+    "status": {
+      "DRAFT": "Brouillon",
+      "ACTIVE": "Active",
+      "ARCHIVED": "Archivée"
+    },
+    "formDialog": {
+      "createTitle": "Nouvelle saison",
+      "editTitle": "Modifier la saison",
+      "name": "Nom de la saison",
+      "namePlaceholder": "Ex. Saison 2026-2027",
+      "nameRequired": "Le nom est requis",
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "dateRequired": "La date est requise",
+      "endDateBeforeStartDate": "La date de fin doit être postérieure à la date de début",
+      "submitCreate": "Créer la saison",
+      "submitEdit": "Enregistrer",
+      "created": "Saison créée avec succès",
+      "createFailed": "Échec de la création de la saison",
+      "updated": "Saison mise à jour avec succès",
+      "updateFailed": "Échec de la mise à jour de la saison"
+    }
+  },
+  "seasonDetail": {
+    "backToSeasons": "Retour aux saisons",
+    "loadFailed": "Impossible de charger la saison",
+    "archivedNotice": "Cette saison est archivée. Les modifications apportées via « Modifier » impactent les statistiques déjà calculées pour cette période — comportement attendu, pas une erreur.",
+    "edit": "Modifier",
+    "tabs": {
+      "info": "Informations",
+      "championships": "Championnats"
+    },
+    "startDate": "Date de début",
+    "endDate": "Date de fin",
+    "delete": "Supprimer",
+    "deleteDialogTitle": "Supprimer cette saison ?",
+    "deleteDialogDescription": "Cette saison est en brouillon et sera définitivement supprimée. Cette action est irréversible.",
+    "cancel": "Annuler",
+    "deleteConfirm": "Supprimer définitivement",
+    "deleted": "Saison supprimée avec succès",
+    "deleteFailed": "Échec de la suppression de la saison",
+    "championshipsComingSoon": "La gestion des championnats arrivera dans une prochaine phase.",
+    "activate": "Activer",
+    "activateDialogTitle": "Activer cette saison ?",
+    "activateDialogDescriptionWithOldSeason": "La saison « {name} » sera archivée. Vous pouvez corriger sa date de fin ci-dessous.",
+    "activateDialogDescriptionFirstSeason": "Aucune saison active à archiver — ce sera la première saison active du club.",
+    "oldSeasonEndDate": "Date de fin de l'ancienne saison",
+    "activateConfirm": "Activer la saison",
+    "activated": "Saison activée avec succès",
+    "activateFailed": "Échec de l'activation de la saison"
+  },
+  "seasonFilter": {
+    "label": "Saison",
+    "customRange": "Période personnalisée",
+    "loadFailed": "Impossible de charger les saisons"
+  },
   "objectives": {
     "filtersTitle": "Filtres",
     "statusFilter": "Statut",
@@ -524,6 +591,15 @@
   "playerForm": {
     "createTitle": "Ajouter un joueur",
     "editTitle": "Modifier le joueur",
+    "entryModeNew": "Nouveau joueur",
+    "entryModeExisting": "Joueur existant du club",
+    "searchLabel": "Rechercher un joueur du club",
+    "searchPlaceholder": "Nom du joueur...",
+    "searchEmpty": "Aucun joueur trouvé",
+    "currentlyInTeam": "Actuellement dans {team}",
+    "notInAnyTeam": "Actuellement sans équipe",
+    "changePlayer": "Changer",
+    "noPlayerSelected": "Sélectionnez un joueur",
     "firstName": "Prénom",
     "lastName": "Nom",
     "phone": "Téléphone",
@@ -627,15 +703,18 @@
     },
     "PLAYER_INTERVIEWS": {
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
-      "NOT_FOUND": "Entretien introuvable"
+      "NOT_FOUND": "Entretien introuvable",
+      "SEASON_NOT_FOUND": "Saison introuvable pour cette équipe"
     },
     "PLAYER_NOTES": {
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
-      "NOT_FOUND": "Note introuvable"
+      "NOT_FOUND": "Note introuvable",
+      "SEASON_NOT_FOUND": "Saison introuvable pour cette équipe"
     },
     "PLAYER_OBJECTIVES": {
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
-      "NOT_FOUND": "Objectif introuvable"
+      "NOT_FOUND": "Objectif introuvable",
+      "SEASON_NOT_FOUND": "Saison introuvable pour cette équipe"
     },
     "PLAYER_ABSENCES": {
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
@@ -644,7 +723,8 @@
     "PLAYER_EVALUATIONS": {
       "PLAYER_NOT_IN_CLUB": "Ce joueur n'appartient pas à ce club",
       "NOT_FOUND": "Évaluation introuvable",
-      "CRITERION_NOT_IN_CLUB": "Ce critère n'appartient pas à ce club"
+      "CRITERION_NOT_IN_CLUB": "Ce critère n'appartient pas à ce club",
+      "SEASON_NOT_FOUND": "Saison introuvable pour cette équipe"
     },
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
@@ -659,6 +739,20 @@
     "EVENTS": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
       "NOT_FOUND": "Événement introuvable"
+    },
+    "SEASONS": {
+      "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
+      "NOT_FOUND": "Saison introuvable",
+      "CANNOT_DELETE_NON_DRAFT": "Seule une saison en brouillon peut être supprimée",
+      "ROSTER_IMPORT_ONLY_FOR_DRAFT": "L'import du roster n'est possible que pour une saison en brouillon",
+      "ACTIVATION_ONLY_FOR_DRAFT": "L'activation n'est possible que pour une saison en brouillon",
+      "MULTIPLE_ACTIVE_SEASONS": "Incohérence détectée : plusieurs saisons actives pour cette équipe"
     }
+  },
+  "stepperExample": {
+    "create": "Création",
+    "roster": "Effectif",
+    "championships": "Championnats",
+    "activate": "Activation"
   }
 }

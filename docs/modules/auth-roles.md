@@ -182,12 +182,36 @@ query string (`?teamId=5`). `PermissionsGuard` résout déjà `clubId`/`teamId` 
 body, **ou la query** (voir plus haut) — aucun changement backend n'est nécessaire, seul l'appel
 frontend doit inclure le paramètre. Utilisé par la fiche joueur
 (`GET /clubs/:clubId/players/:id?teamId=`) et par `PlayerFormDialog` en mode édition
-(`PATCH /clubs/:clubId/members/:id?teamId=` et `PATCH /clubs/:clubId/players/:id?teamId=`).
+(`PATCH /clubs/:clubId/members/:id?teamId=` et `PATCH /clubs/:clubId/players/:id?teamId=`), par
+`evaluation_config` (`GET /clubs/:clubId/evaluation-config?teamId=`, Coach/Player en lecture
+seule), et par `season` depuis la révision A14 (`GET /clubs/:clubId/seasons?teamId=`, Coach et
+Player n'ont que `season READ` scope `TEAM` — la gestion est réservée à AdminClub, scope `CLUB`
+qui n'a pas besoin de `?teamId=`, voir `docs/modules/saisons-championnats.md` §Droits par rôle).
 
 *Quand utiliser quoi* : la route self-service `/me`/`/mine` convient quand l'appelant ne connaît
 pas encore le teamId pertinent (ex. "quelles sont mes équipes ?" avant même d'en avoir choisi
 une) ; le paramètre `?teamId=` en query convient quand le frontend est déjà dans un contexte
 équipe identifié et peut simplement le transmettre.
+
+**Troisième cas, distinct des deux ci-dessus : une page club-wide en LECTURE SEULE, sans
+contexte équipe du tout dans son URL, consommée par un rôle scopé `TEAM`.** Trouvé en corrigeant
+un bug signalé par l'utilisateur : la liste des saisons (`clubs/:clubId/seasons`, aucun `:teamId`
+dans son URL depuis la révision A14) renvoyait 403 pour un Coach/Player alors que leur permission
+`season READ TEAM` aurait dû les autoriser — le frontend de cette page ne transmettait tout
+simplement jamais `?teamId=`, faute de connaître une équipe (contrairement à la fiche joueur,
+toujours ouverte depuis un contexte équipe). Ici, peu importe LAQUELLE des équipes de l'appelant
+est transmise : la ressource elle-même (`Season`) ne filtre jamais par équipe, seule la
+**présence** d'un `teamId` où l'appelant a un rôle compte pour satisfaire `PermissionsGuard`.
+
+*Solution retenue* : `frontend/src/lib/resolve-any-team.ts` (`resolveAnyTeamId(clubId, userId,
+accessToken)`) — repli sur `last-team.ts` (équipe déjà mémorisée pour ce club) puis, à défaut, sur
+`GET /clubs/:clubId/teams/mine` (voir pattern self-service ci-dessus), et prend la première
+équipe renvoyée. Un scope `CLUB`/`ALL` (AdminClub+) n'a besoin d'aucun `teamId`, mais en recevoir
+un ne change rien à son autorisation (le guard ne le vérifie que si le scope résolu est `TEAM`)
+— pas besoin de distinguer les deux cas côté frontend. Utilisé par la liste des saisons, la fiche
+de saison, et pour masquer le lien "Saisons" de la sidebar (`SidebarNav`) quand la réponse est un
+403 explicite (ex. Parent, qui n'a aucune permission `season`, voir
+`docs/modules/saisons-championnats.md` §Droits par rôle) — jamais déduit d'un rôle côté client.
 
 **Le paramètre `?teamId=` transmis en query n'est vérifié par `PermissionsGuard` que pour
 résoudre le SCOPE (Coach a-t-il un rôle sur CE teamId ?) — jamais pour vérifier que la
@@ -284,7 +308,16 @@ utilisateur différent par rôle. Pour le module Calendrier (B9, Partie B),
 `backend/src/common/calendrier-multi-role.integration.spec.ts` applique le même principe à
 `Event`/`PlayerAbsence` (CRUD réel via guards/services) et aux agrégations "mine"
 (`events/mine`, `members/birthdays`, exercées avec le vrai `PermissionsService` — voir le
-constat documenté ci-dessus sur leur proxy `MemberRole`).
+constat documenté ci-dessus sur leur proxy `MemberRole`). Pour le module Season (A13/A19, Phase 3
+Partie A — révisé en A14-A15 pour un `Season` club-wide, voir `docs/roadmap.md`),
+`backend/src/common/season-multi-role.integration.spec.ts` couvre `SeasonsController` (un
+persona AdminClub dédié crée/active une saison club-wide en flux réel — Marc, Coach/Player, n'a
+plus que la lecture depuis la révision A14) et le filtrage rétroactif par saison des entités
+A7.x (A12, via `PlayerObjectivesController` comme représentant des 4 ressources partageant
+`resolveSeasonPeriod`) — dont le cas explicite d'un `seasonId` appartenant à un AUTRE **club**
+(et non plus une autre équipe, `Season` n'ayant plus de FK vers `Team`) que celui transmis,
+rejeté en 404 par `resolveSeasonPeriod` plutôt que de fuiter les bornes de dates d'une saison
+hors scope.
 
 ### Propriétaire — mécanisme de transfert sécurisé
 

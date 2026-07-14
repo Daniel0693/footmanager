@@ -8,6 +8,7 @@ import type {
   TeamStaffRole,
 } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { dedupeByMostRecentAssignment } from '../common/player-team-dedupe';
 import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsService } from '../roles/permissions.service';
@@ -222,7 +223,17 @@ export class RosterService {
       include: { player: { include: { member: { include: { user: true } } } } },
     });
 
-    return assignments.map((assignment) =>
+    // Dédoublonne uniquement les affectations ACTIVES : un joueur peut en
+    // avoir plusieurs simultanément pendant la fenêtre du wizard de saison,
+    // avant activation (voir common/player-team-dedupe.ts). Les affectations
+    // ARCHIVÉES restent multiples par construction — c'est l'historique
+    // attendu (docs/modules/saisons-championnats.md §Historique), jamais
+    // dédoublonné.
+    const active = assignments.filter((a) => a.leaveDate === null);
+    const archived = assignments.filter((a) => a.leaveDate !== null);
+    const rows = [...archived, ...dedupeByMostRecentAssignment(active)];
+
+    return rows.map((assignment) =>
       this.toPlayerRow(
         assignment,
         assignment.player.member,

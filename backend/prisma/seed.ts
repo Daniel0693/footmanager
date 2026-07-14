@@ -216,6 +216,7 @@ async function seedRoles() {
         'Consulter ses propres scores d’évaluation',
       ],
       ['event', READ, TEAM, 'Consulter le calendrier de son équipe'],
+      ['season', READ, TEAM, 'Consulter les saisons du club'],
     ],
     Parent: [
       ['member', READ, OWN, 'Consulter le profil membre lié à son enfant'],
@@ -427,6 +428,13 @@ async function seedRoles() {
       ['event', CREATE, TEAM, 'Créer un événement pour ses équipes'],
       ['event', UPDATE, TEAM, 'Modifier un événement de ses équipes'],
       ['event', DELETE, TEAM, 'Supprimer un événement de ses équipes'],
+      // Season est club-wide depuis la révision A14 (docs/roadmap.md) : le
+      // Coach n'a plus que la lecture (transmise via ?teamId=, la route
+      // clubs/:clubId/seasons ne porte plus de :teamId — voir
+      // evaluation_config pour le même pattern). La création/activation
+      // d'une saison engage tout le club, réservée à AdminClub/SuperAdmin/
+      // Proprietaire.
+      ['season', READ, TEAM, 'Consulter les saisons du club'],
     ],
     AdminClub: [
       ['club', READ, CLUB, 'Consulter son club'],
@@ -621,6 +629,10 @@ async function seedRoles() {
       ['event', CREATE, CLUB, 'Créer un événement pour une équipe du club'],
       ['event', UPDATE, CLUB, 'Modifier un événement du club'],
       ['event', DELETE, CLUB, 'Supprimer un événement du club'],
+      ['season', READ, CLUB, 'Consulter les saisons du club'],
+      ['season', CREATE, CLUB, 'Créer une saison pour le club'],
+      ['season', UPDATE, CLUB, 'Modifier une saison du club'],
+      ['season', DELETE, CLUB, 'Supprimer une saison (brouillon) du club'],
     ],
     SuperAdmin: [
       ['club', READ, ALL, 'Consulter tous les clubs'],
@@ -855,6 +867,15 @@ async function seedRoles() {
       ['event', CREATE, ALL, "Créer un événement dans n'importe quelle équipe"],
       ['event', UPDATE, ALL, "Modifier n'importe quel événement"],
       ['event', DELETE, ALL, "Supprimer n'importe quel événement"],
+      ['season', READ, ALL, "Consulter les saisons de n'importe quel club"],
+      ['season', CREATE, ALL, "Créer une saison pour n'importe quel club"],
+      ['season', UPDATE, ALL, "Modifier n'importe quelle saison"],
+      [
+        'season',
+        DELETE,
+        ALL,
+        "Supprimer n'importe quelle saison (brouillon)",
+      ],
     ],
     // Le mécanisme de transfert sécurisé du rôle Proprietaire est une
     // décision ouverte (docs/decisions-ouvertes-et-rgpd.md) — en attendant,

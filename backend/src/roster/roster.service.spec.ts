@@ -201,6 +201,75 @@ describe('RosterService', () => {
     expect(result.data[0]).toMatchObject({ isArchived: true, email: null });
   });
 
+  describe('dédoublonnage des affectations actives (correctif 2026-07-13)', () => {
+    // Un joueur peut avoir plusieurs affectations PlayerTeam actives
+    // simultanément pendant la fenêtre du wizard de saison (import du
+    // roster avant activation, voir SeasonRosterImportService) — sans
+    // dédoublonnage, il apparaîtrait deux fois dans l'effectif.
+    it('ne présente qu’une ligne (la plus récente) pour un joueur ayant plusieurs affectations actives', async () => {
+      ptFindMany.mockResolvedValue([
+        playerTeamRow({
+          id: 200,
+          joinDate: new Date('2024-08-01'),
+          jerseyNumber: 9,
+        }),
+        playerTeamRow({
+          id: 201,
+          joinDate: new Date('2025-08-01'),
+          jerseyNumber: 10,
+        }),
+      ]);
+
+      const result = await service.findAllByTeam(requester);
+
+      const players = result.data.filter((row) => row.role === 'PLAYER');
+      expect(players).toHaveLength(1);
+      expect(players[0]).toMatchObject({ id: 201, jerseyNumber: 10 });
+      expect(result.total).toBe(1);
+    });
+
+    it('ne dédoublonne jamais les affectations ARCHIVÉES — historique attendu sur plusieurs saisons', async () => {
+      ptFindMany.mockResolvedValue([
+        playerTeamRow({ id: 200, leaveDate: new Date('2024-06-30') }),
+        playerTeamRow({ id: 201, leaveDate: new Date('2025-06-30') }),
+      ]);
+
+      const result = await service.findAllByTeam(requester, {
+        status: 'ARCHIVED',
+      });
+
+      expect(result.data.filter((row) => row.role === 'PLAYER')).toHaveLength(
+        2,
+      );
+    });
+
+    it('dédoublonne uniquement le sous-ensemble actif quand status=ALL, conserve tout l’historique archivé', async () => {
+      ptFindMany.mockResolvedValue([
+        playerTeamRow({
+          id: 200,
+          joinDate: new Date('2024-08-01'),
+          leaveDate: null,
+        }),
+        playerTeamRow({
+          id: 201,
+          joinDate: new Date('2025-08-01'),
+          leaveDate: null,
+        }),
+        playerTeamRow({
+          id: 199,
+          joinDate: new Date('2023-08-01'),
+          leaveDate: new Date('2024-06-30'),
+        }),
+      ]);
+
+      const result = await service.findAllByTeam(requester, { status: 'ALL' });
+
+      const players = result.data.filter((row) => row.role === 'PLAYER');
+      expect(players).toHaveLength(2);
+      expect(players.map((row) => row.id).sort()).toEqual([199, 201]);
+    });
+  });
+
   describe('filtre statut Actif/Archivé/Tout', () => {
     it('refuse status=ARCHIVED sans la permission roster_archive', async () => {
       can.mockResolvedValue(null);
@@ -356,6 +425,7 @@ describe('RosterService', () => {
       ptFindMany.mockResolvedValue([
         playerTeamRow({
           id: 201,
+          playerId: 101,
           player: {
             id: 101,
             memberId: 43,
@@ -371,6 +441,7 @@ describe('RosterService', () => {
         }),
         playerTeamRow({
           id: 200,
+          playerId: 100,
           player: {
             id: 100,
             memberId: 42,
@@ -396,9 +467,9 @@ describe('RosterService', () => {
 
     it('trie par jerseyNumber en plaçant les valeurs nulles en fin de liste, quel que soit le sens', async () => {
       ptFindMany.mockResolvedValue([
-        playerTeamRow({ id: 201, jerseyNumber: null }),
-        playerTeamRow({ id: 200, jerseyNumber: 9 }),
-        playerTeamRow({ id: 202, jerseyNumber: 3 }),
+        playerTeamRow({ id: 201, playerId: 101, jerseyNumber: null }),
+        playerTeamRow({ id: 200, playerId: 100, jerseyNumber: 9 }),
+        playerTeamRow({ id: 202, playerId: 102, jerseyNumber: 3 }),
       ]);
 
       const asc = await service.findAllByTeam(requester, {
@@ -446,6 +517,7 @@ describe('RosterService', () => {
       ptFindMany.mockResolvedValue([
         playerTeamRow({
           id: 201,
+          playerId: 101,
           player: {
             id: 101,
             memberId: 43,
@@ -461,6 +533,7 @@ describe('RosterService', () => {
         }),
         playerTeamRow({
           id: 200,
+          playerId: 100,
           player: {
             id: 100,
             memberId: 42,
@@ -488,10 +561,10 @@ describe('RosterService', () => {
 
     it('trie par poste principal par ligne (Gardien → Défenseur → Milieu → Attaquant), pas par ordre alphabétique', async () => {
       ptFindMany.mockResolvedValue([
-        playerTeamRow({ id: 201, mainPosition: 'ST' }),
-        playerTeamRow({ id: 200, mainPosition: 'GK' }),
-        playerTeamRow({ id: 202, mainPosition: 'CB' }),
-        playerTeamRow({ id: 203, mainPosition: null }),
+        playerTeamRow({ id: 201, playerId: 101, mainPosition: 'ST' }),
+        playerTeamRow({ id: 200, playerId: 100, mainPosition: 'GK' }),
+        playerTeamRow({ id: 202, playerId: 102, mainPosition: 'CB' }),
+        playerTeamRow({ id: 203, playerId: 103, mainPosition: null }),
       ]);
 
       const asc = await service.findAllByTeam(requester, {
@@ -521,9 +594,13 @@ describe('RosterService', () => {
 
     it('trie par postes secondaires selon le meilleur poste du groupe, valeur vide en fin de liste', async () => {
       ptFindMany.mockResolvedValue([
-        playerTeamRow({ id: 201, secondaryPositions: ['ST', 'CB'] }),
-        playerTeamRow({ id: 200, secondaryPositions: ['GK'] }),
-        playerTeamRow({ id: 202, secondaryPositions: [] }),
+        playerTeamRow({
+          id: 201,
+          playerId: 101,
+          secondaryPositions: ['ST', 'CB'],
+        }),
+        playerTeamRow({ id: 200, playerId: 100, secondaryPositions: ['GK'] }),
+        playerTeamRow({ id: 202, playerId: 102, secondaryPositions: [] }),
       ]);
 
       const result = await service.findAllByTeam(requester, {
@@ -543,6 +620,7 @@ describe('RosterService', () => {
         playerTeamRow(),
         playerTeamRow({
           id: 201,
+          playerId: 101,
           player: {
             id: 101,
             memberId: 43,
@@ -586,9 +664,9 @@ describe('RosterService', () => {
   describe('pagination', () => {
     it('pagine sur le tableau fusionné et renvoie le total non tronqué', async () => {
       ptFindMany.mockResolvedValue([
-        playerTeamRow({ id: 200 }),
-        playerTeamRow({ id: 201 }),
-        playerTeamRow({ id: 202 }),
+        playerTeamRow({ id: 200, playerId: 100 }),
+        playerTeamRow({ id: 201, playerId: 101 }),
+        playerTeamRow({ id: 202, playerId: 102 }),
       ]);
 
       const result = await service.findAllByTeam(requester, {
@@ -602,9 +680,9 @@ describe('RosterService', () => {
 
     it('découpe correctement avec une petite pageSize', async () => {
       ptFindMany.mockResolvedValue([
-        playerTeamRow({ id: 200 }),
-        playerTeamRow({ id: 201 }),
-        playerTeamRow({ id: 202 }),
+        playerTeamRow({ id: 200, playerId: 100 }),
+        playerTeamRow({ id: 201, playerId: 101 }),
+        playerTeamRow({ id: 202, playerId: 102 }),
       ]);
 
       const result = await service.findAllByTeam(requester, {

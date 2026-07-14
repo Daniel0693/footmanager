@@ -5,6 +5,7 @@ import { assertPlayerInTeam } from '../common/player-team-membership';
 import { MembersService } from '../members/members.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePlayerProfileDto } from './dto/create-player-profile.dto';
+import { FindPlayersQueryDto } from './dto/find-players-query.dto';
 import { UpdatePlayerProfileDto } from './dto/update-player-profile.dto';
 
 export interface PlayerRequestContext {
@@ -86,16 +87,52 @@ export class PlayersService {
     });
   }
 
-  async findAllByClub(clubId: number, requester: PlayerRequestContext) {
+  // `query.search` : sélecteur "joueur existant du club" (A16) — recherche
+  // cross-équipe sur nom/prénom, `include` sur l'affectation active pour
+  // afficher l'équipe actuelle de chaque candidat (ex. promotion U15→U16).
+  // Comportement existant conservé pour le scope TEAM (Coach) : aucun filtre
+  // par équipe n'est appliqué ici — un Coach voit tout le roster du club via
+  // cette route, pas seulement ses propres équipes (pré-existant, pas une
+  // régression introduite par cette recherche).
+  async findAllByClub(
+    clubId: number,
+    requester: PlayerRequestContext,
+    query: FindPlayersQueryDto = {},
+  ) {
+    const memberSearchFilter = query.search
+      ? {
+          OR: [
+            {
+              firstName: {
+                contains: query.search,
+                mode: 'insensitive' as const,
+              },
+            },
+            {
+              lastName: {
+                contains: query.search,
+                mode: 'insensitive' as const,
+              },
+            },
+          ],
+        }
+      : {};
+    const include = {
+      member: true,
+      playerTeams: { where: { leaveDate: null }, include: { team: true } },
+    };
+
     if (requester.scope === 'OWN') {
       const own = await this.prisma.playerProfile.findFirst({
         where: { memberId: requester.memberId, member: { clubId } },
+        include,
       });
       return own ? [own] : [];
     }
 
     return this.prisma.playerProfile.findMany({
-      where: { member: { clubId } },
+      where: { member: { clubId, ...memberSearchFilter } },
+      include,
       orderBy: { id: 'asc' },
     });
   }

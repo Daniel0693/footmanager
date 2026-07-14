@@ -32,13 +32,20 @@ function interview(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderTab(clubId = "1", teamId = "5", playerId = "1", isOwnProfile = false) {
+function renderTab(
+  clubId = "1",
+  teamId = "5",
+  playerId = "1",
+  isOwnProfile = false,
+  seasonId: number | null = null,
+) {
   return renderWithIntl(
     <InterviewsTab
       clubId={clubId}
       teamId={teamId}
       playerId={playerId}
       isOwnProfile={isOwnProfile}
+      seasonId={seasonId}
     />,
   );
 }
@@ -243,6 +250,19 @@ describe("InterviewsTab", () => {
 
     const subjectInput = await screen.findByLabelText<HTMLInputElement>("Sujet");
     expect(subjectInput).toHaveValue("Bilan mi-saison");
+  });
+
+  it("filtrage par saison (A12) : envoie seasonId et masque la plage de dates libre", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse([]));
+
+    renderTab("1", "5", "10", false, 42);
+
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalledTimes(1));
+    const [url] = mockApiFetch.mock.calls[0];
+    expect(queryOf(url).get("seasonId")).toBe("42");
+    expect(queryOf(url).get("dateFrom")).toBeNull();
+    expect(queryOf(url).get("dateTo")).toBeNull();
+    expect(screen.queryByLabelText("Du")).not.toBeInTheDocument();
   });
 
   it("isOwnProfile masque le bouton Ajouter et les actions Modifier/Supprimer par ligne (Player n'a que READ/OWN)", async () => {
