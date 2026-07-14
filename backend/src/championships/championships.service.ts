@@ -79,6 +79,7 @@ export class ChampionshipsService {
     const [data, canManage] = await Promise.all([
       this.prisma.championship.findMany({
         where: { teamId, seasonId: query.seasonId },
+        include: { season: { select: { id: true, name: true } } },
         orderBy: { startDate: 'desc' },
       }),
       this.canManage(clubId, teamId, memberId),
@@ -146,6 +147,7 @@ export class ChampionshipsService {
     );
     const championship = await this.prisma.championship.findFirst({
       where: { id, teamId },
+      include: { season: { select: { id: true, name: true } } },
     });
     if (!championship) {
       throw new AppException('CHAMPIONSHIPS.NOT_FOUND', HttpStatus.NOT_FOUND);

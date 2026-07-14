@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { use, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { formatDate } from "@/lib/date-format";
 import {
   Table,
   TableBody,
@@ -19,15 +19,20 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { ExternalTeamFormDialog } from "@/components/championships/external-team-form-dialog";
 import { ExternalTeamRowActions } from "@/components/championships/external-team-row-actions";
 import type { ExistingExternalTeam } from "@/components/championships/external-team-form-dialog";
+import { ChampionshipFormDialog } from "@/components/championships/championship-form-dialog";
+import { ChampionshipRowActions } from "@/components/championships/championship-row-actions";
+import type { ExistingChampionship } from "@/components/championships/championship-form-dialog";
+
+interface ChampionshipRow extends ExistingChampionship {
+  season: { id: number; name: string };
+}
 
 // Composant nommé séparé du default export : voir la note dans
 // teams/page.tsx (TeamsPageContent) — `use(params)` ne se résout pas de
 // façon fiable sous Jest/jsdom. Scopée équipe (Partie B, docs/roadmap.md) :
 // chaque équipe gère son propre championnat, contrairement à Saisons
-// (club-wide depuis A14). L'onglet "Championnats" reste un placeholder
-// jusqu'à B4-B6 ; "Équipes adverses" (ExternalTeam, club-scopée en base
-// mais gérée ici car toujours atteinte depuis le contexte d'une équipe,
-// voir docs/modules/auth-roles.md) est pleinement fonctionnel dès B3.
+// (club-wide depuis A14). "Championnats" et "Équipes adverses" pleinement
+// fonctionnels depuis B6 (voir docs/roadmap.md).
 export function ChampionshipsPageContent({
   clubId,
   teamId,
@@ -39,8 +44,11 @@ export function ChampionshipsPageContent({
   const tExternal = useTranslations("externalTeams");
   const { accessToken } = useAuth();
   const [externalTeams, setExternalTeams] = useState<ExistingExternalTeam[] | null>(null);
-  const [canManage, setCanManage] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  const [canManageExternalTeams, setCanManageExternalTeams] = useState(false);
+  const [externalTeamsError, setExternalTeamsError] = useState(false);
+  const [championships, setChampionships] = useState<ChampionshipRow[] | null>(null);
+  const [canManageChampionships, setCanManageChampionships] = useState(false);
+  const [championshipsError, setChampionshipsError] = useState(false);
 
   const loadExternalTeams = useCallback(async () => {
     try {
@@ -54,20 +62,42 @@ export function ChampionshipsPageContent({
         canManage: boolean;
       };
       setExternalTeams(data.data);
-      setCanManage(data.canManage);
-      setHasError(false);
+      setCanManageExternalTeams(data.canManage);
+      setExternalTeamsError(false);
     } catch {
-      setHasError(true);
+      setExternalTeamsError(true);
       toast.error(tExternal("loadFailed"));
     }
   }, [clubId, teamId, accessToken, tExternal]);
 
+  const loadChampionships = useCallback(async () => {
+    try {
+      const response = await apiFetch(
+        `/clubs/${clubId}/teams/${teamId}/championships`,
+        { headers: authHeaders(accessToken) },
+      );
+      if (!response.ok) throw new Error();
+      const data = (await response.json()) as {
+        data: ChampionshipRow[];
+        canManage: boolean;
+      };
+      setChampionships(data.data);
+      setCanManageChampionships(data.canManage);
+      setChampionshipsError(false);
+    } catch {
+      setChampionshipsError(true);
+      toast.error(t("loadFailed"));
+    }
+  }, [clubId, teamId, accessToken, t]);
+
   useEffect(() => {
-    // Bootstrap volontaire : charge les équipes adverses au montage — cas
-    // d'usage légitime d'un effect (pas un état dérivable du rendu).
+    // Bootstrap volontaire : charge championnats et équipes adverses au
+    // montage — cas d'usage légitime d'un effect (pas un état dérivable du
+    // rendu).
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadChampionships();
     void loadExternalTeams();
-  }, [loadExternalTeams]);
+  }, [loadChampionships, loadExternalTeams]);
 
   return (
     <div className="flex w-full flex-col gap-4 p-4">
@@ -79,16 +109,65 @@ export function ChampionshipsPageContent({
           <TabsTrigger value="externalTeams">{t("tabs.externalTeams")}</TabsTrigger>
         </TabsList>
         <TabsContent value="championships">
-          <Card>
-            <CardContent className="py-6 text-sm text-muted-foreground">
-              {t("comingSoon")}
-            </CardContent>
-          </Card>
+          <div className="flex w-full flex-col gap-4">
+            <div className="flex items-center justify-end">
+              {canManageChampionships && (
+                <ChampionshipFormDialog
+                  clubId={clubId}
+                  teamId={teamId}
+                  onSuccess={loadChampionships}
+                  trigger={<Button>{t("addButton")}</Button>}
+                />
+              )}
+            </div>
+
+            {championshipsError ? (
+              <p className="text-sm text-destructive">{t("loadFailed")}</p>
+            ) : championships !== null && championships.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("empty")}</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("columnName")}</TableHead>
+                    <TableHead>{t("columnSeason")}</TableHead>
+                    <TableHead>{t("columnDates")}</TableHead>
+                    {canManageChampionships && (
+                      <TableHead className="w-0">{t("actions")}</TableHead>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(championships ?? []).map((championship) => (
+                    <TableRow key={championship.id}>
+                      <TableCell className="font-medium">{championship.name}</TableCell>
+                      <TableCell>{championship.season.name}</TableCell>
+                      <TableCell>
+                        {formatDate(championship.startDate)} –{" "}
+                        {formatDate(championship.endDate)}
+                      </TableCell>
+                      {canManageChampionships && (
+                        <TableCell>
+                          <ChampionshipRowActions
+                            clubId={clubId}
+                            teamId={teamId}
+                            championship={championship}
+                            canManage={canManageChampionships}
+                            onSuccess={loadChampionships}
+                          />
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </TabsContent>
         <TabsContent value="externalTeams">
           <div className="flex w-full flex-col gap-4">
             <div className="flex items-center justify-end">
-              {canManage && (
+              {canManageExternalTeams && (
                 <ExternalTeamFormDialog
                   clubId={clubId}
                   teamId={teamId}
@@ -98,7 +177,7 @@ export function ChampionshipsPageContent({
               )}
             </div>
 
-            {hasError ? (
+            {externalTeamsError ? (
               <p className="text-sm text-destructive">{tExternal("loadFailed")}</p>
             ) : externalTeams !== null && externalTeams.length === 0 ? (
               <p className="text-sm text-muted-foreground">{tExternal("empty")}</p>
@@ -109,7 +188,9 @@ export function ChampionshipsPageContent({
                     <TableHead>{tExternal("columnName")}</TableHead>
                     <TableHead>{tExternal("columnCity")}</TableHead>
                     <TableHead>{tExternal("columnCountry")}</TableHead>
-                    {canManage && <TableHead className="w-0">{tExternal("actions")}</TableHead>}
+                    {canManageExternalTeams && (
+                      <TableHead className="w-0">{tExternal("actions")}</TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -118,13 +199,13 @@ export function ChampionshipsPageContent({
                       <TableCell className="font-medium">{externalTeam.name}</TableCell>
                       <TableCell>{externalTeam.city ?? "—"}</TableCell>
                       <TableCell>{externalTeam.country ?? "—"}</TableCell>
-                      {canManage && (
+                      {canManageExternalTeams && (
                         <TableCell>
                           <ExternalTeamRowActions
                             clubId={clubId}
                             teamId={teamId}
                             externalTeam={externalTeam}
-                            canManage={canManage}
+                            canManage={canManageExternalTeams}
                             onSuccess={loadExternalTeams}
                           />
                         </TableCell>

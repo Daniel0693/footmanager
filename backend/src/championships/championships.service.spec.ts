@@ -152,6 +152,7 @@ describe('ChampionshipsService', () => {
       expect(result).toEqual({ data: [championship], canManage: true });
       expect(championshipFindMany).toHaveBeenCalledWith({
         where: { teamId: 5, seasonId: 10 },
+        include: { season: { select: { id: true, name: true } } },
         orderBy: { startDate: 'desc' },
       });
     });
@@ -193,6 +194,7 @@ describe('ChampionshipsService', () => {
       });
       expect(championshipFindFirst).toHaveBeenCalledWith({
         where: { id: 100, teamId: 5 },
+        include: { season: { select: { id: true, name: true } } },
       });
     });
   });
