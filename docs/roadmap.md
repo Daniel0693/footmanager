@@ -208,7 +208,7 @@ Tests à la fin de la Partie A (après révision A14-A20) : 449 tests backend + 
 | B11 | Backend `championship-matches` CRUD (saisie résultats) ✅ |
 | B12 | Algorithme de classement (fonction pure) + endpoint ✅ |
 | B13 | Frontend calendrier des rencontres + saisie résultats ✅ |
-| B14 | Frontend classement |
+| B14 | Frontend classement ✅ |
 | B15 | Tests multi-rôles bout-en-bout Partie B + clôture |
 
 Démarre sur une branche `feature/saisons-module-championship` séparée, une fois la Partie A

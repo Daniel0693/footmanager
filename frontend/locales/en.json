@@ -469,9 +469,21 @@
       "participants": "Participants",
       "matches": "Schedule",
       "standings": "Standings"
-    },
-    "matchesComingSoon": "Match management is coming in a future phase.",
-    "standingsComingSoon": "Standings are coming in a future phase."
+    }
+  },
+  "standings": {
+    "loadFailed": "Unable to load the standings",
+    "empty": "No standings available yet",
+    "columnRank": "Rank",
+    "columnTeam": "Team",
+    "columnPlayed": "P",
+    "columnWins": "W",
+    "columnDraws": "D",
+    "columnLosses": "L",
+    "columnGoalsScored": "GF",
+    "columnGoalsConceded": "GA",
+    "columnGoalDifference": "GD",
+    "columnPoints": "Pts"
   },
   "championshipParticipants": {
     "loadFailed": "Unable to load participants",

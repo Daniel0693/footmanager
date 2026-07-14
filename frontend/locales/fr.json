@@ -469,9 +469,21 @@
       "participants": "Participants",
       "matches": "Calendrier",
       "standings": "Classement"
-    },
-    "matchesComingSoon": "La gestion des rencontres arrivera dans une prochaine phase.",
-    "standingsComingSoon": "Le classement arrivera dans une prochaine phase."
+    }
+  },
+  "standings": {
+    "loadFailed": "Impossible de charger le classement",
+    "empty": "Aucun classement disponible pour l'instant",
+    "columnRank": "Rang",
+    "columnTeam": "Équipe",
+    "columnPlayed": "J",
+    "columnWins": "G",
+    "columnDraws": "N",
+    "columnLosses": "P",
+    "columnGoalsScored": "BP",
+    "columnGoalsConceded": "BC",
+    "columnGoalDifference": "Diff",
+    "columnPoints": "Pts"
   },
   "championshipParticipants": {
     "loadFailed": "Impossible de charger les participants",

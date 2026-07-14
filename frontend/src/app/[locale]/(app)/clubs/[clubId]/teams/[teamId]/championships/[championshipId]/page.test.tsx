@@ -43,9 +43,9 @@ const championship = {
   canManage: true,
 };
 
-// Router par URL : la fiche charge le championnat, puis l'onglet
-// Participants (par défaut) charge ses propres données ; l'onglet Calendrier
-// (matches) charge les siennes dès qu'il est activé.
+// Router par URL : la fiche charge le championnat, puis chaque onglet
+// (Participants par défaut, Calendrier/Classement dès qu'ils sont activés)
+// charge ses propres données.
 function mockApiFetchDefault(champ: unknown = championship, ok = true) {
   mockApiFetch.mockImplementation((url: string) => {
     if (url.includes("/participants")) {
@@ -53,6 +53,9 @@ function mockApiFetchDefault(champ: unknown = championship, ok = true) {
     }
     if (url.includes("/matches")) {
       return Promise.resolve(jsonResponse({ data: [], canManage: true }));
+    }
+    if (url.includes("/standings")) {
+      return Promise.resolve(jsonResponse([]));
     }
     return Promise.resolve(jsonResponse(champ, ok));
   });
@@ -104,7 +107,7 @@ describe("ChampionshipDetailPageContent", () => {
     expect(await screen.findByText("Aucun participant pour l'instant")).toBeInTheDocument();
   });
 
-  it("l'onglet Calendrier charge les rencontres, l'onglet Classement affiche un message d'attente", async () => {
+  it("les onglets Calendrier et Classement chargent leurs propres données", async () => {
     mockApiFetchDefault();
     const user = userEvent.setup();
 
@@ -118,7 +121,7 @@ describe("ChampionshipDetailPageContent", () => {
 
     await user.click(screen.getByRole("tab", { name: "Classement" }));
     expect(
-      await screen.findByText("Le classement arrivera dans une prochaine phase."),
+      await screen.findByText("Aucun classement disponible pour l'instant"),
     ).toBeInTheDocument();
   });
 
