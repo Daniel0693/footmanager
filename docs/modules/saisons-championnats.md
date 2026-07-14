@@ -174,6 +174,12 @@ Représente une équipe dans un championnat :
 
 Contrainte applicative : exactement l'un des deux doit être non-null.
 
+**Limite MVP (B8, docs/roadmap.md)** : `internalTeamId` est restreint à l'équipe propriétaire
+du championnat (`Championship.teamId`) — un championnat créé par l'équipe U15 ne peut donc
+jamais compter une AUTRE équipe interne du club (ex. U15 B) comme participante, seulement des
+`ExternalTeam`. Deux équipes du même club affrontées dans le même championnat = hors scope MVP
+(évite d'avoir à gérer un "affrontement intra-club" dans l'algorithme de classement, B12).
+
 ---
 
 ## ExternalTeam

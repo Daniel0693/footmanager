@@ -859,6 +859,15 @@
       "NOT_FOUND": "Championship not found",
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
       "SEASON_NOT_FOUND": "This season does not belong to this club"
+    },
+    "CHAMPIONSHIP_PARTICIPANTS": {
+      "NOT_FOUND": "Participant not found",
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "CHAMPIONSHIP_NOT_FOUND": "Championship not found",
+      "EXACTLY_ONE_TEAM_REQUIRED": "Choose either an internal team or an external team, not both",
+      "INTERNAL_TEAM_MUST_BE_OWNER": "Only the championship's owning team can be added as an internal team",
+      "EXTERNAL_TEAM_NOT_FOUND": "This external team does not belong to this club",
+      "ALREADY_PARTICIPANT": "This team is already a participant in this championship"
     }
   },
   "stepperExample": {

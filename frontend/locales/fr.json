@@ -859,6 +859,15 @@
       "NOT_FOUND": "Championnat introuvable",
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
       "SEASON_NOT_FOUND": "Cette saison n'appartient pas à ce club"
+    },
+    "CHAMPIONSHIP_PARTICIPANTS": {
+      "NOT_FOUND": "Participant introuvable",
+      "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
+      "CHAMPIONSHIP_NOT_FOUND": "Championnat introuvable",
+      "EXACTLY_ONE_TEAM_REQUIRED": "Choisissez une équipe interne ou une équipe adverse, pas les deux",
+      "INTERNAL_TEAM_MUST_BE_OWNER": "Seule l'équipe propriétaire du championnat peut être ajoutée comme équipe interne",
+      "EXTERNAL_TEAM_NOT_FOUND": "Cette équipe adverse n'appartient pas à ce club",
+      "ALREADY_PARTICIPANT": "Cette équipe participe déjà à ce championnat"
     }
   },
   "stepperExample": {
