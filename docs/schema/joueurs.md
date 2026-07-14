@@ -396,7 +396,8 @@ backend (`backend/src/common/season-period.ts` → `resolveSeasonPeriod`) en bor
 (`date`/`startDate`/`createdAt` selon l'entité). `seasonId` et la plage libre `dateFrom`/
 `dateTo` sont mutuellement exclusifs côté UI (`frontend/src/components/seasons/
 season-filter-select.tsx`, affiché une seule fois au-dessus des `Tabs` sur
-`PlayerDetailPageContent`, valeur par défaut = saison ACTIVE de l'équipe).
+`PlayerDetailPageContent`, valeur par défaut = saison ACTIVE du club — `Season` est club-wide
+depuis la révision A14, docs/roadmap.md).
 
 | Mode | Requête |
 |---|---|
@@ -405,10 +406,9 @@ season-filter-select.tsx`, affiché une seule fois au-dessus des `Tabs` sur
 | Tout (depuis entrée au club) | pas de filtre |
 | Championnat précis | **non applicable** — aucune de ces 4 entités n'a de FK vers
   `ChampionshipMatch`, mode non pertinent, volontairement absent de l'UI |
-| Catégorie d'âge (`categorySnapshot`) | **différé** — aucun écran ne permet à ce jour de
-  renseigner `Season.categorySnapshot` (le formulaire de création A5 et l'édition A11
-  n'exposent que nom/dates), donc un filtre sur ce champ serait inutilisable ; à construire
-  quand une UI de saisie de catégorie existera |
+| Catégorie d'âge | **non applicable** — le champ `Season.categorySnapshot` envisagé en
+  conception n'a jamais été implémenté et a été retiré du schéma en A14 (n'aurait plus de sens
+  au niveau club, qui regroupe plusieurs équipes de catégories différentes) |
 
 `PlayerMeasurement` : **exclu volontairement** du filtrage par saison — toujours en graphique
 d'évolution temporelle complète, seule la plage de dates libre s'applique (décision reconduite

@@ -2,17 +2,24 @@
 
 ## Vision
 
-Une `Season` est le cadre temporel d'une équipe sur une période définie. Elle peut contenir
-un ou plusieurs `Championship` (championnats distincts). Exemple suisse :
+Une `Season` est le cadre temporel **partagé par tout le club** sur une période définie
+(révision A14, docs/roadmap.md — initialement scopée équipe, corrigé suite à un retour
+utilisateur : toutes les équipes d'un club suivent le même calendrier de saisons, avoir une
+`Season` distincte par équipe dupliquait une information censée être unique pour le club).
+Chaque `Team` peut ensuite avoir un ou plusieurs `Championship` rattachés à cette `Season`
+partagée. Exemple suisse :
 
-- **Équipe adulte** : une Season "2024–2025" (juillet → juin) contenant un Championship
-  "Championnat 2024–2025".
-- **Équipe junior suisse** : deux Seasons distinctes — "Automne 2024" et "Printemps 2025" —
-  chacune contenant son propre Championship. Ou une Season annuelle contenant deux Championships.
-  C'est l'utilisateur qui décide du découpage.
+- **Équipe adulte** : la Season "2024–2025" (juillet → juin, commune à tout le club) contient un
+  Championship "Championnat 2024–2025" propre à cette équipe.
+- **Équipe junior suisse** : sur cette même Season du club, l'équipe junior peut avoir deux
+  Championships distincts — "Championnat d'Automne" et "Championnat du Printemps" — alors que
+  l'équipe adulte n'en a qu'un sur la même période. C'est l'utilisateur (chaque Coach, pour son
+  équipe) qui décide du découpage de ses propres championnats.
 
-Le nombre de Championships par Season n'est pas limité — le modèle couvre tous les cas selon
-les pays et fédérations.
+Le nombre de Championships par équipe par Season n'est pas limité — le modèle couvre tous les
+cas selon les pays et fédérations. Les championnats sont créés par les Coachs eux-mêmes, à
+tout moment de la saison, **indépendamment** de la création de la Season (pas de wizard reliant
+les deux — voir §Workflow ci-dessous).
 
 ---
 
@@ -22,50 +29,52 @@ les pays et fédérations.
 
 | État | Description |
 |---|---|
-| `DRAFT` | En cours de préparation. Roster importable, championnats configurables. La saison précédente reste `ACTIVE`. |
-| `ACTIVE` | Saison courante de l'équipe. **Une seule par équipe** à tout instant. |
+| `DRAFT` | En préparation (ex. créée en avance par l'AdminClub). La saison courante du club reste `ACTIVE`. |
+| `ACTIVE` | Saison courante du club. **Une seule par club** à tout instant. |
 | `ARCHIVED` | Saison terminée. Données consultables et modifiables, mais plus active. |
 
-### Workflow de transition — créer une nouvelle saison
+### Créer et activer une saison (révision A14 — plus de wizard)
 
-Ce workflow est déclenché par un Coach ou AdminClub depuis la fiche de l'équipe.
+Gestion réservée à AdminClub/SuperAdmin/Proprietaire (Coach et Player n'ont que la lecture,
+voir §Droits par rôle) — une décision qui engage tout le club, pas une seule équipe.
 
-**Étape 1 — Créer la nouvelle Season**
-- Saisir : nom (ex. "Saison 2025/2026"), `startDate`, `endDate`.
-- La Season est créée en état `DRAFT`. La saison actuelle reste `ACTIVE` — les deux coexistent.
+**Création** : modale simple (nom, `startDate`, `endDate`) — pattern identique à toute autre
+création dans l'application (`PlayerFormDialog`, `NoteFormDialog`...), jamais une page ou un
+wizard dédié. La Season est créée en `DRAFT` ; la saison courante du club reste `ACTIVE`, les
+deux coexistent.
 
-**Étape 2 — Importer le roster**
-- Le système affiche le roster actif actuel de l'équipe (indépendant de la saison ciblée —
-  `PlayerTeam` n'a pas de FK directe vers `Season`, voir `docs/schema/championnats.md`).
-- Le coach sélectionne les joueurs à reconduire (tous par défaut, décochables).
-- Pour chaque joueur sélectionné : une nouvelle entrée `PlayerTeam` est créée avec
-  `joinDate = newSeason.startDate`, liée à la même `Team`, en reportant numéro de maillot et
-  poste de son affectation active actuelle (continuité — évite de tout ressaisir).
-- **Précision (2026-07-13)** : aucun `leaveDate` n'est posé à cette étape — ni sur l'ancienne
-  affectation des joueurs reconduits, ni sur celle des partants (implicites, simplement non
-  sélectionnés). Réservé entièrement à l'étape 4, pour que le wizard reste annulable sans effet
-  de bord tant qu'il n'est pas validé. Conséquence acceptée : entre l'import et l'activation, un
-  joueur reconduit a temporairement deux affectations `PlayerTeam` actives sur la même équipe.
-- Nouveaux joueurs (arrivées / transferts) : ajoutés manuellement à ce stade ou plus tard.
+**Activation** : action ponctuelle (bouton **Activer** + confirmation) sur la fiche de la
+saison DRAFT. L'utilisateur peut corriger la `endDate` de l'ancienne saison ACTIVE du club si
+elle existe (pré-remplie, modifiable — ex. nouvelle saison créée en août alors que l'ancienne
+se terminait officiellement en juin). À la confirmation :
+1. L'ancienne saison ACTIVE du club (s'il y en a une) passe en `ARCHIVED`, avec sa `endDate`
+   éventuellement corrigée.
+2. La nouvelle saison passe en `ACTIVE`.
 
-**Étape 3 — Configurer les championnats (optionnel à ce stade)**
-- Créer les `Championship` de la nouvelle saison avec leurs dates, règles de points et format
-  de jeu. Peut être fait après l'activation.
+**Aucune transaction sur `PlayerTeam`** : contrairement à la conception d'origine (wizard avec
+étape "importer le roster"), l'activation d'une saison ne touche plus aucune affectation
+joueur↔équipe. `PlayerTeam` n'a jamais eu de FK directe vers `Season` (appartenance déduite des
+dates `joinDate`/`leaveDate`) — un joueur qui ne change rien reste donc valide d'une saison à
+l'autre sans aucune action requise. Voir §Mouvements de joueurs entre équipes ci-dessous pour
+la gestion des vrais changements (départs, arrivées, promotions de catégorie).
 
-**Étape 4 — Valider et activer**
-- Le wizard affiche un résumé : joueurs reconduits, joueurs partants, joueurs arrivants.
-- L'utilisateur peut modifier la `endDate` de l'ancienne saison (pré-remplie depuis sa
-  création, modifiable ici pour corriger si besoin — ex. création de la nouvelle saison en
-  août alors que l'ancienne se terminait officiellement en juin).
-- À la validation :
-  1. L'ancienne saison passe en état `ARCHIVED`.
-  2. Les `PlayerTeam` de l'ancienne saison sans `leaveDate` reçoivent `leaveDate = oldSeason.endDate`
-     — couvre uniformément les partants (jamais fermée depuis l'étape 2) et l'ancienne
-     affectation des joueurs reconduits (doublonnée avec la nouvelle jusqu'ici).
-  3. La nouvelle saison passe en état `ACTIVE`.
-  4. Les nouvelles `PlayerTeam` sont confirmées.
+### Mouvements de joueurs entre équipes (au fil de l'eau, pas de wizard de transition)
 
-**Étape 5 — Travailler sur la nouvelle saison**
+Les départs, arrivées et promotions de catégorie (ex. un joueur qui monte de U15 à U16 d'une
+saison à l'autre) se gèrent directement via l'Effectif, à tout moment, indépendamment de
+l'activation d'une saison :
+- **Départ** : action "Archiver" déjà existante sur l'affectation `PlayerTeam` du joueur
+  (pose `leaveDate`), depuis l'équipe qu'il quitte.
+- **Arrivée d'un nouveau joueur** (jamais inscrit dans le club) : "Ajouter un joueur" →
+  mode "Nouveau joueur" (crée `Member` + `PlayerProfile` + `PlayerTeam`).
+- **Promotion / transfert d'un joueur déjà présent dans le club** (ex. U15 → U16) : "Ajouter un
+  joueur" → mode "Joueur existant du club" (par défaut, recherche club-wide) — retrouve le
+  joueur par nom, affiche son équipe actuelle, et crée uniquement une nouvelle affectation
+  `PlayerTeam` sur la nouvelle équipe, sans recréer son profil. **L'ancienne affectation n'est
+  jamais fermée automatiquement** : c'est un geste séparé (Archiver, ci-dessus), laissé au Coach
+  de l'ancienne équipe — évite un problème de permission (le Coach de la nouvelle équipe n'a
+  aucun droit d'écriture sur l'ancienne équipe) et garde chaque Coach maître de sa propre
+  équipe. Voir `docs/modules/effectif-joueurs.md`.
 
 ---
 
@@ -85,8 +94,9 @@ comportement attendu, pas un bug.
 
 ### Comment ça fonctionne
 
-Grâce au workflow de transition, chaque saison génère des entrées `PlayerTeam` avec des dates
-explicites. L'historique d'un joueur est donc lisible par simple tri chronologique :
+Chaque mouvement de joueur (archivage d'une affectation, ajout à une nouvelle équipe — voir
+§Mouvements de joueurs entre équipes ci-dessus) pose des dates explicites sur `PlayerTeam`.
+L'historique d'un joueur est donc lisible par simple tri chronologique :
 
 ```
 Joueur X — historique PlayerTeam :
@@ -103,7 +113,7 @@ Modes implémentés :
 
 | Mode | Requête sous-jacente |
 |---|---|
-| Saison précise (défaut = saison ACTIVE de l'équipe) | `WHERE <date entité> BETWEEN season.startDate AND season.endDate` |
+| Saison précise (défaut = saison ACTIVE du club) | `WHERE <date entité> BETWEEN season.startDate AND season.endDate` |
 | Tranche de dates libre ("Période personnalisée") | `WHERE <date entité> BETWEEN dateA AND dateB` |
 | Tout (depuis entrée au club) | pas de filtre de date |
 
@@ -204,12 +214,19 @@ MVP (20 équipes × ~20 matchs = quelques centaines de lignes, parfaitement supp
 
 ## Droits par rôle
 
+`Season` est club-wide depuis la révision A14 : sa gestion (création/édition/activation) est
+réservée à AdminClub/SuperAdmin/Proprietaire — un Coach n'a plus qu'un droit de lecture, transmis
+via `?teamId=` (la route `clubs/:clubId/seasons` ne porte pas de `:teamId`, voir
+`docs/modules/auth-roles.md` §"Patterns découverts", même pattern que `evaluation_config`).
+`Championship` reste, lui, scopé équipe (voir note dans la section Championship ci-dessus) —
+c'est pourquoi sa gestion reste ouverte au Coach.
+
 | Action | Coach (son équipe) | AdminClub | SuperAdmin / Propriétaire | Player | Parent |
 |---|---|---|---|---|---|
-| Consulter les saisons de son équipe (peuple le sélecteur, A12) | ✅ | ✅ | ✅ | ✅ (lecture) | ❌ |
-| Créer / activer une Season | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Modifier une Season archivée | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Créer un Championship | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Consulter les saisons du club (peuple le sélecteur, A12) | ✅ (lecture, via `?teamId=`) | ✅ | ✅ | ✅ (lecture, via `?teamId=`) | ❌ |
+| Créer / activer une Season | ❌ | ✅ | ✅ | ❌ | ❌ |
+| Modifier une Season (y compris archivée) | ❌ | ✅ | ✅ | ❌ | ❌ |
+| Créer un Championship (pour sa propre équipe) | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Ajouter des ExternalTeam | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Saisir les résultats adverses | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Voir le classement | ✅ | ✅ | ✅ | ✅ (lecture) | ✅ (lecture) |

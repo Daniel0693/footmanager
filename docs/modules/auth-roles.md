@@ -182,7 +182,11 @@ query string (`?teamId=5`). `PermissionsGuard` résout déjà `clubId`/`teamId` 
 body, **ou la query** (voir plus haut) — aucun changement backend n'est nécessaire, seul l'appel
 frontend doit inclure le paramètre. Utilisé par la fiche joueur
 (`GET /clubs/:clubId/players/:id?teamId=`) et par `PlayerFormDialog` en mode édition
-(`PATCH /clubs/:clubId/members/:id?teamId=` et `PATCH /clubs/:clubId/players/:id?teamId=`).
+(`PATCH /clubs/:clubId/members/:id?teamId=` et `PATCH /clubs/:clubId/players/:id?teamId=`), par
+`evaluation_config` (`GET /clubs/:clubId/evaluation-config?teamId=`, Coach/Player en lecture
+seule), et par `season` depuis la révision A14 (`GET /clubs/:clubId/seasons?teamId=`, Coach et
+Player n'ont que `season READ` scope `TEAM` — la gestion est réservée à AdminClub, scope `CLUB`
+qui n'a pas besoin de `?teamId=`, voir `docs/modules/saisons-championnats.md` §Droits par rôle).
 
 *Quand utiliser quoi* : la route self-service `/me`/`/mine` convient quand l'appelant ne connaît
 pas encore le teamId pertinent (ex. "quelles sont mes équipes ?" avant même d'en avoir choisi
@@ -284,13 +288,16 @@ utilisateur différent par rôle. Pour le module Calendrier (B9, Partie B),
 `backend/src/common/calendrier-multi-role.integration.spec.ts` applique le même principe à
 `Event`/`PlayerAbsence` (CRUD réel via guards/services) et aux agrégations "mine"
 (`events/mine`, `members/birthdays`, exercées avec le vrai `PermissionsService` — voir le
-constat documenté ci-dessus sur leur proxy `MemberRole`). Pour le module Season (A13, Phase 3
-Partie A), `backend/src/common/season-multi-role.integration.spec.ts` couvre `SeasonsController`
-(CRUD + import de roster + activation, flux réel Coach de bout en bout) et le filtrage
-rétroactif par saison des entités A7.x (A12, via `PlayerObjectivesController` comme
-représentant des 4 ressources partageant `resolveSeasonPeriod`) — dont le cas explicite d'un
-`seasonId` appartenant à une AUTRE équipe que celle transmise en `?teamId=`, rejeté en 404 par
-`resolveSeasonPeriod` plutôt que de fuiter les bornes de dates d'une saison hors scope.
+constat documenté ci-dessus sur leur proxy `MemberRole`). Pour le module Season (A13/A19, Phase 3
+Partie A — révisé en A14-A15 pour un `Season` club-wide, voir `docs/roadmap.md`),
+`backend/src/common/season-multi-role.integration.spec.ts` couvre `SeasonsController` (un
+persona AdminClub dédié crée/active une saison club-wide en flux réel — Marc, Coach/Player, n'a
+plus que la lecture depuis la révision A14) et le filtrage rétroactif par saison des entités
+A7.x (A12, via `PlayerObjectivesController` comme représentant des 4 ressources partageant
+`resolveSeasonPeriod`) — dont le cas explicite d'un `seasonId` appartenant à un AUTRE **club**
+(et non plus une autre équipe, `Season` n'ayant plus de FK vers `Team`) que celui transmis,
+rejeté en 404 par `resolveSeasonPeriod` plutôt que de fuiter les bornes de dates d'une saison
+hors scope.
 
 ### Propriétaire — mécanisme de transfert sécurisé
 
