@@ -197,6 +197,7 @@ const createHandler = ChampionshipsController.prototype.create;
 const findAllHandler = ChampionshipsController.prototype.findAll;
 const updateHandler = ChampionshipsController.prototype.update;
 const removeHandler = ChampionshipsController.prototype.remove;
+const getStandingsHandler = ChampionshipsController.prototype.getStandings;
 /* eslint-enable @typescript-eslint/unbound-method */
 
 describe('Module Championship — scénario multi-rôles (ChampionshipsController)', () => {
@@ -304,6 +305,18 @@ describe('Module Championship — scénario multi-rôles (ChampionshipsControlle
     await expect(championshipsService.findAllByTeam(1, 5, 42)).resolves.toEqual(
       { data: [], canManage: false },
     );
+  });
+
+  it('Player consulte le classement (READ seul, même permission que la liste)', async () => {
+    const request = {
+      params: { clubId: '1', teamId: '5' },
+      user: { userId: 7 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, getStandingsHandler)),
+    ).resolves.toBe(true);
+    expect(request.permissionScope).toBe('TEAM');
   });
 
   it("Player n'a pas la permission de créer, modifier ou supprimer un championnat", async () => {

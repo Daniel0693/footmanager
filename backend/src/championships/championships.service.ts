@@ -4,9 +4,17 @@ import { assertSeasonInClub } from '../common/season-club-membership';
 import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsService } from '../roles/permissions.service';
+import { computeStandings } from './standings/compute-standings';
+import type { TiebreakerRule } from './tiebreaker-rule';
 import { CreateChampionshipDto } from './dto/create-championship.dto';
 import { FindChampionshipsQueryDto } from './dto/find-championships-query.dto';
 import { UpdateChampionshipDto } from './dto/update-championship.dto';
+
+const PARTICIPANT_SELECT = {
+  id: true,
+  internalTeam: { select: { id: true, name: true } },
+  externalTeam: { select: { id: true, name: true } },
+} as const;
 
 const DEFAULT_POINTS_FOR_WIN = 3;
 const DEFAULT_POINTS_FOR_DRAW = 1;
@@ -132,6 +140,51 @@ export class ChampionshipsService {
   async remove(clubId: number, teamId: number, id: number) {
     await this.findChampionshipOrThrow(clubId, teamId, id);
     await this.prisma.championship.delete({ where: { id } });
+  }
+
+  // Calcule le classement à la volée (compute-standings.ts, fonction pure,
+  // B12) depuis les ChampionshipMatch FINISHED — jamais persisté (pas de
+  // table Standing en MVP, docs/modules/saisons-championnats.md §Classement).
+  async getStandings(clubId: number, teamId: number, id: number) {
+    const championship = await this.findChampionshipOrThrow(clubId, teamId, id);
+
+    const [participants, matches] = await Promise.all([
+      this.prisma.championshipParticipant.findMany({
+        where: { championshipId: id },
+        select: PARTICIPANT_SELECT,
+      }),
+      this.prisma.championshipMatch.findMany({
+        where: { championshipId: id, status: 'FINISHED' },
+        select: {
+          homeParticipantId: true,
+          awayParticipantId: true,
+          scoreHome: true,
+          scoreAway: true,
+        },
+      }),
+    ]);
+
+    const rows = computeStandings({
+      participantIds: participants.map((p) => p.id),
+      // status FINISHED garantit scoreHome/scoreAway non-null (voir
+      // ChampionshipMatchesService.update), le `!` reflète cette invariante.
+      matches: matches.map((m) => ({
+        homeParticipantId: m.homeParticipantId,
+        awayParticipantId: m.awayParticipantId,
+        scoreHome: m.scoreHome!,
+        scoreAway: m.scoreAway!,
+      })),
+      pointsForWin: championship.pointsForWin,
+      pointsForDraw: championship.pointsForDraw,
+      pointsForLoss: championship.pointsForLoss,
+      tiebreakerRules: championship.tiebreakerRules as TiebreakerRule[],
+    });
+
+    const participantById = new Map(participants.map((p) => [p.id, p]));
+    return rows.map((row) => ({
+      ...row,
+      participant: participantById.get(row.participantId) ?? null,
+    }));
   }
 
   private async findChampionshipOrThrow(

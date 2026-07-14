@@ -49,6 +49,8 @@ describe('ChampionshipsService', () => {
   let championshipCreate: jest.Mock;
   let championshipUpdate: jest.Mock;
   let championshipDelete: jest.Mock;
+  let participantFindMany: jest.Mock;
+  let matchFindMany: jest.Mock;
   let permissionsCan: jest.Mock;
   let service: ChampionshipsService;
 
@@ -60,6 +62,8 @@ describe('ChampionshipsService', () => {
     championshipCreate = jest.fn();
     championshipUpdate = jest.fn();
     championshipDelete = jest.fn();
+    participantFindMany = jest.fn();
+    matchFindMany = jest.fn();
 
     const prismaStub = {
       team: { findFirst: teamFindFirst },
@@ -71,6 +75,8 @@ describe('ChampionshipsService', () => {
         update: championshipUpdate,
         delete: championshipDelete,
       },
+      championshipParticipant: { findMany: participantFindMany },
+      championshipMatch: { findMany: matchFindMany },
     } as unknown as PrismaService;
 
     permissionsCan = jest.fn().mockResolvedValue('TEAM');
@@ -245,6 +251,57 @@ describe('ChampionshipsService', () => {
         service.update(1, 5, 100, { seasonId: 999 }),
       ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
       expect(championshipUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getStandings', () => {
+    it('calcule le classement à partir des participants et rencontres FINISHED', async () => {
+      championshipFindFirst.mockResolvedValue(championship);
+      participantFindMany.mockResolvedValue([
+        { id: 1, internalTeam: { id: 5, name: 'U15' }, externalTeam: null },
+        {
+          id: 2,
+          internalTeam: null,
+          externalTeam: { id: 50, name: 'FC Rivaux' },
+        },
+      ]);
+      matchFindMany.mockResolvedValue([
+        {
+          homeParticipantId: 1,
+          awayParticipantId: 2,
+          scoreHome: 2,
+          scoreAway: 0,
+        },
+      ]);
+
+      const result = await service.getStandings(1, 5, 100);
+
+      expect(matchFindMany).toHaveBeenCalledWith({
+        where: { championshipId: 100, status: 'FINISHED' },
+        select: {
+          homeParticipantId: true,
+          awayParticipantId: true,
+          scoreHome: true,
+          scoreAway: true,
+        },
+      });
+      expect(result).toHaveLength(2);
+      expect(result[0]).toMatchObject({
+        participantId: 1,
+        points: 3,
+        rank: 1,
+        participant: { id: 1, internalTeam: { id: 5, name: 'U15' } },
+      });
+      expect(result[1]).toMatchObject({ participantId: 2, points: 0, rank: 2 });
+    });
+
+    it('renvoie 404 si le championnat est introuvable', async () => {
+      championshipFindFirst.mockResolvedValue(null);
+
+      await expect(service.getStandings(1, 5, 100)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+      });
+      expect(participantFindMany).not.toHaveBeenCalled();
     });
   });
 

@@ -206,7 +206,7 @@ Tests à la fin de la Partie A (après révision A14-A20) : 449 tests backend + 
 | B9 | Frontend onglet Participants (fiche championnat, nouvelle route) ✅ |
 | B10 | Schéma `ChampionshipMatch` ✅ |
 | B11 | Backend `championship-matches` CRUD (saisie résultats) ✅ |
-| B12 | Algorithme de classement (fonction pure) + endpoint |
+| B12 | Algorithme de classement (fonction pure) + endpoint ✅ |
 | B13 | Frontend calendrier des rencontres + saisie résultats |
 | B14 | Frontend classement |
 | B15 | Tests multi-rôles bout-en-bout Partie B + clôture |

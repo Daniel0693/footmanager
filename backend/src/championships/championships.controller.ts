@@ -62,6 +62,19 @@ export class ChampionshipsController {
     return this.championshipsService.findOne(clubId, teamId, id, member.id);
   }
 
+  // Fonction pure (compute-standings.ts, B12) : calculé à la volée depuis
+  // les ChampionshipMatch FINISHED, jamais persisté (pas de table Standing
+  // en MVP — docs/modules/saisons-championnats.md §Classement).
+  @RequirePermission('championship', 'READ')
+  @Get(':id/standings')
+  getStandings(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.championshipsService.getStandings(clubId, teamId, id);
+  }
+
   @RequirePermission('championship', 'UPDATE')
   @Patch(':id')
   update(
