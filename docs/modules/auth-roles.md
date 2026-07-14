@@ -184,9 +184,16 @@ frontend doit inclure le paramètre. Utilisé par la fiche joueur
 (`GET /clubs/:clubId/players/:id?teamId=`) et par `PlayerFormDialog` en mode édition
 (`PATCH /clubs/:clubId/members/:id?teamId=` et `PATCH /clubs/:clubId/players/:id?teamId=`), par
 `evaluation_config` (`GET /clubs/:clubId/evaluation-config?teamId=`, Coach/Player en lecture
-seule), et par `season` depuis la révision A14 (`GET /clubs/:clubId/seasons?teamId=`, Coach et
+seule), par `season` depuis la révision A14 (`GET /clubs/:clubId/seasons?teamId=`, Coach et
 Player n'ont que `season READ` scope `TEAM` — la gestion est réservée à AdminClub, scope `CLUB`
-qui n'a pas besoin de `?teamId=`, voir `docs/modules/saisons-championnats.md` §Droits par rôle).
+qui n'a pas besoin de `?teamId=`, voir `docs/modules/saisons-championnats.md` §Droits par rôle),
+et par `external_team` (Partie B) : `ExternalTeam` est club-scopé en base (pas de `teamId`,
+une équipe adverse peut affronter plusieurs équipes du club) mais accordé au Coach en scope
+`TEAM` — `clubs/:clubId/external-teams?teamId=`. Contrairement à `season`, le Coach connaît
+toujours son `teamId` en appelant cette route (il gère les équipes adverses depuis l'écran de
+championnat de sa propre équipe) : c'est le deuxième cas ci-dessous, pas le troisième. **Ne
+jamais élargir ce rôle à un scope `CLUB`** — violerait la Règle d'or de `CLAUDE.md` (un Coach
+n'a de droits que sur SES équipes, jamais tout le club).
 
 *Quand utiliser quoi* : la route self-service `/me`/`/mine` convient quand l'appelant ne connaît
 pas encore le teamId pertinent (ex. "quelles sont mes équipes ?" avant même d'en avoir choisi

@@ -217,6 +217,23 @@ async function seedRoles() {
       ],
       ['event', READ, TEAM, 'Consulter le calendrier de son équipe'],
       ['season', READ, TEAM, 'Consulter les saisons du club'],
+      // Lecture seule sur le championnat de son équipe (classement,
+      // calendrier des rencontres) — jamais d'écriture, ni d'accès à
+      // `external_team` (pas de besoin de consulter le carnet d'adresses
+      // des équipes adverses hors contexte d'un championnat).
+      ['championship', READ, TEAM, 'Consulter les championnats de son équipe'],
+      [
+        'championship_participant',
+        READ,
+        TEAM,
+        'Consulter les participants aux championnats de son équipe',
+      ],
+      [
+        'championship_match',
+        READ,
+        TEAM,
+        'Consulter les rencontres et résultats de son équipe',
+      ],
     ],
     Parent: [
       ['member', READ, OWN, 'Consulter le profil membre lié à son enfant'],
@@ -435,6 +452,71 @@ async function seedRoles() {
       // d'une saison engage tout le club, réservée à AdminClub/SuperAdmin/
       // Proprietaire.
       ['season', READ, TEAM, 'Consulter les saisons du club'],
+      // Championship (Partie B, docs/roadmap.md) : géré par le Coach au
+      // niveau de chaque équipe, CRUD complet, contrairement à `season`
+      // (club-wide, réservée AdminClub) — chaque équipe joue son propre
+      // championnat, potentiellement plusieurs par saison partagée.
+      ['championship', READ, TEAM, 'Consulter les championnats de ses équipes'],
+      ['championship', CREATE, TEAM, 'Créer un championnat pour ses équipes'],
+      ['championship', UPDATE, TEAM, 'Modifier un championnat de ses équipes'],
+      ['championship', DELETE, TEAM, 'Supprimer un championnat de ses équipes'],
+      [
+        'championship_participant',
+        READ,
+        TEAM,
+        'Consulter les participants aux championnats de ses équipes',
+      ],
+      [
+        'championship_participant',
+        CREATE,
+        TEAM,
+        'Ajouter un participant à un championnat de ses équipes',
+      ],
+      [
+        'championship_participant',
+        UPDATE,
+        TEAM,
+        'Modifier un participant à un championnat de ses équipes',
+      ],
+      [
+        'championship_participant',
+        DELETE,
+        TEAM,
+        'Retirer un participant d’un championnat de ses équipes',
+      ],
+      [
+        'championship_match',
+        READ,
+        TEAM,
+        'Consulter les rencontres de ses championnats',
+      ],
+      [
+        'championship_match',
+        CREATE,
+        TEAM,
+        'Planifier une rencontre pour un championnat de ses équipes',
+      ],
+      [
+        'championship_match',
+        UPDATE,
+        TEAM,
+        'Modifier une rencontre (dont saisie du résultat) de ses championnats',
+      ],
+      [
+        'championship_match',
+        DELETE,
+        TEAM,
+        'Supprimer une rencontre de ses championnats',
+      ],
+      // ExternalTeam est club-scopé (pas de teamId en base) mais le Coach y
+      // a droit en scope TEAM, résolu via `?teamId=` transmis par le
+      // frontend — même pattern que `season`/`evaluation_config`, voir
+      // docs/modules/auth-roles.md §"Patterns découverts". Ne jamais
+      // élargir ce rôle à un scope CLUB (Règle d'or, CLAUDE.md).
+      ['external_team', READ, TEAM, 'Consulter les équipes adverses du club'],
+      ['external_team', CREATE, TEAM, 'Ajouter une équipe adverse au club'],
+      ['external_team', UPDATE, TEAM, 'Modifier une équipe adverse du club'],
+      ['external_team', DELETE, TEAM, 'Supprimer une équipe adverse du club'],
     ],
     AdminClub: [
       ['club', READ, CLUB, 'Consulter son club'],
@@ -633,6 +715,47 @@ async function seedRoles() {
       ['season', CREATE, CLUB, 'Créer une saison pour le club'],
       ['season', UPDATE, CLUB, 'Modifier une saison du club'],
       ['season', DELETE, CLUB, 'Supprimer une saison (brouillon) du club'],
+      ['championship', READ, CLUB, 'Consulter les championnats du club'],
+      ['championship', CREATE, CLUB, 'Créer un championnat pour une équipe du club'],
+      ['championship', UPDATE, CLUB, 'Modifier un championnat du club'],
+      ['championship', DELETE, CLUB, 'Supprimer un championnat du club'],
+      [
+        'championship_participant',
+        READ,
+        CLUB,
+        'Consulter les participants aux championnats du club',
+      ],
+      [
+        'championship_participant',
+        CREATE,
+        CLUB,
+        'Ajouter un participant à un championnat du club',
+      ],
+      [
+        'championship_participant',
+        UPDATE,
+        CLUB,
+        'Modifier un participant à un championnat du club',
+      ],
+      [
+        'championship_participant',
+        DELETE,
+        CLUB,
+        'Retirer un participant d’un championnat du club',
+      ],
+      ['championship_match', READ, CLUB, 'Consulter les rencontres du club'],
+      ['championship_match', CREATE, CLUB, 'Planifier une rencontre pour le club'],
+      [
+        'championship_match',
+        UPDATE,
+        CLUB,
+        'Modifier une rencontre (dont saisie du résultat) du club',
+      ],
+      ['championship_match', DELETE, CLUB, 'Supprimer une rencontre du club'],
+      ['external_team', READ, CLUB, 'Consulter les équipes adverses du club'],
+      ['external_team', CREATE, CLUB, 'Ajouter une équipe adverse au club'],
+      ['external_team', UPDATE, CLUB, 'Modifier une équipe adverse du club'],
+      ['external_team', DELETE, CLUB, 'Supprimer une équipe adverse du club'],
     ],
     SuperAdmin: [
       ['club', READ, ALL, 'Consulter tous les clubs'],
@@ -876,6 +999,47 @@ async function seedRoles() {
         ALL,
         "Supprimer n'importe quelle saison (brouillon)",
       ],
+      ['championship', READ, ALL, "Consulter les championnats de n'importe quel club"],
+      ['championship', CREATE, ALL, "Créer un championnat dans n'importe quel club"],
+      ['championship', UPDATE, ALL, "Modifier n'importe quel championnat"],
+      ['championship', DELETE, ALL, "Supprimer n'importe quel championnat"],
+      [
+        'championship_participant',
+        READ,
+        ALL,
+        "Consulter les participants de n'importe quel championnat",
+      ],
+      [
+        'championship_participant',
+        CREATE,
+        ALL,
+        "Ajouter un participant à n'importe quel championnat",
+      ],
+      [
+        'championship_participant',
+        UPDATE,
+        ALL,
+        "Modifier n'importe quel participant",
+      ],
+      [
+        'championship_participant',
+        DELETE,
+        ALL,
+        "Retirer n'importe quel participant",
+      ],
+      ['championship_match', READ, ALL, "Consulter n'importe quelle rencontre"],
+      ['championship_match', CREATE, ALL, "Planifier une rencontre pour n'importe quel club"],
+      [
+        'championship_match',
+        UPDATE,
+        ALL,
+        "Modifier n'importe quelle rencontre (dont saisie du résultat)",
+      ],
+      ['championship_match', DELETE, ALL, "Supprimer n'importe quelle rencontre"],
+      ['external_team', READ, ALL, "Consulter les équipes adverses de n'importe quel club"],
+      ['external_team', CREATE, ALL, "Ajouter une équipe adverse à n'importe quel club"],
+      ['external_team', UPDATE, ALL, "Modifier n'importe quelle équipe adverse"],
+      ['external_team', DELETE, ALL, "Supprimer n'importe quelle équipe adverse"],
     ],
     // Le mécanisme de transfert sécurisé du rôle Proprietaire est une
     // décision ouverte (docs/decisions-ouvertes-et-rgpd.md) — en attendant,

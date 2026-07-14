@@ -190,11 +190,11 @@ sans pouvoir lire les bornes d'une saison d'un **autre club** (404) ; Parent Clu
 
 Tests à la fin de la Partie A (après révision A14-A20) : 449 tests backend + 428 tests frontend.
 
-### Partie B — Module Championship ⬜
+### Partie B — Module Championship 🚧
 
 | Étape | Contenu |
 |---|---|
-| B0 | Prérequis transverse (seed + doc pattern ExternalTeam) |
+| B0 | Prérequis transverse (seed + doc pattern ExternalTeam) ✅ |
 | B1 | Schéma `ExternalTeam` |
 | B2 | Backend `external-teams` CRUD |
 | B3 | Frontend gestion des équipes adverses |
