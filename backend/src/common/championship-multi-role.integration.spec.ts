@@ -41,9 +41,10 @@ import { ExternalTeamsService } from '../external-teams/external-teams.service';
  * seulement le guard :
  *
  * 1. Coach (équipe 5) : crée une équipe adverse (`external_team`, route
- *    club-only via `?teamId=`), crée un championnat pour son équipe,
- *    ajoute deux participants (son équipe interne + l'équipe adverse),
- *    planifie une rencontre, saisit un résultat (FINISHED), lit le
+ *    club-only via `?teamId=`), crée un championnat pour son équipe (son
+ *    équipe est ajoutée automatiquement comme participante, B19), ajoute
+ *    l'équipe adverse comme second participant, planifie une rencontre,
+ *    saisit un résultat (FINISHED), lit le
  *    classement calculé — vérifie que sa propre équipe est 1ère. Refusé en
  *    écriture sur l'équipe 8 (il n'y est que Player).
  * 2. Player (équipe 8) : lit le classement/les rencontres/les participants
@@ -467,6 +468,9 @@ describe('B15 — scénario multi-rôles bout-en-bout (module Championship)', ()
           },
         ),
       },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback(prismaStub),
+      ),
     } as unknown as PrismaService;
 
     championshipsService = new ChampionshipsService(
@@ -522,7 +526,9 @@ describe('B15 — scénario multi-rôles bout-en-bout (module Championship)', ()
       tiebreakerRules: ['GOAL_DIFFERENCE'],
     });
 
-    // 3. Participants — l'équipe 5 elle-même + l'équipe adverse créée ci-dessus.
+    // 3. Participants — l'équipe 5 elle-même est déjà participante (ajoutée
+    // automatiquement à la création du championnat, B19) ; seule l'équipe
+    // adverse créée ci-dessus reste à ajouter manuellement.
     const participantRequest = {
       params: {
         clubId: '1',
@@ -536,12 +542,16 @@ describe('B15 — scénario multi-rôles bout-en-bout (module Championship)', ()
         buildContext(participantRequest, participantCreateHandler),
       ),
     ).resolves.toBe(true);
-    const homeParticipant = await participantsService.create(
-      1,
-      5,
-      championship.id,
-      { internalTeamId: 5 },
-    );
+    const { data: existingParticipants } =
+      await participantsService.findAllByChampionship(
+        1,
+        5,
+        championship.id,
+        42,
+      );
+    const homeParticipant = existingParticipants.find(
+      (p) => p.internalTeam?.id === 5,
+    )!;
     const awayParticipant = await participantsService.create(
       1,
       5,

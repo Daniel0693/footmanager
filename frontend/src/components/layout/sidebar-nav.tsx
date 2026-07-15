@@ -28,16 +28,23 @@ export function SidebarNav({ open, onNavigate }: SidebarNavProps) {
   const clubId = paramString(params.clubId as string | string[] | undefined);
   const teamId = paramString(params.teamId as string | string[] | undefined);
 
-  // Cache le lien "Saisons" pour un membre sans AUCUN droit de lecture sur
-  // `season` dans ce club (ex. Parent, non câblé sur cette ressource — voir
-  // backend/prisma/seed.ts) : évite d'exposer un lien vers une page qui
-  // renverrait systématiquement 403. `false` par défaut (affiché tant que
-  // l'appel n'a pas répondu, ou pour tout autre rôle) — seul un 403 explicite
-  // masque l'entrée, jamais déduit d'un rôle côté client (Règle d'or,
-  // CLAUDE.md). Portée volontairement limitée à Saisons : Effectif/Calendrier
-  // ne présentent pas ce symptôme (tout rôle qui y accède a au moins un droit
-  // de lecture sur sa propre équipe).
-  const [seasonsAccessDenied, setSeasonsAccessDenied] = useState(false);
+  // Cache le lien "Saisons" pour tout rôle qui n'a pas la capacité de GÉRER
+  // les saisons (`canManage`, calculé par le backend — SeasonsService,
+  // renvoyé par `GET /clubs/:clubId/seasons`) : retour utilisateur (B18,
+  // docs/roadmap.md) — la fiche de saison ne contient que 2 dates et un
+  // statut pour un Coach/Player en lecture seule, pas assez d'information
+  // pour justifier une entrée de nav dédiée. Coach/Player gardent malgré
+  // tout `season READ TEAM` côté backend (inchangé) : ils continueront de
+  // voir les saisons dans les futurs filtres des autres pages (même
+  // principe que `SeasonFilterSelect`, A12), simplement pas via ce lien de
+  // nav. `false` par défaut (affiché tant que l'appel n'a pas répondu) —
+  // jamais déduit d'un rôle côté client (Règle d'or, CLAUDE.md), toujours
+  // du `canManage` réel renvoyé par le backend. Un 403 (Parent, aucune
+  // permission `season`) masque aussi le lien, `canManage` n'étant alors
+  // même pas présent dans la réponse. Portée volontairement limitée à
+  // Saisons : Effectif/Calendrier/Championnats restent utiles en lecture
+  // seule pour Coach/Player.
+  const [seasonsNavHidden, setSeasonsNavHidden] = useState(false);
   useEffect(() => {
     if (!clubId || !user) return;
     let cancelled = false;
@@ -48,7 +55,14 @@ export function SidebarNav({ open, onNavigate }: SidebarNavProps) {
         const response = await apiFetch(`/clubs/${clubId}/seasons${query}`, {
           headers: authHeaders(accessToken),
         });
-        if (!cancelled) setSeasonsAccessDenied(response.status === 403);
+        if (cancelled) return;
+        if (response.status === 403) {
+          setSeasonsNavHidden(true);
+          return;
+        }
+        if (!response.ok) return;
+        const body = (await response.json()) as { canManage?: boolean };
+        setSeasonsNavHidden(!body.canManage);
       } catch {
         // Silencieux : en cas d'échec réseau, le lien reste affiché (défaut
         // permissif), la page elle-même gère son propre état d'erreur.
@@ -82,8 +96,8 @@ export function SidebarNav({ open, onNavigate }: SidebarNavProps) {
   }, [params, clubId, teamId, user]);
 
   const visibleModules = useMemo(
-    () => navModules.filter((module) => module.key !== "seasons" || !seasonsAccessDenied),
-    [seasonsAccessDenied],
+    () => navModules.filter((module) => module.key !== "seasons" || !seasonsNavHidden),
+    [seasonsNavHidden],
   );
 
   return (

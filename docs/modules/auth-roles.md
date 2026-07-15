@@ -220,24 +220,39 @@ de saison, et pour masquer le lien "Saisons" de la sidebar (`SidebarNav`) quand 
 403 explicite (ex. Parent, qui n'a aucune permission `season`, voir
 `docs/modules/saisons-championnats.md` §Droits par rôle) — jamais déduit d'un rôle côté client.
 
-**Quatrième cas, à l'opposé du troisième : une vue club-wide en LECTURE SEULE, volontairement
-réservée au scope `CLUB`/`ALL`, sans repli `?teamId=` pour un scope `TEAM`.** Introduit en B16 :
-`GET /clubs/:clubId/seasons/:seasonId/championships` (`SeasonChampionshipsController`) liste les
-championnats d'une saison **toutes équipes du club confondues**, pour la fiche de saison —
-consommée principalement par l'AdminClub qui veut naviguer rapidement entre équipes. Contrairement
-au troisième cas (`season`, où n'importe quel `teamId` de l'appelant suffit puisque `Season` ne
-filtre par aucune équipe), ici la ressource listée (`Championship`) **porte** un `teamId`, et un
-Coach ne doit voir que les championnats des équipes où il a réellement un rôle — pas de proxy
-`?teamId=` simple à appliquer sans repasser par une logique de filtrage par équipe(s) autorisée(s),
-non implémentée en B16 faute de besoin exprimé. Choix : la permission `championship READ` est
-vérifiée **sans aucun** `teamId` transmis, donc seul un scope `CLUB`/`ALL` (AdminClub+) passe le
-guard ; un Coach/Player (scope `TEAM`) reçoit toujours 403, quel que soit le `?teamId=` fourni
-(non lu par le frontend pour cette route). Le frontend traite ce 403 comme "rien à afficher" (pas
-un toast d'erreur) — cohérent avec le corollaire UI de `CLAUDE.md` (masquage = confort, jamais la
-seule protection). **Si un besoin Coach apparaît plus tard**, ne pas ouvrir cette route par un
-simple `?teamId=` (elle resterait limitée à UNE équipe, pas à "toutes les équipes où je suis
-Coach") — prévoir plutôt un filtrage explicite par les `teamId` où l'appelant a réellement
-`championship READ`.
+**Quatrième cas, à l'opposé du troisième : une vue club-wide en LECTURE SEULE, consommée à la
+fois par un scope `CLUB` (sans filtrage) et un scope `ALL` (sélecteur de club côté frontend),
+avec un scope `TEAM` désormais explicitement filtré côté service — pas seulement "refusé par le
+guard" comme supposé initialement.** Introduit en B16 : `GET /clubs/:clubId/seasons/:seasonId/
+championships` (`SeasonChampionshipsController`) liste les championnats d'une saison **toutes
+équipes du club confondues** ; étendu en B20 : `GET /clubs/:clubId/championships`
+(`ClubChampionshipsController`) liste tous les championnats du club (colonne Équipe côté
+frontend, `ChampionshipsPageContent`), avec sélecteur de club pour SuperAdmin/Proprietaire
+(scope `ALL`, `GET /clubs` limité à ceux où l'appelant a une fiche `Member`).
+
+**Faille corrigée en B20, présente depuis B16** : la documentation initiale de B16 affirmait "un
+Coach/Player (scope TEAM) reçoit toujours 403, quel que soit le `?teamId=` fourni (non lu par le
+frontend pour cette route)" — **faux**. `PermissionsGuard` résout `teamId` depuis
+`request.query` **indépendamment de ce que déclare le contrôleur** (voir la citation ci-dessous,
+"le paramètre `?teamId=` ... n'est vérifié... que pour résoudre le SCOPE") : un Coach transmettant
+manuellement `?teamId=<sa propre équipe>` sur cette route passait bel et bien le guard (scope
+résolu `TEAM`, qui matche), et le SERVICE ne filtrait alors sur aucun `teamId` — un Coach pouvait
+donc voir les championnats de **toutes** les équipes du club pour cette saison, pas seulement la
+sienne, en devinant simplement l'URL. Le frontend ne déclenchant jamais ce cas (il n'appelle cette
+route que lorsque le scope est déjà CLUB/ALL), le bug était invisible en usage normal — trouvé en
+construisant `ClubChampionshipsController` sur le même modèle et en réalisant que le "non lu par
+le frontend" n'est jamais une garantie de sécurité.
+
+**Solution retenue (les deux contrôleurs)** : `@CurrentPermissionScope()` (voir plus haut) +
+`?teamId=` transmis au service comme `requester: {scope, teamId}` — `ChampionshipsService
+.findAllBySeason`/`findAllByClub` filtrent explicitement `where: { teamId: requester.scope ===
+'TEAM' ? requester.teamId : undefined }`. Un Coach/Player scope TEAM ne voit donc plus que sa
+propre équipe même s'il force `?teamId=`, un scope CLUB/ALL n'est pas filtré (`teamId: undefined`,
+Prisma ignore ce filtre). **Pattern à réutiliser pour toute future vue "cross-équipe" de ce
+type** : ne jamais supposer qu'une route est inatteignable par un scope TEAM simplement parce que
+le frontend ne construit jamais cet appel — le filtrage doit vivre dans le service, à partir du
+scope réellement résolu par le guard, pas dans la présence ou l'absence d'un paramètre côté
+frontend.
 
 **Le paramètre `?teamId=` transmis en query n'est vérifié par `PermissionsGuard` que pour
 résoudre le SCOPE (Coach a-t-il un rôle sur CE teamId ?) — jamais pour vérifier que la

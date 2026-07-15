@@ -68,14 +68,31 @@
   "teams": {
     "title": "Équipes",
     "createTeam": "Créer une équipe",
-    "teamName": "Nom de l'équipe",
-    "teamNamePlaceholder": "Ex. U15 A",
-    "create": "Créer",
-    "created": "Équipe créée avec succès",
-    "createFailed": "Échec de la création de l'équipe",
     "empty": "Aucune équipe pour l'instant",
     "viewRoster": "Voir l'effectif",
-    "loadFailed": "Impossible de charger les équipes"
+    "loadFailed": "Impossible de charger les équipes",
+    "actions": "Actions",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "deleteDialogTitle": "Supprimer cette équipe ?",
+    "deleteDialogDescription": "Cette action est irréversible.",
+    "cancel": "Annuler",
+    "deleteConfirm": "Supprimer définitivement",
+    "deleted": "Équipe supprimée avec succès",
+    "deleteFailed": "Échec de la suppression de l'équipe",
+    "formDialog": {
+      "createTitle": "Nouvelle équipe",
+      "editTitle": "Modifier l'équipe",
+      "name": "Nom de l'équipe",
+      "namePlaceholder": "Ex. U15 A",
+      "nameRequired": "Le nom est requis",
+      "submitCreate": "Créer",
+      "submitEdit": "Enregistrer",
+      "created": "Équipe créée avec succès",
+      "createFailed": "Échec de la création de l'équipe",
+      "updated": "Équipe modifiée avec succès",
+      "updateFailed": "Échec de la modification de l'équipe"
+    }
   },
   "players": {
     "title": "Effectif",
@@ -441,7 +458,11 @@
       "externalTeams": "Équipes adverses"
     },
     "addButton": "Nouveau championnat",
+    "club": "Club",
+    "clubPlaceholder": "Choisir un club",
+    "clubsLoadFailed": "Impossible de charger les clubs",
     "columnName": "Nom",
+    "columnTeam": "Équipe",
     "columnSeason": "Saison",
     "columnDates": "Dates",
     "actions": "Actions",
@@ -555,6 +576,14 @@
   "championshipForm": {
     "createTitle": "Nouveau championnat",
     "editTitle": "Modifier le championnat",
+    "club": "Club",
+    "clubPlaceholder": "Choisir un club",
+    "clubRequired": "Le club est requis",
+    "clubsLoadFailed": "Impossible de charger les clubs",
+    "team": "Équipe",
+    "teamPlaceholder": "Choisir une équipe",
+    "teamRequired": "L'équipe est requise",
+    "teamsLoadFailed": "Impossible de charger les équipes",
     "name": "Nom",
     "namePlaceholder": "Ex. Championnat Printemps 2025 U15",
     "nameRequired": "Le nom est requis",
@@ -936,7 +965,8 @@
       "NOT_FOUND": "Affectation de staff introuvable"
     },
     "TEAMS": {
-      "NOT_FOUND": "Équipe introuvable"
+      "NOT_FOUND": "Équipe introuvable",
+      "CANNOT_DELETE_NOT_EMPTY": "Impossible de supprimer une équipe qui a déjà des membres, joueurs, événements ou championnats"
     },
     "EVENTS": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",

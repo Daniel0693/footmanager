@@ -54,7 +54,7 @@ function queryOf(url: string) {
 
 function mockRoutes(teams: unknown, events: unknown) {
   mockApiFetch.mockImplementation((url: string) => {
-    if (url.includes("/teams/mine")) return Promise.resolve(jsonResponse(teams));
+    if (url.includes("/teams/mine")) return Promise.resolve(jsonResponse({ data: teams }));
     if (url.includes("/events/mine")) return Promise.resolve(jsonResponse(events));
     return Promise.resolve(jsonResponse([]));
   });
@@ -104,7 +104,7 @@ describe("CalendarPageContent", () => {
     // fautif de la fenêtre courante pourrait masquer le bug (voir historique).
     const cutoff = new Date("2026-06-26T00:00:00.000Z");
     mockApiFetch.mockImplementation((url: string) => {
-      if (url.includes("/teams/mine")) return Promise.resolve(jsonResponse(twoTeams));
+      if (url.includes("/teams/mine")) return Promise.resolve(jsonResponse({ data: twoTeams }));
       if (url.includes("/events/mine")) {
         const dateFrom = new Date(queryOf(url).get("dateFrom")!);
         return Promise.resolve(
@@ -200,7 +200,7 @@ describe("CalendarPageContent", () => {
     // encore en vol (voir l'effet dédié de CalendarListView), pas seulement
     // le POST de création visé ici.
     mockApiFetch.mockImplementation((url: string) => {
-      if (url.includes("/teams/mine")) return Promise.resolve(jsonResponse(twoTeams));
+      if (url.includes("/teams/mine")) return Promise.resolve(jsonResponse({ data: twoTeams }));
       if (url.includes("/events/mine")) return Promise.resolve(jsonResponse([]));
       if (url.includes("/members/birthdays")) return Promise.resolve(jsonResponse([]));
       return Promise.resolve(jsonResponse({ id: 99 }));

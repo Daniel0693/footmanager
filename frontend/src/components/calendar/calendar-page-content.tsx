@@ -143,9 +143,9 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
         headers: authHeaders(accessToken),
       });
       if (!response.ok) throw new Error();
-      const data: EventFormTeam[] = await response.json();
-      setTeams(data);
-      setSelectedTeamIds(new Set(data.map((team) => team.id)));
+      const body = (await response.json()) as { data: EventFormTeam[] };
+      setTeams(body.data);
+      setSelectedTeamIds(new Set(body.data.map((team) => team.id)));
     } catch {
       toast.error(t("teamsLoadFailed"));
     }

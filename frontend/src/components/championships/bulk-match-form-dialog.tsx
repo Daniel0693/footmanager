@@ -176,7 +176,14 @@ export function BulkMatchFormDialog({
         </DialogHeader>
         <p className="text-sm text-muted-foreground">{t("description")}</p>
 
-        <div className="flex flex-col rounded-md border divide-y">
+        {/* Hauteur FIXE (pas max-height) + overflow-y-auto : la modale garde
+            une taille constante dès la première ligne, jamais un
+            agrandissement progressif qui recentre la modale et fait fuir le
+            bouton "Ajouter une ligne" à chaque clic (retour utilisateur,
+            B18) — seule la liste des lignes défile en interne, titre,
+            description, "Ajouter une ligne" et bouton de soumission restent
+            toujours au même endroit à l'écran, qu'il y ait 1 ou 20 lignes. */}
+        <div className="flex h-[50vh] flex-col divide-y overflow-y-auto rounded-md border">
           {rows.map((row, index) => (
             <div
               key={row.key}

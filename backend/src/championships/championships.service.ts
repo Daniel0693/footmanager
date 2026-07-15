@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertSeasonInClub } from '../common/season-club-membership';
 import { assertTeamInClub } from '../common/team-club-membership';
@@ -38,6 +39,14 @@ export class ChampionshipsService {
     private readonly permissionsService: PermissionsService,
   ) {}
 
+  // Crée le championnat ET son premier participant (l'équipe propriétaire,
+  // `teamId` de l'URL) dans la même transaction — retour utilisateur (B19) :
+  // il fallait auparavant l'ajouter manuellement ensuite via "Ajouter notre
+  // équipe" (ParticipantsTab). Toujours l'équipe de l'URL, jamais déduite
+  // d'un choix utilisateur ici — le sélecteur club/équipe éventuel (Coach vs
+  // AdminClub vs SuperAdmin/Proprietaire, B19) est résolu côté frontend
+  // avant l'appel : cette méthode reste agnostique du rôle appelant, elle
+  // fait toujours confiance à `teamId`.
   async create(clubId: number, teamId: number, dto: CreateChampionshipDto) {
     await assertTeamInClub(
       this.prisma,
@@ -52,25 +61,44 @@ export class ChampionshipsService {
       'CHAMPIONSHIPS.SEASON_NOT_FOUND',
     );
 
-    return this.prisma.championship.create({
-      data: {
-        seasonId: dto.seasonId,
-        teamId,
-        name: dto.name,
-        startDate: dto.startDate,
-        endDate: dto.endDate,
-        pointsForWin: dto.pointsForWin ?? DEFAULT_POINTS_FOR_WIN,
-        pointsForDraw: dto.pointsForDraw ?? DEFAULT_POINTS_FOR_DRAW,
-        pointsForLoss: dto.pointsForLoss ?? DEFAULT_POINTS_FOR_LOSS,
-        tiebreakerRules: dto.tiebreakerRules,
-        tiebreakerPreset: dto.tiebreakerPreset,
-        numberOfPeriods: dto.numberOfPeriods ?? DEFAULT_NUMBER_OF_PERIODS,
-        periodDurationMinutes:
-          dto.periodDurationMinutes ?? DEFAULT_PERIOD_DURATION_MINUTES,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const championship = await tx.championship.create({
+        data: {
+          seasonId: dto.seasonId,
+          teamId,
+          name: dto.name,
+          startDate: dto.startDate,
+          endDate: dto.endDate,
+          pointsForWin: dto.pointsForWin ?? DEFAULT_POINTS_FOR_WIN,
+          pointsForDraw: dto.pointsForDraw ?? DEFAULT_POINTS_FOR_DRAW,
+          pointsForLoss: dto.pointsForLoss ?? DEFAULT_POINTS_FOR_LOSS,
+          tiebreakerRules: dto.tiebreakerRules,
+          tiebreakerPreset: dto.tiebreakerPreset,
+          numberOfPeriods: dto.numberOfPeriods ?? DEFAULT_NUMBER_OF_PERIODS,
+          periodDurationMinutes:
+            dto.periodDurationMinutes ?? DEFAULT_PERIOD_DURATION_MINUTES,
+        },
+      });
+      await tx.championshipParticipant.create({
+        data: { championshipId: championship.id, internalTeamId: teamId },
+      });
+      return championship;
     });
   }
 
+  // `createScope` (scope brut — TEAM/CLUB/ALL/null) accompagne `canManage`
+  // (B19) : le frontend en a besoin pour choisir la variante du formulaire
+  // de création (Coach : aucun sélecteur, son équipe automatiquement ;
+  // AdminClub : sélecteur d'équipe parmi celles du club ; SuperAdmin/
+  // Proprietaire : sélecteur de club puis d'équipe) — `canManage` seul
+  // (booléen) ne permet pas de distinguer ces trois cas. `readScope` (B20)
+  // pilote de la même façon la LISTE elle-même : TEAM garde la vue scopée
+  // équipe actuelle (inchangée) ; CLUB/ALL fait pivoter le frontend vers
+  // `findAllByClub` (colonne Équipe, éventuellement précédée d'un sélecteur
+  // de club pour ALL) — distinct de `createScope` par principe (une future
+  // permission en lecture seule pourrait un jour avoir un scope différent
+  // de la permission d'écriture), même si les deux coïncident dans le seed
+  // actuel.
   async findAllByTeam(
     clubId: number,
     teamId: number,
@@ -84,26 +112,40 @@ export class ChampionshipsService {
       'CHAMPIONSHIPS.TEAM_NOT_IN_CLUB',
     );
 
-    const [data, canManage] = await Promise.all([
+    const [data, createScope, readScope] = await Promise.all([
       this.prisma.championship.findMany({
         where: { teamId, seasonId: query.seasonId },
         include: { season: { select: { id: true, name: true } } },
         orderBy: { startDate: 'desc' },
       }),
-      this.canManage(clubId, teamId, memberId),
+      this.permissionsService.can(memberId, 'CREATE', 'championship', {
+        clubId,
+        teamId,
+      }),
+      this.permissionsService.can(memberId, 'READ', 'championship', {
+        clubId,
+        teamId,
+      }),
     ]);
-    return { data, canManage };
+    return { data, canManage: !!createScope, createScope, readScope };
   }
 
   // Vue transverse "tous les championnats d'une saison, toutes équipes
   // confondues" — consommée par la fiche de saison (docs/roadmap.md B16),
-  // surtout utile à l'AdminClub. Pas de `?teamId=` ici : contrairement aux
-  // routes scopées équipe ci-dessus, cet endpoint ne porte que sur
-  // `championship READ`, résolu sans teamId — seul un scope CLUB/ALL
-  // (AdminClub+) le satisfait, un Coach/Player (scope TEAM) reçoit 403 par
-  // construction (aucun contournement `?teamId=` prévu, cette vue
-  // cross-équipe n'a pas de sens pour un rôle limité à sa propre équipe).
-  async findAllBySeason(clubId: number, seasonId: number) {
+  // surtout utile à l'AdminClub. Route sans `:teamId`, mais `PermissionsGuard`
+  // résout `clubId`/`teamId` depuis params **OU body OU query** quel que soit
+  // ce que déclare le contrôleur (docs/modules/auth-roles.md §"Patterns
+  // découverts") : un Coach (scope TEAM) qui transmet `?teamId=<sa propre
+  // équipe>` passerait donc le guard. **`requester` reste la seule protection
+  // réelle** — filtre explicitement sur `requester.teamId` dès que le scope
+  // résolu est TEAM (faille corrigée en B20, présente depuis B16 : un Coach
+  // pouvait sinon voir les championnats de TOUTES les équipes du club pour
+  // cette saison, pas seulement la sienne).
+  async findAllBySeason(
+    clubId: number,
+    seasonId: number,
+    requester: { scope: PermissionScope; teamId?: number },
+  ) {
     await assertSeasonInClub(
       this.prisma,
       clubId,
@@ -111,10 +153,47 @@ export class ChampionshipsService {
       'CHAMPIONSHIPS.SEASON_NOT_FOUND',
     );
     return this.prisma.championship.findMany({
-      where: { seasonId },
+      where: {
+        seasonId,
+        teamId: requester.scope === 'TEAM' ? requester.teamId : undefined,
+      },
       include: { team: { select: { id: true, name: true } } },
       orderBy: { startDate: 'desc' },
     });
+  }
+
+  // Vue transverse "tous les championnats du club, toutes équipes
+  // confondues" — retour utilisateur (B20) : l'AdminClub veut voir en un
+  // coup d'œil à quelle équipe appartient chaque championnat (colonne
+  // Équipe côté frontend) sans changer d'équipe de contexte ; le
+  // SuperAdmin/Proprietaire choisit d'abord un club (parmi ceux où il a une
+  // fiche Member — limite multi-club documentée), puis obtient la même vue.
+  // Même garde-fou que `findAllBySeason` ci-dessus : `requester.teamId`
+  // filtre les résultats dès que le scope résolu est TEAM, le guard seul ne
+  // suffisant pas à borner la vue à une seule équipe.
+  async findAllByClub(
+    clubId: number,
+    memberId: number,
+    requester: { scope: PermissionScope; teamId?: number },
+  ) {
+    const [data, createScope] = await Promise.all([
+      this.prisma.championship.findMany({
+        where: {
+          team: { clubId },
+          teamId: requester.scope === 'TEAM' ? requester.teamId : undefined,
+        },
+        include: {
+          season: { select: { id: true, name: true } },
+          team: { select: { id: true, name: true } },
+        },
+        orderBy: { startDate: 'desc' },
+      }),
+      this.permissionsService.can(memberId, 'CREATE', 'championship', {
+        clubId,
+        teamId: requester.teamId,
+      }),
+    ]);
+    return { data, canManage: !!createScope, createScope };
   }
 
   async findOne(clubId: number, teamId: number, id: number, memberId: number) {

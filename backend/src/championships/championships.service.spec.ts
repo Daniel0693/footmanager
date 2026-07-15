@@ -50,6 +50,7 @@ describe('ChampionshipsService', () => {
   let championshipUpdate: jest.Mock;
   let championshipDelete: jest.Mock;
   let participantFindMany: jest.Mock;
+  let participantCreate: jest.Mock;
   let matchFindMany: jest.Mock;
   let permissionsCan: jest.Mock;
   let service: ChampionshipsService;
@@ -63,6 +64,7 @@ describe('ChampionshipsService', () => {
     championshipUpdate = jest.fn();
     championshipDelete = jest.fn();
     participantFindMany = jest.fn();
+    participantCreate = jest.fn().mockResolvedValue({ id: 200 });
     matchFindMany = jest.fn();
 
     const prismaStub = {
@@ -75,8 +77,14 @@ describe('ChampionshipsService', () => {
         update: championshipUpdate,
         delete: championshipDelete,
       },
-      championshipParticipant: { findMany: participantFindMany },
+      championshipParticipant: {
+        findMany: participantFindMany,
+        create: participantCreate,
+      },
       championshipMatch: { findMany: matchFindMany },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback(prismaStub),
+      ),
     } as unknown as PrismaService;
 
     permissionsCan = jest.fn().mockResolvedValue('TEAM');
@@ -88,7 +96,7 @@ describe('ChampionshipsService', () => {
   });
 
   describe('create', () => {
-    it('crée un championnat avec les défauts de points/format de jeu', async () => {
+    it('crée un championnat avec les défauts de points/format de jeu, et ajoute automatiquement l’équipe propriétaire comme participant', async () => {
       championshipCreate.mockResolvedValue(championship);
 
       const result = await service.create(1, 5, {
@@ -115,6 +123,9 @@ describe('ChampionshipsService', () => {
           numberOfPeriods: 2,
           periodDurationMinutes: 45,
         },
+      });
+      expect(participantCreate).toHaveBeenCalledWith({
+        data: { championshipId: championship.id, internalTeamId: 5 },
       });
     });
 
@@ -150,12 +161,17 @@ describe('ChampionshipsService', () => {
   });
 
   describe('findAllByTeam', () => {
-    it('liste les championnats de l’équipe, filtrable par saison', async () => {
+    it('liste les championnats de l’équipe, filtrable par saison, avec canManage/createScope/readScope', async () => {
       championshipFindMany.mockResolvedValue([championship]);
 
       const result = await service.findAllByTeam(1, 5, 42, { seasonId: 10 });
 
-      expect(result).toEqual({ data: [championship], canManage: true });
+      expect(result).toEqual({
+        data: [championship],
+        canManage: true,
+        createScope: 'TEAM',
+        readScope: 'TEAM',
+      });
       expect(championshipFindMany).toHaveBeenCalledWith({
         where: { teamId: 5, seasonId: 10 },
         include: { season: { select: { id: true, name: true } } },
@@ -163,7 +179,7 @@ describe('ChampionshipsService', () => {
       });
     });
 
-    it('canManage reflète CREATE sur `championship`, scopé teamId (Player en lecture seule)', async () => {
+    it('canManage/createScope reflètent CREATE sur `championship`, scopé teamId (Player en lecture seule)', async () => {
       championshipFindMany.mockResolvedValue([]);
       permissionsCan.mockResolvedValue(null);
 
@@ -178,19 +194,47 @@ describe('ChampionshipsService', () => {
           teamId: 5,
         },
       );
+      expect(permissionsCan).toHaveBeenCalledWith(42, 'READ', 'championship', {
+        clubId: 1,
+        teamId: 5,
+      });
       expect(result.canManage).toBe(false);
+      expect(result.createScope).toBeNull();
+      expect(result.readScope).toBeNull();
+    });
+
+    it('createScope reflète CLUB pour un AdminClub', async () => {
+      championshipFindMany.mockResolvedValue([]);
+      permissionsCan.mockResolvedValue('CLUB');
+
+      const result = await service.findAllByTeam(1, 5, 99);
+
+      expect(result.canManage).toBe(true);
+      expect(result.createScope).toBe('CLUB');
     });
   });
 
   describe('findAllBySeason', () => {
-    it('liste les championnats de la saison, toutes équipes confondues', async () => {
+    it('scope CLUB/ALL : liste les championnats de la saison, toutes équipes confondues', async () => {
       championshipFindMany.mockResolvedValue([championship]);
 
-      const result = await service.findAllBySeason(1, 10);
+      const result = await service.findAllBySeason(1, 10, { scope: 'CLUB' });
 
       expect(result).toEqual([championship]);
       expect(championshipFindMany).toHaveBeenCalledWith({
-        where: { seasonId: 10 },
+        where: { seasonId: 10, teamId: undefined },
+        include: { team: { select: { id: true, name: true } } },
+        orderBy: { startDate: 'desc' },
+      });
+    });
+
+    it("scope TEAM : borne la vue à l'équipe de l'appelant (pas de fuite cross-équipe via ?teamId=)", async () => {
+      championshipFindMany.mockResolvedValue([championship]);
+
+      await service.findAllBySeason(1, 10, { scope: 'TEAM', teamId: 5 });
+
+      expect(championshipFindMany).toHaveBeenCalledWith({
+        where: { seasonId: 10, teamId: 5 },
         include: { team: { select: { id: true, name: true } } },
         orderBy: { startDate: 'desc' },
       });
@@ -199,10 +243,49 @@ describe('ChampionshipsService', () => {
     it('renvoie 404 si la saison est introuvable dans ce club', async () => {
       seasonFindFirst.mockResolvedValue(null);
 
-      await expect(service.findAllBySeason(1, 999)).rejects.toMatchObject({
+      await expect(
+        service.findAllBySeason(1, 999, { scope: 'CLUB' }),
+      ).rejects.toMatchObject({
         status: HttpStatus.NOT_FOUND,
       });
       expect(championshipFindMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findAllByClub', () => {
+    it('scope CLUB/ALL : liste les championnats du club, toutes équipes confondues', async () => {
+      championshipFindMany.mockResolvedValue([championship]);
+
+      const result = await service.findAllByClub(1, 99, { scope: 'CLUB' });
+
+      expect(result).toEqual({
+        data: [championship],
+        canManage: true,
+        createScope: 'TEAM',
+      });
+      expect(championshipFindMany).toHaveBeenCalledWith({
+        where: { team: { clubId: 1 }, teamId: undefined },
+        include: {
+          season: { select: { id: true, name: true } },
+          team: { select: { id: true, name: true } },
+        },
+        orderBy: { startDate: 'desc' },
+      });
+    });
+
+    it("scope TEAM : borne la vue à l'équipe de l'appelant (pas de fuite cross-équipe via ?teamId=)", async () => {
+      championshipFindMany.mockResolvedValue([championship]);
+
+      await service.findAllByClub(1, 42, { scope: 'TEAM', teamId: 5 });
+
+      expect(championshipFindMany).toHaveBeenCalledWith({
+        where: { team: { clubId: 1 }, teamId: 5 },
+        include: {
+          season: { select: { id: true, name: true } },
+          team: { select: { id: true, name: true } },
+        },
+        orderBy: { startDate: 'desc' },
+      });
     });
   });
 

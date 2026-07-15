@@ -68,14 +68,31 @@
   "teams": {
     "title": "Teams",
     "createTeam": "Create a team",
-    "teamName": "Team name",
-    "teamNamePlaceholder": "E.g. U15 A",
-    "create": "Create",
-    "created": "Team created successfully",
-    "createFailed": "Failed to create the team",
     "empty": "No teams yet",
     "viewRoster": "View roster",
-    "loadFailed": "Failed to load teams"
+    "loadFailed": "Failed to load teams",
+    "actions": "Actions",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteDialogTitle": "Delete this team?",
+    "deleteDialogDescription": "This action is irreversible.",
+    "cancel": "Cancel",
+    "deleteConfirm": "Delete permanently",
+    "deleted": "Team deleted successfully",
+    "deleteFailed": "Failed to delete the team",
+    "formDialog": {
+      "createTitle": "New team",
+      "editTitle": "Edit team",
+      "name": "Team name",
+      "namePlaceholder": "E.g. U15 A",
+      "nameRequired": "Name is required",
+      "submitCreate": "Create",
+      "submitEdit": "Save",
+      "created": "Team created successfully",
+      "createFailed": "Failed to create the team",
+      "updated": "Team updated successfully",
+      "updateFailed": "Failed to update the team"
+    }
   },
   "players": {
     "title": "Roster",
@@ -441,7 +458,11 @@
       "externalTeams": "External teams"
     },
     "addButton": "New championship",
+    "club": "Club",
+    "clubPlaceholder": "Choose a club",
+    "clubsLoadFailed": "Unable to load clubs",
     "columnName": "Name",
+    "columnTeam": "Team",
     "columnSeason": "Season",
     "columnDates": "Dates",
     "actions": "Actions",
@@ -555,6 +576,14 @@
   "championshipForm": {
     "createTitle": "New championship",
     "editTitle": "Edit championship",
+    "club": "Club",
+    "clubPlaceholder": "Choose a club",
+    "clubRequired": "Club is required",
+    "clubsLoadFailed": "Unable to load clubs",
+    "team": "Team",
+    "teamPlaceholder": "Choose a team",
+    "teamRequired": "Team is required",
+    "teamsLoadFailed": "Unable to load teams",
     "name": "Name",
     "namePlaceholder": "E.g. Spring 2025 U15 Championship",
     "nameRequired": "Name is required",
@@ -936,7 +965,8 @@
       "NOT_FOUND": "Staff assignment not found"
     },
     "TEAMS": {
-      "NOT_FOUND": "Team not found"
+      "NOT_FOUND": "Team not found",
+      "CANNOT_DELETE_NOT_EMPTY": "Cannot delete a team that already has members, players, events, or championships"
     },
     "EVENTS": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",

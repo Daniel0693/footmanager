@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -12,6 +14,7 @@ import { RequirePermission } from '../auth/decorators/require-permission.decorat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CreateTeamDto } from './dto/create-team.dto';
+import { UpdateTeamDto } from './dto/update-team.dto';
 import { TeamsService } from './teams.service';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -52,5 +55,24 @@ export class TeamsController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.teamsService.findByIdInClub(clubId, id);
+  }
+
+  @RequirePermission('team', 'UPDATE')
+  @Patch(':id')
+  update(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTeamDto,
+  ) {
+    return this.teamsService.update(clubId, id, dto);
+  }
+
+  @RequirePermission('team', 'DELETE')
+  @Delete(':id')
+  remove(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.teamsService.remove(clubId, id);
   }
 }

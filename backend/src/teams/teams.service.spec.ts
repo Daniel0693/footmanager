@@ -31,6 +31,13 @@ const coachMember: Member = {
 describe('TeamsService', () => {
   let findFirst: jest.Mock;
   let findMany: jest.Mock;
+  let update: jest.Mock;
+  let deleteTeam: jest.Mock;
+  let memberRoleCount: jest.Mock;
+  let playerTeamCount: jest.Mock;
+  let teamStaffCount: jest.Mock;
+  let championshipCount: jest.Mock;
+  let eventCount: jest.Mock;
   let findByUserAndClub: jest.Mock;
   let can: jest.Mock;
   let service: TeamsService;
@@ -38,10 +45,22 @@ describe('TeamsService', () => {
   beforeEach(() => {
     findFirst = jest.fn();
     findMany = jest.fn();
+    update = jest.fn();
+    deleteTeam = jest.fn();
+    memberRoleCount = jest.fn().mockResolvedValue(0);
+    playerTeamCount = jest.fn().mockResolvedValue(0);
+    teamStaffCount = jest.fn().mockResolvedValue(0);
+    championshipCount = jest.fn().mockResolvedValue(0);
+    eventCount = jest.fn().mockResolvedValue(0);
     findByUserAndClub = jest.fn();
     can = jest.fn();
     const prismaStub = {
-      team: { findFirst, findMany },
+      team: { findFirst, findMany, update, delete: deleteTeam },
+      memberRole: { count: memberRoleCount },
+      playerTeam: { count: playerTeamCount },
+      teamStaff: { count: teamStaffCount },
+      championship: { count: championshipCount },
+      event: { count: eventCount },
     } as unknown as PrismaService;
     const membersServiceStub = {
       findByUserAndClub,
@@ -94,29 +113,30 @@ describe('TeamsService', () => {
       });
     });
 
-    it('scope club-wide (CLUB/ALL) : renvoie toutes les équipes du club', async () => {
+    it('scope club-wide (CLUB/ALL) et canManage=true (AdminClub) : renvoie toutes les équipes du club', async () => {
       findByUserAndClub.mockResolvedValue(coachMember);
       can.mockResolvedValue('CLUB');
       findMany.mockResolvedValue([team]);
 
       const result = await service.findMineInClub(1, 7);
 
-      expect(result).toEqual([team]);
+      expect(result).toEqual({ data: [team], canManage: true });
       expect(findMany).toHaveBeenCalledWith({
         where: { clubId: 1 },
         orderBy: { name: 'asc' },
       });
     });
 
-    it('pas de scope club-wide (ex. Coach) : ne renvoie que les équipes où le membre a un rôle scopé équipe', async () => {
+    it('pas de scope club-wide et canManage=false (ex. Coach) : ne renvoie que les équipes où le membre a un rôle scopé équipe, sans droit de gestion', async () => {
       findByUserAndClub.mockResolvedValue(coachMember);
       can.mockResolvedValue(null);
       findMany.mockResolvedValue([team]);
 
       const result = await service.findMineInClub(1, 7);
 
-      expect(result).toEqual([team]);
+      expect(result).toEqual({ data: [team], canManage: false });
       expect(can).toHaveBeenCalledWith(42, 'READ', 'team', { clubId: 1 });
+      expect(can).toHaveBeenCalledWith(42, 'UPDATE', 'team', { clubId: 1 });
       expect(findMany).toHaveBeenCalledWith({
         where: {
           clubId: 1,
@@ -124,6 +144,69 @@ describe('TeamsService', () => {
         },
         orderBy: { name: 'asc' },
       });
+    });
+  });
+
+  describe('update', () => {
+    it('renvoie 404 si l’équipe est introuvable dans ce club', async () => {
+      findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(1, 5, { name: 'Nouveau nom' }),
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('renomme une équipe existante', async () => {
+      findFirst.mockResolvedValue(team);
+      update.mockResolvedValue({ ...team, name: 'Nouveau nom' });
+
+      const result = await service.update(1, 5, { name: 'Nouveau nom' });
+
+      expect(result.name).toBe('Nouveau nom');
+      expect(update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: { name: 'Nouveau nom' },
+      });
+    });
+  });
+
+  describe('remove', () => {
+    it('renvoie 404 si l’équipe est introuvable dans ce club', async () => {
+      findFirst.mockResolvedValue(null);
+
+      await expect(service.remove(1, 5)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+      });
+      expect(deleteTeam).not.toHaveBeenCalled();
+    });
+
+    it('supprime une équipe vide (aucun membre, joueur, événement ni championnat)', async () => {
+      findFirst.mockResolvedValue(team);
+
+      await service.remove(1, 5);
+
+      expect(deleteTeam).toHaveBeenCalledWith({ where: { id: 5 } });
+    });
+
+    it('refuse de supprimer une équipe qui a déjà des joueurs affectés', async () => {
+      findFirst.mockResolvedValue(team);
+      playerTeamCount.mockResolvedValue(1);
+
+      await expect(service.remove(1, 5)).rejects.toMatchObject({
+        status: HttpStatus.CONFLICT,
+      });
+      expect(deleteTeam).not.toHaveBeenCalled();
+    });
+
+    it('refuse de supprimer une équipe qui a déjà un championnat', async () => {
+      findFirst.mockResolvedValue(team);
+      championshipCount.mockResolvedValue(1);
+
+      await expect(service.remove(1, 5)).rejects.toMatchObject({
+        status: HttpStatus.CONFLICT,
+      });
+      expect(deleteTeam).not.toHaveBeenCalled();
     });
   });
 });

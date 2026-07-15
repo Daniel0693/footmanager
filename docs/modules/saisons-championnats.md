@@ -137,6 +137,33 @@ Chaque championnat définit :
 - Règles de départage : tableau JSON ordonné de `TiebreakerRule`.
 - Format de jeu par défaut : `numberOfPeriods` + `periodDurationMinutes` (écrasables par match).
 
+### Création — équipe propriétaire selon le rôle (B19)
+
+L'équipe propriétaire (`Championship.teamId`) est toujours résolue **avant** l'appel API, jamais
+saisie en texte libre, pour qu'elle soit assignée sans ambiguïté au championnat :
+- **Coach** : aucun sélecteur — son équipe (celle de la page courante) est utilisée
+  automatiquement, comportement inchangé depuis B5.
+- **AdminClub** : sélecteur d'équipe parmi celles de son club.
+- **SuperAdmin / Proprietaire** : sélecteur de club (parmi ceux où l'appelant a une fiche
+  `Member` — limite multi-club documentée, `docs/modules/auth-roles.md` §"Patterns découverts")
+  puis sélecteur d'équipe pour le club choisi.
+
+Le formulaire adapte sa variante via `createScope` (le scope réel — `TEAM`/`CLUB`/`ALL` —
+renvoyé par le backend aux côtés de `canManage`, jamais déduit d'un rôle côté client). Créer un
+championnat pour une équipe différente de la page courante redirige vers la fiche du championnat
+nouvellement créé plutôt que de rafraîchir la liste affichée.
+
+### Liste — vue club-wide selon le rôle (B20)
+
+La table des championnats (`clubs/:clubId/teams/:teamId/championships`) pivote elle aussi selon
+`readScope` (renvoyé par le backend aux côtés de `createScope`, distinct par principe même si les
+deux coïncident dans le seed actuel) :
+- **Coach/Player** (`TEAM`) : vue scopée à l'équipe courante, inchangée.
+- **AdminClub** (`CLUB`) : vue club-wide (`GET /clubs/:clubId/championships`), avec une colonne
+  Équipe pour distinguer en un coup d'œil à quelle équipe appartient chaque championnat.
+- **SuperAdmin/Proprietaire** (`ALL`) : même vue club-wide, précédée d'un sélecteur de club
+  (`GET /clubs`, limité à ceux où l'appelant a une fiche `Member`).
+
 ### Presets de règles de départage
 
 | Preset | Règles dans l'ordre |
@@ -171,6 +198,11 @@ calculable automatiquement. Post-MVP : saisie manuelle de points de pénalité s
 Représente une équipe dans un championnat :
 - Équipe interne : `internalTeamId → Team`
 - Équipe externe : `externalTeamId → ExternalTeam`
+
+**L'équipe propriétaire du championnat est ajoutée automatiquement comme premier participant à
+la création** (B19, retour utilisateur — il fallait auparavant le faire manuellement via
+"Ajouter notre équipe"), dans la même transaction que la création du `Championship` lui-même.
+Les autres participants (adversaires) restent ajoutés manuellement.
 
 Contrainte applicative : exactement l'un des deux doit être non-null.
 

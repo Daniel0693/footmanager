@@ -303,6 +303,85 @@ Tests après B16 : 538 tests backend (+5) + 497 tests frontend (+10, net après 
 
 Tests après B17 : 544 tests backend (+6) + 503 tests frontend (+6).
 
+#### B18 — Nouveaux ajustements UX (retour utilisateur sur B17)
+
+- **Lien nav "Saisons" masqué pour Coach/Player** : la fiche de saison ne contient que 2 dates
+  et un statut pour un rôle en lecture seule — pas assez d'information pour justifier une entrée
+  de nav dédiée (retour utilisateur explicite). `SidebarNav` masque désormais le lien dès que
+  `canManage` (renvoyé par `GET /clubs/:clubId/seasons`) est `false` ou absent (403), pas
+  seulement sur 403 comme avant (A20) — un Coach/Player garde malgré tout `season READ TEAM`
+  côté backend, inchangé : ils continueront de voir les saisons dans les futurs filtres des
+  autres pages (même principe que `SeasonFilterSelect`, A12), simplement pas via ce lien.
+- **Scroll dans `BulkMatchFormDialog`** : avec beaucoup de lignes, la modale s'agrandissait hors
+  écran et devenait inaccessible (retour utilisateur, suite à B17). La liste des lignes défile
+  désormais dans un conteneur `max-h-[50vh] overflow-y-auto` — titre, description, "Ajouter une
+  ligne" et bouton de soumission restent toujours visibles.
+- **Boutons Modifier/Supprimer sur la liste des équipes** (`clubs/:clubId/teams`), absents
+  jusqu'ici — seule la création existait, via un formulaire inline jamais gardé par une
+  permission (bug latent : un Coach voyait un formulaire de création qui échouait
+  systématiquement en 403). Nouveau `PATCH`/`DELETE /clubs/:clubId/teams/:id`
+  (`TeamsService.update`/`remove`, permission `team UPDATE`/`DELETE`, réservée à AdminClub+ dans
+  le seed — un Coach n'a jamais ce droit, même pour sa propre équipe). Suppression bloquée
+  (409 `TEAMS.CANNOT_DELETE_NOT_EMPTY`) dès que l'équipe a au moins un membre, joueur, événement
+  ou championnat — même esprit que le blocage de suppression d'une Season non-DRAFT. Frontend :
+  `TeamFormDialog` (dual create/edit, remplace l'ancien formulaire inline) et `TeamRowActions`
+  (menu ⋮ Modifier/Supprimer), tous deux gardés par un nouveau `canManage` renvoyé par
+  `GET /clubs/:clubId/teams/mine` — dont la forme de réponse change au passage (tableau brut →
+  `{data, canManage}`, alignée sur la convention déjà utilisée par tous les autres endpoints de
+  liste du projet) ; `resolve-any-team.ts` et `calendar-page-content.tsx`, seuls autres
+  consommateurs de cet endpoint, mis à jour en conséquence.
+
+Tests après B18 : 552 tests backend (+8) + 507 tests frontend (+4).
+
+#### B19 — Formulaire de création de championnat : équipe propriétaire selon le rôle
+
+Retour utilisateur : la création d'un championnat devait automatiquement assigner la bonne
+équipe propriétaire selon le rôle de l'appelant, sans étape manuelle après coup.
+
+- **Équipe propriétaire ajoutée automatiquement comme participante** — `ChampionshipsService
+  .create` crée désormais le `Championship` et son premier `ChampionshipParticipant`
+  (`internalTeamId = teamId`) dans la même transaction Prisma. Il fallait auparavant cliquer sur
+  "Ajouter notre équipe" (`ParticipantsTab`) juste après la création — supprimé, ce bouton ne
+  s'affiche plus jamais qu'une équipe adverse reste à ajouter.
+- **Sélecteur d'équipe/club selon le rôle réel** — `GET .../championships` renvoie désormais
+  `createScope` (le scope brut `TEAM`/`CLUB`/`ALL`, pas seulement le booléen `canManage`) :
+  Coach (`TEAM`) garde le comportement actuel (aucun sélecteur, son équipe automatiquement) ;
+  AdminClub (`CLUB`) choisit parmi les équipes de son club (`GET /clubs/:clubId/teams`) ;
+  SuperAdmin/Proprietaire (`ALL`) choisit d'abord un club (`GET /clubs`, limité à ceux où
+  l'appelant a une fiche `Member` — limite multi-club déjà documentée), puis une équipe de ce
+  club. La liste des saisons proposées se recharge avec le club sélectionné. Créer un
+  championnat pour une équipe différente de la page courante redirige vers la fiche du
+  championnat créé plutôt que de rafraîchir la liste affichée (qui ne le contiendrait pas).
+
+Tests après B19 : 553 tests backend (+1, net après ajustement des tests existants touchés par
+la transaction de création) + 510 tests frontend (+3).
+
+#### B20 — Liste des championnats : colonne Équipe + vue club-wide selon le rôle
+
+Retour utilisateur : l'AdminClub voulait voir en un coup d'œil à quelle équipe appartient chaque
+championnat sur la table (au lieu d'être limité à l'équipe de la page courante) ; le
+SuperAdmin/Proprietaire voulait un sélecteur de club avant cette même vue.
+
+- **Nouveau `GET /clubs/:clubId/championships`** (`ClubChampionshipsController`) — liste tous les
+  championnats du club, toutes équipes confondues, avec `team: {id, name}` inclus. `GET
+  .../teams/:teamId/championships` renvoie désormais aussi `readScope` (aux côtés de
+  `createScope`) : le frontend (`ChampionshipsPageContent`) pivote automatiquement vers cette vue
+  club-wide (colonne Équipe) dès que `readScope` est `CLUB` ; `ALL` ajoute un sélecteur de club
+  (`GET /clubs`) avant. Coach/Player (`TEAM`) gardent la vue scopée équipe, strictement
+  inchangée.
+- **Faille de sécurité corrigée au passage, présente depuis B16** : `SeasonChampionshipsController`
+  (vue cross-équipe par saison) supposait qu'un Coach/Player ne pouvait jamais l'atteindre "car le
+  frontend ne transmet jamais `?teamId=` pour cette route" — faux, `PermissionsGuard` lit
+  `?teamId=` depuis la query brute indépendamment de ce que déclare le contrôleur, un Coach
+  pouvait donc forcer l'URL et voir les championnats de **toutes** les équipes du club pour une
+  saison donnée. Corrigé dans les deux contrôleurs (`SeasonChampionshipsController` et le nouveau
+  `ClubChampionshipsController`) : le service filtre désormais explicitement sur
+  `requester.teamId` dès que le scope résolu par le guard est `TEAM`, plutôt que de compter sur le
+  guard seul. Voir `docs/modules/auth-roles.md` §"Patterns découverts" (quatrième cas) pour le
+  détail et le pattern à réutiliser.
+
+Tests après B20 : 560 tests backend (+7) + 512 tests frontend (+2).
+
 ---
 
 ## Phase 4 — Matchs (notre équipe) ⬜

@@ -11,6 +11,7 @@ import { PermissionsService } from '../roles/permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChampionshipsController } from './championships.controller';
 import { ChampionshipsService } from './championships.service';
+import { ClubChampionshipsController } from './club-championships.controller';
 import { SeasonChampionshipsController } from './season-championships.controller';
 
 /**
@@ -201,6 +202,8 @@ const removeHandler = ChampionshipsController.prototype.remove;
 const getStandingsHandler = ChampionshipsController.prototype.getStandings;
 const findAllBySeasonHandler =
   SeasonChampionshipsController.prototype.findAllBySeason;
+const findAllByClubHandler =
+  ClubChampionshipsController.prototype.findAllByClub;
 /* eslint-enable @typescript-eslint/unbound-method */
 
 describe('Module Championship — scénario multi-rôles (ChampionshipsController)', () => {
@@ -243,6 +246,12 @@ describe('Module Championship — scénario multi-rôles (ChampionshipsControlle
         findMany: championshipFindMany,
         create: championshipCreate,
       },
+      championshipParticipant: {
+        create: jest.fn().mockResolvedValue({ id: 1 }),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback(prismaStub),
+      ),
     } as unknown as PrismaService;
     championshipsService = new ChampionshipsService(
       prismaStub,
@@ -306,7 +315,7 @@ describe('Module Championship — scénario multi-rôles (ChampionshipsControlle
     expect(request.permissionScope).toBe('TEAM');
 
     await expect(championshipsService.findAllByTeam(1, 5, 42)).resolves.toEqual(
-      { data: [], canManage: false },
+      { data: [], canManage: false, createScope: null, readScope: 'TEAM' },
     );
   });
 
@@ -412,6 +421,84 @@ describe('Module Championship — scénario multi-rôles (SeasonChampionshipsCon
 
     await expect(
       guard.canActivate(buildContext(request, findAllBySeasonHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it('Coach transmettant ?teamId=<sa propre équipe> passe le guard générique (limite structurelle documentée, docs/modules/auth-roles.md) — la protection réelle est dans le service (voir championships.service.spec.ts §findAllBySeason, "borne la vue à l’équipe de l’appelant")', async () => {
+    const request = {
+      params: { clubId: '1', seasonId: '10' },
+      query: { teamId: '5' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, findAllBySeasonHandler)),
+    ).resolves.toBe(true);
+    expect(request.permissionScope).toBe('TEAM');
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// ClubChampionshipsController (B20) — vue cross-équipe "championnats du
+// club", même principe que SeasonChampionshipsController (B16) : seul un
+// scope CLUB/ALL satisfait `championship READ` sans `?teamId=` ; un
+// Coach/Player transmettant `?teamId=` passe le guard générique (limite
+// structurelle documentée) mais le SERVICE borne la vue à cette seule
+// équipe (championships.service.spec.ts §findAllByClub).
+// ───────────────────────────────────────────────────────────────────────
+describe('Module Championship — scénario multi-rôles (ClubChampionshipsController)', () => {
+  let guard: PermissionsGuard;
+
+  beforeEach(() => {
+    const permissionsService = new PermissionsService(buildPrismaStub());
+    const membersByUserAndClub: Record<string, Member> = {
+      '71:1': coachMember,
+      '70:1': adminClubMember,
+      '7:1': playerMember,
+    };
+    const membersService = {
+      findByUserAndClub: jest.fn((userId: number, clubId: number) =>
+        Promise.resolve(membersByUserAndClub[`${userId}:${clubId}`] ?? null),
+      ),
+    } as unknown as MembersService;
+    guard = new PermissionsGuard(
+      new Reflector(),
+      permissionsService,
+      membersService,
+    );
+  });
+
+  it('AdminClub (scope CLUB) consulte les championnats du club, toutes équipes confondues', async () => {
+    const request = {
+      params: { clubId: '1' },
+      user: { userId: 70 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, findAllByClubHandler)),
+    ).resolves.toBe(true);
+    expect(request.permissionScope).toBe('CLUB');
+  });
+
+  it("Coach (scope TEAM, pas de ?teamId=) n'a pas accès à cette vue cross-équipe", async () => {
+    const request = {
+      params: { clubId: '1' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, findAllByClubHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it("Player (scope TEAM, pas de ?teamId=) n'a pas accès à cette vue cross-équipe", async () => {
+    const request = {
+      params: { clubId: '1' },
+      user: { userId: 7 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, findAllByClubHandler)),
     ).rejects.toBeInstanceOf(AppException);
   });
 });

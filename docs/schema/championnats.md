@@ -93,6 +93,9 @@ automatiquement. Post-MVP : saisie manuelle sur la fiche équipe du championnat.
 
 **Contrainte applicative** : exactement l'un des deux doit être non-null.
 
+**Créé automatiquement pour l'équipe propriétaire** à la création du `Championship` (B19, même
+transaction) — voir `docs/modules/saisons-championnats.md` §ChampionshipParticipant.
+
 ---
 
 ## ChampionshipMatch — Rencontre dans le championnat

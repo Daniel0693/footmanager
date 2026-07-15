@@ -25,10 +25,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useRouter } from "@/i18n/navigation";
 import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { CUSTOM_PRESET_KEY, TIEBREAKER_PRESETS } from "@/lib/tiebreaker-presets";
 import { TIEBREAKER_RULES, type TiebreakerRule } from "@/lib/tiebreaker-rules";
+
+export type ChampionshipCreateScope = "TEAM" | "CLUB" | "ALL";
 
 export interface ExistingChampionship {
   id: number;
@@ -46,6 +49,16 @@ export interface ExistingChampionship {
 }
 
 interface SeasonOption {
+  id: number;
+  name: string;
+}
+
+interface ClubOption {
+  id: number;
+  name: string;
+}
+
+interface TeamOption {
   id: number;
   name: string;
 }
@@ -94,9 +107,25 @@ function defaultRules(championship?: ExistingChampionship): TiebreakerRule[] {
 // (état local ordonné) : un sélecteur de preset préremplit la liste,
 // réordonnancement manuel par boutons Monter/Descendre (pas de lib drag &
 // drop, aucune dans le repo — docs/roadmap.md Partie B §B6).
+//
+// `createScope` (B19, retour utilisateur) — uniquement pertinent en
+// création, jamais en édition (l'équipe propriétaire d'un championnat
+// existant ne se réassigne pas depuis ce formulaire) : pilote la variante
+// du formulaire selon le rôle réel de l'appelant (jamais déduit d'un rôle
+// côté client, toujours `createScope` renvoyé par le backend) —
+// `undefined`/`"TEAM"` (Coach) : aucun sélecteur, l'équipe de la page
+// courante (`teamId`) est utilisée telle quelle, comportement identique à
+// avant B19. `"CLUB"` (AdminClub) : sélecteur d'équipe parmi celles du club
+// courant. `"ALL"` (SuperAdmin/Proprietaire) : sélecteur de club (parmi ceux
+// où l'appelant a une fiche Member — limite multi-club documentée,
+// docs/modules/auth-roles.md §"Patterns découverts") puis d'équipe. Dans ces
+// deux derniers cas, la création redirige vers la fiche du championnat créé
+// plutôt que de rafraîchir la liste courante — le championnat peut
+// appartenir à une équipe différente de celle affichée.
 export function ChampionshipFormDialog({
   clubId,
   teamId,
+  createScope,
   championship,
   trigger,
   onSuccess,
@@ -105,6 +134,7 @@ export function ChampionshipFormDialog({
 }: {
   clubId: string;
   teamId: string;
+  createScope?: ChampionshipCreateScope | null;
   trigger?: ReactElement;
   championship?: ExistingChampionship;
   onSuccess: () => void;
@@ -117,6 +147,7 @@ export function ChampionshipFormDialog({
   const tPresets = useTranslations("tiebreakerPresets");
   const tErrors = useTranslations("errors");
   const { accessToken } = useAuth();
+  const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
   const open = openProp ?? internalOpen;
   const setOpen = onOpenChangeProp ?? setInternalOpen;
@@ -124,6 +155,14 @@ export function ChampionshipFormDialog({
   const [seasons, setSeasons] = useState<SeasonOption[] | null>(null);
   const [presetKey, setPresetKey] = useState(defaultPresetKey(championship));
   const [rules, setRules] = useState<TiebreakerRule[]>(defaultRules(championship));
+
+  const showClubSelector = mode === "create" && createScope === "ALL";
+  const showTeamSelector =
+    mode === "create" && (createScope === "ALL" || createScope === "CLUB");
+  const [selectedClubId, setSelectedClubId] = useState(clubId);
+  const [selectedTeamId, setSelectedTeamId] = useState(teamId);
+  const [clubs, setClubs] = useState<ClubOption[] | null>(null);
+  const [teams, setTeams] = useState<TeamOption[] | null>(null);
 
   const {
     control,
@@ -136,18 +175,47 @@ export function ChampionshipFormDialog({
     defaultValues: defaultValues(championship),
   });
 
-  const loadSeasons = useCallback(async () => {
+  const loadSeasons = useCallback(
+    async (forClubId: string) => {
+      try {
+        const response = await apiFetch(
+          `/clubs/${forClubId}/seasons?teamId=${teamId}`,
+          { headers: authHeaders(accessToken) },
+        );
+        if (!response.ok) throw new Error();
+        const body = (await response.json()) as { data: SeasonOption[] };
+        setSeasons(body.data);
+      } catch {
+        toast.error(t("seasonsLoadFailed"));
+      }
+    },
+    [teamId, accessToken, t],
+  );
+
+  const loadClubs = useCallback(async () => {
     try {
-      const response = await apiFetch(`/clubs/${clubId}/seasons?teamId=${teamId}`, {
-        headers: authHeaders(accessToken),
-      });
+      const response = await apiFetch("/clubs", { headers: authHeaders(accessToken) });
       if (!response.ok) throw new Error();
-      const body = (await response.json()) as { data: SeasonOption[] };
-      setSeasons(body.data);
+      setClubs((await response.json()) as ClubOption[]);
     } catch {
-      toast.error(t("seasonsLoadFailed"));
+      toast.error(t("clubsLoadFailed"));
     }
-  }, [clubId, teamId, accessToken, t]);
+  }, [accessToken, t]);
+
+  const loadTeams = useCallback(
+    async (forClubId: string) => {
+      try {
+        const response = await apiFetch(`/clubs/${forClubId}/teams`, {
+          headers: authHeaders(accessToken),
+        });
+        if (!response.ok) throw new Error();
+        setTeams((await response.json()) as TeamOption[]);
+      } catch {
+        toast.error(t("teamsLoadFailed"));
+      }
+    },
+    [accessToken, t],
+  );
 
   // Effet plutôt qu'un reset() dans handleOpenChange : en mode contrôlé
   // (colonne Actions de la liste), le parent ouvre la modale directement
@@ -160,10 +228,25 @@ export function ChampionshipFormDialog({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setPresetKey(defaultPresetKey(championship));
       setRules(defaultRules(championship));
-      void loadSeasons();
+      setSelectedClubId(clubId);
+      setSelectedTeamId(teamId);
+      void loadSeasons(clubId);
+      if (showClubSelector) void loadClubs();
+      if (showTeamSelector) void loadTeams(clubId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, championship]);
+
+  // Changer de club (scope ALL) : les équipes ET les saisons dépendent du
+  // club sélectionné, l'équipe précédemment choisie n'a plus de sens.
+  const handleClubChange = (value: string | null) => {
+    if (!value) return;
+    setSelectedClubId(value);
+    setSelectedTeamId("");
+    setTeams(null);
+    void loadTeams(value);
+    void loadSeasons(value);
+  };
 
   const handlePresetChange = (nextKey: string | null) => {
     if (!nextKey) return;
@@ -200,6 +283,14 @@ export function ChampionshipFormDialog({
       toast.error(t("tiebreakerRulesRequired"));
       return;
     }
+    if (showClubSelector && !selectedClubId) {
+      toast.error(t("clubRequired"));
+      return;
+    }
+    if (showTeamSelector && !selectedTeamId) {
+      toast.error(t("teamRequired"));
+      return;
+    }
 
     setIsSubmitting(true);
     const headers = authHeaders(accessToken);
@@ -219,11 +310,10 @@ export function ChampionshipFormDialog({
     try {
       const response =
         mode === "create"
-          ? await apiFetch(`/clubs/${clubId}/teams/${teamId}/championships`, {
-              method: "POST",
-              headers,
-              body,
-            })
+          ? await apiFetch(
+              `/clubs/${selectedClubId}/teams/${selectedTeamId}/championships`,
+              { method: "POST", headers, body },
+            )
           : await apiFetch(
               `/clubs/${clubId}/teams/${teamId}/championships/${championship!.id}`,
               { method: "PATCH", headers, body },
@@ -232,7 +322,17 @@ export function ChampionshipFormDialog({
 
       toast.success(mode === "create" ? t("created") : t("updated"));
       setOpen(false);
-      onSuccess();
+      // Le championnat peut appartenir à une équipe différente de la page
+      // courante (sélecteur club/équipe, B19) : rafraîchir la liste
+      // affichée n'aurait pas de sens, on redirige vers sa propre fiche.
+      if (mode === "create" && (createScope === "CLUB" || createScope === "ALL")) {
+        const created = (await response.json()) as { id: number };
+        router.push(
+          `/clubs/${selectedClubId}/teams/${selectedTeamId}/championships/${created.id}`,
+        );
+      } else {
+        onSuccess();
+      }
     } catch (error) {
       const code = error instanceof Error ? error.message : "AUTH.UNKNOWN";
       toast.error(tErrors(code));
@@ -249,6 +349,58 @@ export function ChampionshipFormDialog({
           <DialogTitle>{mode === "create" ? t("createTitle") : t("editTitle")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          {(showClubSelector || showTeamSelector) && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {showClubSelector && (
+                <div className="flex flex-col gap-2">
+                  <Label>{t("club")}</Label>
+                  <Select value={selectedClubId} onValueChange={handleClubChange}>
+                    <SelectTrigger className="w-full" aria-label={t("club")}>
+                      <SelectValue>
+                        {(v: string | null) =>
+                          clubs?.find((club) => String(club.id) === v)?.name ??
+                          t("clubPlaceholder")
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(clubs ?? []).map((club) => (
+                        <SelectItem key={club.id} value={String(club.id)}>
+                          {club.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {showTeamSelector && (
+                <div className="flex flex-col gap-2">
+                  <Label>{t("team")}</Label>
+                  <Select
+                    value={selectedTeamId}
+                    onValueChange={(value) => value && setSelectedTeamId(value)}
+                  >
+                    <SelectTrigger className="w-full" aria-label={t("team")}>
+                      <SelectValue>
+                        {(v: string | null) =>
+                          teams?.find((team) => String(team.id) === v)?.name ??
+                          t("teamPlaceholder")
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(teams ?? []).map((team) => (
+                        <SelectItem key={team.id} value={String(team.id)}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="championship-name">{t("name")}</Label>
             <Input

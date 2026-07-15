@@ -1,50 +1,30 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { use, useCallback, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
-import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
+import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
+import { TeamFormDialog, type ExistingTeam } from "@/components/teams/team-form-dialog";
+import { TeamRowActions } from "@/components/teams/team-row-actions";
 
-interface Team {
-  id: number;
-  name: string;
-}
-
-const createTeamSchema = z.object({
-  name: z.string().min(1),
-});
-
-type CreateTeamValues = z.infer<typeof createTeamSchema>;
-
-// Composant nommé séparé du default export de page.tsx : `use(params)` (voir
-// plus bas) suspend le rendu tant que la Promise n'est pas résolue, ce que
-// Next.js gère nativement en production mais que Jest/jsdom ne résout pas de
-// façon fiable en test (limitation connue, cf. docs Next.js sur les
-// composants async). En testant TeamsPageContent directement avec un
-// `clubId` déjà résolu, on couvre toute la logique sans dépendre de `use()`.
+// Composant nommé séparé du default export : voir la note dans
+// teams/page.tsx (TeamsPageContent) — `use(params)` ne se résout pas de
+// façon fiable sous Jest/jsdom. Refonte B18 (retour utilisateur) :
+// création/édition/suppression via `TeamFormDialog`/`TeamRowActions`
+// (`canManage`, calculé par le backend — `TeamsService.findMineInClub` —
+// réservé à AdminClub+, un Coach n'a jamais ce droit même pour sa propre
+// équipe) remplace l'ancien formulaire de création toujours visible, jamais
+// gardé par une permission.
 export function TeamsPageContent({ clubId }: { clubId: string }) {
   const t = useTranslations("teams");
-  const tErrors = useTranslations("errors");
   const { accessToken } = useAuth();
-  const [teams, setTeams] = useState<Team[] | null>(null);
+  const [teams, setTeams] = useState<ExistingTeam[] | null>(null);
+  const [canManage, setCanManage] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<CreateTeamValues>({ resolver: zodResolver(createTeamSchema) });
 
   const loadTeams = useCallback(async () => {
     try {
@@ -52,7 +32,9 @@ export function TeamsPageContent({ clubId }: { clubId: string }) {
         headers: authHeaders(accessToken),
       });
       if (!response.ok) throw new Error();
-      setTeams(await response.json());
+      const body = (await response.json()) as { data: ExistingTeam[]; canManage: boolean };
+      setTeams(body.data);
+      setCanManage(body.canManage);
       setHasError(false);
     } catch {
       setHasError(true);
@@ -67,47 +49,18 @@ export function TeamsPageContent({ clubId }: { clubId: string }) {
     void loadTeams();
   }, [loadTeams]);
 
-  const onSubmit = async (values: CreateTeamValues) => {
-    setIsSubmitting(true);
-    try {
-      const response = await apiFetch(`/clubs/${clubId}/teams`, {
-        method: "POST",
-        headers: authHeaders(accessToken),
-        body: JSON.stringify(values),
-      });
-      if (!response.ok) throw new Error(await parseErrorCode(response));
-      toast.success(t("created"));
-      reset();
-      await loadTeams();
-    } catch (error) {
-      const code = error instanceof Error ? error.message : "AUTH.UNKNOWN";
-      toast.error(code ? tErrors(code) : t("createFailed"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
     <div className="flex w-full flex-col gap-6 p-4">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("createTeam")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="flex items-end gap-2">
-            <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="name">{t("teamName")}</Label>
-              <Input id="name" placeholder={t("teamNamePlaceholder")} {...register("name")} />
-              {errors.name && <p className="text-sm text-destructive">{t("teamName")}</p>}
-            </div>
-            <Button type="submit" disabled={isSubmitting}>
-              {t("create")}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">{t("title")}</h1>
+        {canManage && (
+          <TeamFormDialog
+            clubId={clubId}
+            onSuccess={loadTeams}
+            trigger={<Button>{t("createTeam")}</Button>}
+          />
+        )}
+      </div>
 
       <div className="flex flex-col gap-2">
         {hasError ? (
@@ -117,16 +70,24 @@ export function TeamsPageContent({ clubId }: { clubId: string }) {
         ) : (
           teams.map((team) => (
             <Card key={team.id}>
-              <CardContent className="flex items-center justify-between">
+              <CardContent className="flex items-center justify-between gap-2">
                 <span className="font-medium">{team.name}</span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  nativeButton={false}
-                  render={<Link href={`/clubs/${clubId}/teams/${team.id}/players`} />}
-                >
-                  {t("viewRoster")}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    nativeButton={false}
+                    render={<Link href={`/clubs/${clubId}/teams/${team.id}/players`} />}
+                  >
+                    {t("viewRoster")}
+                  </Button>
+                  <TeamRowActions
+                    clubId={clubId}
+                    team={team}
+                    canManage={canManage}
+                    onSuccess={loadTeams}
+                  />
+                </div>
               </CardContent>
             </Card>
           ))

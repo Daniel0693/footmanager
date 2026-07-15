@@ -26,8 +26,8 @@ export async function resolveAnyTeamId(
       headers: authHeaders(accessToken),
     });
     if (!response.ok) return null;
-    const teams = (await response.json()) as Array<{ id: number }>;
-    return teams[0] ? String(teams[0].id) : null;
+    const body = (await response.json()) as { data: Array<{ id: number }> };
+    return body.data[0] ? String(body.data[0].id) : null;
   } catch {
     return null;
   }

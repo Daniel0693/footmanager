@@ -160,6 +160,116 @@ describe("ChampionshipsPageContent", () => {
     ).toBeInTheDocument();
   });
 
+  it("readScope=CLUB (AdminClub) : affiche la colonne Équipe avec les championnats de tout le club, sans sélecteur de club", async () => {
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/teams/5/championships")) {
+        return Promise.resolve(
+          jsonResponse({ data: [], canManage: true, createScope: "CLUB", readScope: "CLUB" }),
+        );
+      }
+      if (url === "/clubs/1/championships") {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 1,
+                seasonId: 20,
+                season: { id: 20, name: "Saison 2026-2027" },
+                team: { id: 8, name: "Seniors" },
+                name: "Championnat Seniors",
+                startDate: "2026-09-01",
+                endDate: "2026-12-15",
+                pointsForWin: 3,
+                pointsForDraw: 1,
+                pointsForLoss: 0,
+                tiebreakerRules: ["GOAL_DIFFERENCE"],
+                tiebreakerPreset: null,
+                numberOfPeriods: 2,
+                periodDurationMinutes: 45,
+              },
+            ],
+            canManage: true,
+            createScope: "CLUB",
+          }),
+        );
+      }
+      if (url.includes("/external-teams")) {
+        return Promise.resolve(jsonResponse({ data: [], canManage: true }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    renderPage("1", "5");
+
+    const link = await screen.findByRole("link", { name: "Championnat Seniors" });
+    expect(link).toHaveAttribute("href", "/clubs/1/teams/8/championships/1");
+    expect(screen.getByText("Seniors")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Club")).not.toBeInTheDocument();
+  });
+
+  it("readScope=ALL (SuperAdmin/Proprietaire) : sélecteur de club, changer de club recharge les championnats", async () => {
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/teams/5/championships")) {
+        return Promise.resolve(
+          jsonResponse({ data: [], canManage: true, createScope: "ALL", readScope: "ALL" }),
+        );
+      }
+      if (url === "/clubs") {
+        return Promise.resolve(
+          jsonResponse([
+            { id: 1, name: "Club A" },
+            { id: 2, name: "Club B" },
+          ]),
+        );
+      }
+      if (url === "/clubs/1/championships") {
+        return Promise.resolve(jsonResponse({ data: [], canManage: true, createScope: "ALL" }));
+      }
+      if (url === "/clubs/2/championships") {
+        return Promise.resolve(
+          jsonResponse({
+            data: [
+              {
+                id: 2,
+                seasonId: 30,
+                season: { id: 30, name: "Saison Club B" },
+                team: { id: 12, name: "U10" },
+                name: "Championnat U10",
+                startDate: "2026-09-01",
+                endDate: "2026-12-15",
+                pointsForWin: 3,
+                pointsForDraw: 1,
+                pointsForLoss: 0,
+                tiebreakerRules: ["GOAL_DIFFERENCE"],
+                tiebreakerPreset: null,
+                numberOfPeriods: 2,
+                periodDurationMinutes: 45,
+              },
+            ],
+            canManage: true,
+            createScope: "ALL",
+          }),
+        );
+      }
+      if (url.includes("/external-teams")) {
+        return Promise.resolve(jsonResponse({ data: [], canManage: true }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+    const user = userEvent.setup();
+
+    renderPage("1", "5");
+
+    expect(await screen.findByLabelText("Club")).toBeInTheDocument();
+    expect(await screen.findByText("Aucun championnat pour l'instant")).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Club"));
+    await user.click(await screen.findByRole("option", { name: "Club B" }));
+
+    const link = await screen.findByRole("link", { name: "Championnat U10" });
+    expect(link).toHaveAttribute("href", "/clubs/2/teams/12/championships/2");
+  });
+
   it("l'onglet Équipes adverses affiche un message si la liste est vide", async () => {
     mockApiFetchDefault();
     const user = userEvent.setup();

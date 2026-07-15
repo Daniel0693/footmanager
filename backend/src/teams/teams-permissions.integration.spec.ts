@@ -55,6 +55,18 @@ const adminClubMember: Member = {
 const permissions = {
   teamReadTeam: { id: 1, resource: 'team', action: 'READ', scope: 'TEAM' },
   teamReadClub: { id: 2, resource: 'team', action: 'READ', scope: 'CLUB' },
+  teamUpdateClub: {
+    id: 3,
+    resource: 'team',
+    action: 'UPDATE',
+    scope: 'CLUB',
+  },
+  teamDeleteClub: {
+    id: 4,
+    resource: 'team',
+    action: 'DELETE',
+    scope: 'CLUB',
+  },
 };
 
 const roles = {
@@ -66,7 +78,11 @@ const roles = {
   adminClub: {
     id: 2,
     isSystem: true,
-    rolePermissions: [{ permission: permissions.teamReadClub }],
+    rolePermissions: [
+      { permission: permissions.teamReadClub },
+      { permission: permissions.teamUpdateClub },
+      { permission: permissions.teamDeleteClub },
+    ],
   },
 };
 
@@ -120,6 +136,10 @@ function buildContext(
 const findAllHandler = TeamsController.prototype.findAll;
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const findOneHandler = TeamsController.prototype.findOne;
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const updateHandler = TeamsController.prototype.update;
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const removeHandler = TeamsController.prototype.remove;
 
 describe('Module Effectif — scénario multi-rôles (TeamsController)', () => {
   let guard: PermissionsGuard;
@@ -190,5 +210,38 @@ describe('Module Effectif — scénario multi-rôles (TeamsController)', () => {
     await guard.canActivate(buildContext(request, findOneHandler));
 
     expect(request.permissionScope).toBe('TEAM');
+  });
+
+  it("l'AdminClub (scope CLUB) modifie et supprime une équipe du club (B18, boutons Modifier/Supprimer)", async () => {
+    const updateRequest = {
+      params: { clubId: '1', id: '5' },
+      query: {},
+      user: { userId: 70 },
+    } as Partial<PermissionedRequest>;
+    await guard.canActivate(buildContext(updateRequest, updateHandler));
+    expect(updateRequest.permissionScope).toBe('CLUB');
+
+    const removeRequest = {
+      params: { clubId: '1', id: '5' },
+      query: {},
+      user: { userId: 70 },
+    } as Partial<PermissionedRequest>;
+    await guard.canActivate(buildContext(removeRequest, removeHandler));
+    expect(removeRequest.permissionScope).toBe('CLUB');
+  });
+
+  it("le Coach n'a pas la permission de modifier ou supprimer une équipe, même la sienne (gestion réservée à AdminClub+)", async () => {
+    const request = {
+      params: { clubId: '1', id: '5' },
+      query: { teamId: '5' },
+      user: { userId: 7 },
+    } as Partial<PermissionedRequest>;
+
+    await expect(
+      guard.canActivate(buildContext(request, updateHandler)),
+    ).rejects.toBeInstanceOf(AppException);
+    await expect(
+      guard.canActivate(buildContext(request, removeHandler)),
+    ).rejects.toBeInstanceOf(AppException);
   });
 });

@@ -25,8 +25,10 @@ jest.mock("@/lib/last-team", () => ({
 }));
 
 // Vérification d'accès à `season` (masquage du lien "Saisons" pour un rôle
-// sans aucun droit de lecture dessus, ex. Parent — voir seasons.controller.ts)
-// : mockée en succès par défaut (lien affiché), un test dédié simule le 403.
+// qui n'a pas `canManage` — Parent (403, aucune permission `season`) ou
+// Coach/Player (200 mais canManage=false, B18) — voir sidebar-nav.tsx) :
+// mockée en succès + canManage=true par défaut (lien affiché), des tests
+// dédiés simulent le 403 et le canManage=false.
 const mockApiFetch = jest.fn();
 jest.mock("@/lib/api", () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
@@ -42,7 +44,11 @@ describe("SidebarNav", () => {
     mockUseParams.mockReturnValue({});
     mockUseAuth.mockReturnValue({ user: { id: 1 }, accessToken: "token" });
     mockGetLastTeam.mockReturnValue(null);
-    mockApiFetch.mockResolvedValue({ status: 200, ok: true, json: () => Promise.resolve({}) });
+    mockApiFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      json: () => Promise.resolve({ data: [], canManage: true }),
+    });
   });
 
   it("affiche les modules existants avec leurs libellés", () => {
@@ -131,6 +137,23 @@ describe("SidebarNav", () => {
     usePathname.mockReturnValue("/clubs/42/teams");
     mockUseParams.mockReturnValue({ clubId: "42" });
     mockApiFetch.mockResolvedValue({ status: 403, ok: false, json: () => Promise.resolve({}) });
+
+    renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+    expect(screen.getByRole("link", { name: "Effectif" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole("link", { name: "Saisons" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("cache le lien Saisons pour un rôle en lecture seule sur `season` (Coach/Player, canManage=false — B18)", async () => {
+    usePathname.mockReturnValue("/clubs/42/teams");
+    mockUseParams.mockReturnValue({ clubId: "42" });
+    mockApiFetch.mockResolvedValue({
+      status: 200,
+      ok: true,
+      json: () => Promise.resolve({ data: [], canManage: false }),
+    });
 
     renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
 
