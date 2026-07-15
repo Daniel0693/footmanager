@@ -1,9 +1,15 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { Gender } from '@prisma/client';
+import type { Gender, PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertParentChildLink } from '../common/parent-child-membership';
 import { computeYearlyOccurrences } from '../common/yearly-occurrence';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsService } from '../roles/permissions.service';
+
+export interface MemberRequestContext {
+  memberId: number;
+  scope: PermissionScope;
+}
 
 export interface MemberBirthday {
   memberId: number;
@@ -43,12 +49,26 @@ export class MembersService {
       gender?: Gender;
       birthDate?: Date;
     },
+    requester: MemberRequestContext,
   ) {
     const member = await this.prisma.member.findFirst({
       where: { id, clubId },
     });
     if (!member) {
       throw new AppException('MEMBERS.NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+
+    // Seul le scope PARENT est vérifié finement ici : contrairement à
+    // TEAM/CLUB/ALL (gap pré-existant toléré, PermissionsGuard seul filtre
+    // via le teamId en query — docs/modules/auth-roles.md), un Parent non
+    // lié ne doit jamais pouvoir éditer un membre arbitraire de l'équipe.
+    if (requester.scope === 'PARENT' && member.id !== requester.memberId) {
+      await assertParentChildLink(
+        this.prisma,
+        requester.memberId,
+        member.id,
+        'MEMBERS.NOT_FOUND',
+      );
     }
 
     return this.prisma.member.update({ where: { id }, data });
@@ -236,7 +256,16 @@ export class MembersService {
     return this.resolveOrProvisionMember(userId, clubId);
   }
 
-  async updateMe(clubId: number, userId: number, data: { birthDate?: Date }) {
+  async updateMe(
+    clubId: number,
+    userId: number,
+    data: {
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      birthDate?: Date;
+    },
+  ) {
     const member = await this.resolveOrProvisionMember(userId, clubId);
     return this.prisma.member.update({ where: { id: member.id }, data });
   }

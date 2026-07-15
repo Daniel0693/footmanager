@@ -69,9 +69,10 @@ associée est créée automatiquement. Il peut alors :
 **AdminClub** voit le contenu complet des séances (exercices, statistiques, présences) en
 lecture seule — oversight sans droit d'édition.
 
-**Parent** : les droits « de son enfant » ci-dessus supposent une liaison Parent↔Joueur qui
-n'est pas encore modélisée (décision ouverte #5, voir `docs/decisions-ouvertes-et-rgpd.md`) —
-non câblé tant que cette décision n'est pas tranchée.
+**Parent** : les droits « de son enfant » ci-dessus s'appuieront sur la liaison `ParentChild` et
+le scope `PermissionScope.PARENT`, désormais disponibles (décision ouverte #5, tranchée — voir
+`docs/modules/auth-roles.md` §Rôle Parent). Pas encore câblés ici : ce module (Phase 5) n'est pas
+construit, `TrainingFeedback`/`TrainingAttendance` n'existent pas encore.
 
 ---
 

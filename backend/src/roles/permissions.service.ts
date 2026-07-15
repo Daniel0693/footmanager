@@ -8,7 +8,12 @@ export interface PermissionContext {
   teamId?: number;
 }
 
-const SCOPE_ORDER: PermissionScope[] = ['OWN', 'TEAM', 'CLUB', 'ALL'];
+// PARENT n'est pas réellement "plus large" qu'OWN (il autorise un enfant lié
+// précis, pas plus de ressources) : sa position ici n'a d'incidence que si un
+// même membre cumule OWN et PARENT sur le même contexte club/équipe, cas géré
+// par chaque service en vérifiant d'abord "est-ce moi ?" avant d'exiger le
+// lien ParentChild (voir docs/modules/auth-roles.md §Rôle Parent).
+const SCOPE_ORDER: PermissionScope[] = ['OWN', 'PARENT', 'TEAM', 'CLUB', 'ALL'];
 
 /**
  * Cœur de la règle d'or de permission (docs/modules/auth-roles.md) :

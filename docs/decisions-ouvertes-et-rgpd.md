@@ -46,6 +46,7 @@
 | "Mes clubs" (`GET /clubs`) | Scope : clubs où l'utilisateur a une fiche `Member`. Remplace un suivi `localStorage` non fiable (id de club persistant entre comptes dans le même navigateur). Un compte ne peut pour l'instant créer qu'un seul club (aucun flux "rejoindre un club" existant) — à revisiter si le multi-club post-MVP est implémenté. |
 | Visibilité par champ sur `PlayerInterview` | `staffAssessment` (ressenti/évaluation interne de l'encadrant) n'est **jamais** transmis à un appelant en scope `OWN` (Player) — même tension RGPD Article 15 que les notes `PRIVE`. Un Player ne voit en plus que les entretiens déjà passés, jamais ceux à venir. `staffFeedback`/`staffAssessment`/`playerFeedback` sont tous optionnels : un entretien peut être planifié à l'avance (date/sujet/résumé seuls) puis complété après coup. Voir `docs/modules/effectif-joueurs.md` §Entretien. |
 | Correctif — vérification équipe pour un scope `TEAM` | Faille trouvée en concevant A7.3 : `PlayersService`, `PlayerMeasurementsService` et `PlayerInterviewsService` ne vérifiaient que l'appartenance au club, jamais à l'équipe précise transmise en `?teamId=` — un Coach pouvait agir sur n'importe quel joueur du club en transmettant sa propre équipe. Corrigé via `assertPlayerInTeam` (`src/common/player-team-membership.ts`), à réutiliser pour toute nouvelle ressource scopée équipe. Voir `docs/modules/auth-roles.md` §Patterns découverts. |
+| Liaison Parent ↔ Joueur | Nouvelle table `ParentChild` + scope `PermissionScope.PARENT`, créée/supprimée uniquement par le staff. Droits du Parent sur son enfant lié : consultation (mêmes ressources que le scope `OWN` de l'enfant, sauf notes/objectifs limités à `PUBLIC`), modification des informations personnelles (`member`, jamais `player_profile`/`player_team`), déclaration d'absence à venir (`isExcused` forcé à `null`, comme pour l'enfant lui-même). Voir `docs/modules/auth-roles.md` §Rôle Parent. |
 
 ---
 
@@ -88,19 +89,18 @@ depuis les cartons. À concevoir et documenter en phase post-MVP.
 ### 4bis. Anniversaires — port de scope non couvert
 
 `MembersService.findBirthdaysInClub` (2026-07-08) restreint le scope TEAM aux membres rattachés
-via `MemberRole` (staff) ou `PlayerTeam` actif (joueurs). Un `Parent` n'a aujourd'hui aucun lien
-direct à une équipe autre que via son propre `MemberRole` — cohérent avec la décision ouverte
-§5 ci-dessous (pas de table `ParentChild`) : un Parent voit les anniversaires de sa propre
-équipe assignée, pas nécessairement ceux de l'équipe de son enfant si elles diffèrent. À
-revisiter si/quand la liaison Parent↔Enfant est conçue.
+via `MemberRole` (staff) ou `PlayerTeam` actif (joueurs). La liaison Parent↔Enfant (`ParentChild`,
+décision #5 ci-dessus) ne change rien ici : un Parent voit les anniversaires de l'équipe pointée
+par son propre `MemberRole` (typiquement celle de son enfant), via le même raccourci "mine" déjà
+documenté pour tout rôle scopé équipe sans permission Calendrier précise — voir
+`docs/modules/auth-roles.md` §Patterns découverts (paragraphe sur les agrégations "mine") et
+§Rôle Parent pour le détail. Exposition acceptée, limitée aux coéquipiers de l'enfant.
 
-### 5. Liaison Parent ↔ Joueur (Member enfant)
+### 5. Liaison Parent ↔ Joueur — tranchée, voir table ci-dessus
 
-Aucune table de liaison entre un `Member` avec le rôle `Parent` et le(s) `Member`(s) enfant(s)
-n'existe dans le schéma actuel (`fondations.md`, `joueurs.md`). `PermissionScope` (`OWN` /
-`TEAM` / `CLUB` / `ALL`) ne permet pas nativement de scoper un accès "à mon enfant précis"
-sans sur-exposer le reste de l'équipe. À concevoir (ex. table `ParentChild` ou équivalent)
-avant de câbler le rôle `Parent` sur le module Effectif ou Calendrier — non traité en Phase 2.
+Résolue (`ParentChild` + scope `PermissionScope.PARENT`) — déplacée dans la table des décisions
+tranchées en tête de ce fichier. Détail complet : `docs/modules/auth-roles.md` §Rôle Parent.
+Numéro conservé pour ne pas invalider les renvois "décision ouverte #6" ci-dessous.
 
 ### 6. `PermissionsService.matchesContext()` exige `teamId` même pour un scope `OWN`
 

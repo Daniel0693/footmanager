@@ -94,6 +94,11 @@ joueur ne peut jamais s'auto-justifier. Un joueur n'a ni `UPDATE` ni `DELETE` su
 `AbsenceTab` (`isOwnProfile`) plutôt que de mener à un 403 au clic. Notification à l'entraîneur
 lors d'une déclaration par un joueur : différée au système de notifications, décision ouverte #2.
 
+**Un Parent peut déclarer une absence à venir pour son enfant** (liaison `ParentChild`, décision
+ouverte #5 tranchée — voir `docs/modules/auth-roles.md` §Rôle Parent) : même permission
+`player_absence CREATE`/`READ`, en scope `PARENT` plutôt que `OWN`, avec exactement les mêmes
+garde-fous — `isExcused` forcé à `null`, ni `UPDATE` ni `DELETE`.
+
 **Décision — pas d'affichage dans le calendrier (2026-07-08)** : une première itération affichait
 les absences comme bandeau/entrée par-joueur dans les 3 vues (Mois/Semaine/Liste), avec un endpoint
 d'agrégation dédié (`GET /clubs/:clubId/absences/mine`, même principe que `events/mine`/

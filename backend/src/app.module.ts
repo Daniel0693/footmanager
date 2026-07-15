@@ -9,6 +9,7 @@ import { EvaluationConfigModule } from './evaluation-config/evaluation-config.mo
 import { EventsModule } from './events/events.module';
 import { ExternalTeamsModule } from './external-teams/external-teams.module';
 import { MembersModule } from './members/members.module';
+import { ParentChildModule } from './parent-child/parent-child.module';
 import { PlayerEvaluationsModule } from './player-evaluations/player-evaluations.module';
 import { PlayerInterviewsModule } from './player-interviews/player-interviews.module';
 import { PlayerMeasurementsModule } from './player-measurements/player-measurements.module';
@@ -45,6 +46,7 @@ import { UsersModule } from './users/users.module';
     PlayerObjectivesModule,
     PlayerAbsencesModule,
     PlayerEvaluationsModule,
+    ParentChildModule,
     EvaluationConfigModule,
     EventsModule,
     SeasonsModule,

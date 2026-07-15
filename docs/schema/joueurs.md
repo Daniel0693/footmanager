@@ -245,10 +245,11 @@ n'existe pas encore (module Entraînement non implémenté) — champ ajouté pa
 ce modèle disponible, pas anticipé ici.
 
 **Tension RGPD** : les notes `PRIVE` ne sont jamais transmises à un appelant en scope `OWN`
-(Player) — voir `docs/decisions-ouvertes-et-rgpd.md` (Article 15). Le rôle Parent n'est pas
-encore câblé sur ce modèle de visibilité (pas de table de liaison Parent↔Joueur, voir la
-décision ouverte correspondante) : seule la distinction PRIVE vs SEMI_PRIVE/PUBLIC est
-actuellement appliquée par `PlayerNotesService.findAllByPlayer`.
+(Player) — voir `docs/decisions-ouvertes-et-rgpd.md` (Article 15). Le rôle Parent est câblé sur
+ce modèle de visibilité via la liaison `ParentChild` (scope `PermissionScope.PARENT`) : plus
+restrictif que le scope `OWN` de l'enfant lui-même, `PlayerNotesService.findAllByPlayer` ne lui
+renvoie que les notes `PUBLIC` (ni `PRIVE`, ni `SEMI_PRIVE`) — voir `docs/modules/auth-roles.md`
+§Rôle Parent.
 
 ---
 

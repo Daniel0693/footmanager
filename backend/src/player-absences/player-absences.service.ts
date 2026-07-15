@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertParentChildLink } from '../common/parent-child-membership';
 import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
 import { PrismaService } from '../prisma/prisma.service';
@@ -26,8 +27,10 @@ export interface PlayerAbsenceRequestContext {
  * est bien lui-même, ni qu'il appartient à l'équipe transmise en query. Pour
  * le scope OWN (Player), ce service compare le `memberId` du joueur visé à
  * celui de l'appelant ; pour le scope TEAM (Coach), il vérifie
- * l'appartenance à l'équipe via `assertPlayerInTeam` (docs/modules/
- * auth-roles.md §Patterns découverts).
+ * l'appartenance à l'équipe via `assertPlayerInTeam` ; pour le scope PARENT
+ * (docs/modules/auth-roles.md §Rôle Parent), il vérifie le lien
+ * `ParentChild` via `assertParentChildLink`, sauf quand le joueur visé est
+ * l'appelant lui-même (cumul Player+Parent sur le même contexte).
  */
 @Injectable()
 export class PlayerAbsencesService {
@@ -52,6 +55,17 @@ export class PlayerAbsencesService {
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
+    if (
+      requester.scope === 'PARENT' &&
+      player.memberId !== requester.memberId
+    ) {
+      await assertParentChildLink(
+        this.prisma,
+        requester.memberId,
+        player.memberId,
+        'PLAYER_ABSENCES.PLAYER_NOT_IN_CLUB',
+      );
+    }
 
     return this.prisma.playerAbsence.create({
       data: {
@@ -61,11 +75,14 @@ export class PlayerAbsencesService {
         description: dto.description,
         startDate: dto.startDate,
         endDate: dto.endDate,
-        // Scope OWN (un joueur qui déclare sa propre absence) : seul
-        // l'entraîneur décide si elle est justifiée, jamais le joueur
-        // lui-même — ignoré même si transmis explicitement dans le corps
-        // de la requête.
-        isExcused: requester.scope === 'OWN' ? null : dto.isExcused,
+        // Scope OWN (un joueur qui déclare sa propre absence) ou PARENT (un
+        // parent qui la déclare pour son enfant) : seul l'entraîneur décide
+        // si elle est justifiée — ignoré même si transmis explicitement
+        // dans le corps de la requête.
+        isExcused:
+          requester.scope === 'OWN' || requester.scope === 'PARENT'
+            ? null
+            : dto.isExcused,
       },
       include: { reportedBy: true },
     });
@@ -88,6 +105,17 @@ export class PlayerAbsencesService {
     }
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
+    }
+    if (
+      requester.scope === 'PARENT' &&
+      player.memberId !== requester.memberId
+    ) {
+      await assertParentChildLink(
+        this.prisma,
+        requester.memberId,
+        player.memberId,
+        'PLAYER_ABSENCES.PLAYER_NOT_IN_CLUB',
+      );
     }
 
     return this.prisma.playerAbsence.findMany({

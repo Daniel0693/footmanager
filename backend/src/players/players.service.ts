@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertParentChildLink } from '../common/parent-child-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
 import { MembersService } from '../members/members.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,7 +25,8 @@ export interface PlayerRequestContext {
  * `memberId` du profil visé à celui de l'appelant ; pour le scope TEAM
  * (Coach), il vérifie que le joueur appartient bien à l'équipe transmise en
  * query (docs/modules/auth-roles.md — le filtrage fin reste la
- * responsabilité du service).
+ * responsabilité du service) ; pour le scope PARENT, il vérifie le lien
+ * `ParentChild` (docs/modules/auth-roles.md §Rôle Parent).
  */
 @Injectable()
 export class PlayersService {
@@ -130,6 +132,18 @@ export class PlayersService {
       return own ? [own] : [];
     }
 
+    if (requester.scope === 'PARENT') {
+      const links = await this.prisma.parentChild.findMany({
+        where: { parentMemberId: requester.memberId },
+      });
+      const childMemberIds = links.map((link) => link.childMemberId);
+      return this.prisma.playerProfile.findMany({
+        where: { memberId: { in: childMemberIds }, member: { clubId } },
+        include,
+        orderBy: { id: 'asc' },
+      });
+    }
+
     return this.prisma.playerProfile.findMany({
       where: { member: { clubId, ...memberSearchFilter } },
       include,
@@ -158,6 +172,17 @@ export class PlayersService {
     }
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, id, requester.teamId);
+    }
+    if (
+      requester.scope === 'PARENT' &&
+      profile.memberId !== requester.memberId
+    ) {
+      await assertParentChildLink(
+        this.prisma,
+        requester.memberId,
+        profile.memberId,
+        'PLAYERS.NOT_FOUND',
+      );
     }
     return profile;
   }

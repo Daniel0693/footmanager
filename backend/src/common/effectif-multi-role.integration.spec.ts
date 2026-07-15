@@ -41,10 +41,12 @@ import { PlayerEvaluationsService } from '../player-evaluations/player-evaluatio
  * - Coach de l'équipe 5 (Club 1, Member 42) — scope TEAM.
  * - Player de l'équipe 8 (Club 1, Member 42, profil joueur 100) — scope OWN.
  * - Parent (Club 2, Member 55 — un Member distinct par club, comme documenté
- *   dans auth-roles.md §Patterns découverts) : aucune permission Effectif
- *   n'est jamais accordée au rôle Parent (pas de liaison Parent↔Joueur, voir
- *   docs/decisions-ouvertes-et-rgpd.md) — vérifié explicitement ici plutôt
- *   que supposé.
+ *   dans auth-roles.md §Patterns découverts) : ici volontairement construit
+ *   SANS aucune permission (`rolePermissions: []`), pour vérifier qu'un rôle
+ *   Parent sans grant n'a par défaut aucun accès — cas générique, distinct du
+ *   scope PARENT réel (lien ParentChild + permissions du seed), couvert par
+ *   `parent-child-multi-role.integration.spec.ts` (docs/decisions-ouvertes-et-rgpd.md
+ *   #5, tranché — voir docs/modules/auth-roles.md §Rôle Parent).
  */
 
 const marcClub1: Member = {

@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertParentChildLink } from '../common/parent-child-membership';
 import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
 import { resolveSeasonPeriod } from '../common/season-period';
@@ -81,8 +82,23 @@ export class PlayerInterviewsService {
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
+    if (
+      requester.scope === 'PARENT' &&
+      player.memberId !== requester.memberId
+    ) {
+      await assertParentChildLink(
+        this.prisma,
+        requester.memberId,
+        player.memberId,
+        'PLAYER_INTERVIEWS.PLAYER_NOT_IN_CLUB',
+      );
+    }
 
-    const isOwnScope = requester.scope === 'OWN';
+    // Le Parent voit exactement ce que verrait son enfant (scope OWN) :
+    // mêmes restrictions ci-dessous (staffAssessment masqué, entretiens à
+    // venir cachés), jamais plus.
+    const isOwnScope =
+      requester.scope === 'OWN' || requester.scope === 'PARENT';
 
     // Filtrage rétroactif par saison (A12) : prioritaire sur dateFrom/dateTo
     // si transmis — mutuellement exclusifs au niveau UI (voir DTO).

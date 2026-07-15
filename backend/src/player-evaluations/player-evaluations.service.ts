@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertParentChildLink } from '../common/parent-child-membership';
 import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
 import { resolveSeasonPeriod } from '../common/season-period';
@@ -96,6 +97,17 @@ export class PlayerEvaluationsService {
     }
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
+    }
+    if (
+      requester.scope === 'PARENT' &&
+      player.memberId !== requester.memberId
+    ) {
+      await assertParentChildLink(
+        this.prisma,
+        requester.memberId,
+        player.memberId,
+        'PLAYER_EVALUATIONS.PLAYER_NOT_IN_CLUB',
+      );
     }
 
     // Filtrage rétroactif par saison (A12) : prioritaire sur dateFrom/dateTo
