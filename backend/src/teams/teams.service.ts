@@ -98,18 +98,20 @@ export class TeamsService {
    * jamais ici (voir `matchesContext`) — seul `CLUB`/`ALL` peuvent ressortir.
    */
   async findMineInClub(clubId: number, userId: number) {
-    const member = await this.membersService.findByUserAndClub(userId, clubId);
-    if (!member) {
-      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
-    }
+    const member = await this.membersService.resolveOrProvisionMember(
+      userId,
+      clubId,
+    );
 
-    const clubWideScope = await this.permissionsService.can(
+    const clubWideScope = await this.permissionsService.canEffective(
+      userId,
       member.id,
       'READ',
       'team',
       { clubId },
     );
-    const canManage = !!(await this.permissionsService.can(
+    const canManage = !!(await this.permissionsService.canEffective(
+      userId,
       member.id,
       'UPDATE',
       'team',

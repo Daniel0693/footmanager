@@ -4,10 +4,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsService } from '../roles/permissions.service';
 import { MembersService } from './members.service';
 
-// Stub par défaut : seule findBirthdaysInClub appelle can(), les autres
-// tests n'ont pas besoin d'un comportement spécifique ici.
+// Stub par défaut : seule findBirthdaysInClub appelle canEffective(), les
+// autres tests n'ont pas besoin d'un comportement spécifique ici.
+// hasActivePlatformRole résout `false` par défaut (pas de rôle plateforme) :
+// resolveOrProvisionMember (findMe/updateMe/findBirthdaysInClub) doit
+// rejeter en AUTH.FORBIDDEN quand aucun Member n'existe, comme avant.
 const permissionsServiceStub = {
   can: jest.fn(),
+  canEffective: jest.fn(),
+  hasActivePlatformRole: jest.fn().mockResolvedValue(false),
 } as unknown as PermissionsService;
 
 const member: Member = {
@@ -425,8 +430,8 @@ describe('MembersService', () => {
       const prismaStub = {
         member: { findUnique, findMany },
       } as unknown as PrismaService;
-      const can = jest.fn().mockResolvedValue('CLUB');
-      const permissionsStub = { can } as unknown as PermissionsService;
+      const canEffective = jest.fn().mockResolvedValue('CLUB');
+      const permissionsStub = { canEffective } as unknown as PermissionsService;
       const service = new MembersService(prismaStub, permissionsStub);
 
       const result = await service.findBirthdaysInClub(1, 7, {
@@ -434,7 +439,9 @@ describe('MembersService', () => {
         dateTo: new Date(2026, 11, 31),
       });
 
-      expect(can).toHaveBeenCalledWith(42, 'READ', 'member', { clubId: 1 });
+      expect(canEffective).toHaveBeenCalledWith(7, 42, 'READ', 'member', {
+        clubId: 1,
+      });
       expect(findMany).toHaveBeenCalledWith({
         where: { clubId: 1, birthDate: { not: null } },
         select: { id: true, firstName: true, lastName: true, birthDate: true },
@@ -458,8 +465,8 @@ describe('MembersService', () => {
         member: { findUnique, findMany: memberFindMany },
         team: { findMany: teamFindMany },
       } as unknown as PrismaService;
-      const can = jest.fn().mockResolvedValue(null);
-      const permissionsStub = { can } as unknown as PermissionsService;
+      const canEffective = jest.fn().mockResolvedValue(null);
+      const permissionsStub = { canEffective } as unknown as PermissionsService;
       const service = new MembersService(prismaStub, permissionsStub);
 
       await service.findBirthdaysInClub(1, 7, {
@@ -499,8 +506,8 @@ describe('MembersService', () => {
         member: { findUnique, findMany: memberFindMany },
         team: { findMany: teamFindMany },
       } as unknown as PrismaService;
-      const can = jest.fn().mockResolvedValue(null);
-      const permissionsStub = { can } as unknown as PermissionsService;
+      const canEffective = jest.fn().mockResolvedValue(null);
+      const permissionsStub = { canEffective } as unknown as PermissionsService;
       const service = new MembersService(prismaStub, permissionsStub);
 
       await service.findBirthdaysInClub(
@@ -537,8 +544,8 @@ describe('MembersService', () => {
         member: { findUnique, findMany: memberFindMany },
         team: { findMany: teamFindMany },
       } as unknown as PrismaService;
-      const can = jest.fn().mockResolvedValue(null);
-      const permissionsStub = { can } as unknown as PermissionsService;
+      const canEffective = jest.fn().mockResolvedValue(null);
+      const permissionsStub = { canEffective } as unknown as PermissionsService;
       const service = new MembersService(prismaStub, permissionsStub);
 
       const result = await service.findBirthdaysInClub(1, 7, {
@@ -570,8 +577,8 @@ describe('MembersService', () => {
       const prismaStub = {
         member: { findUnique, findMany },
       } as unknown as PrismaService;
-      const can = jest.fn().mockResolvedValue('CLUB');
-      const permissionsStub = { can } as unknown as PermissionsService;
+      const canEffective = jest.fn().mockResolvedValue('CLUB');
+      const permissionsStub = { canEffective } as unknown as PermissionsService;
       const service = new MembersService(prismaStub, permissionsStub);
 
       const result = await service.findBirthdaysInClub(1, 7, {

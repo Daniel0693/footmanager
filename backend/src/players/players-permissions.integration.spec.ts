@@ -1,4 +1,4 @@
-import { ExecutionContext } from '@nestjs/common';
+import { ExecutionContext, HttpStatus } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Member, PlayerProfile } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
@@ -244,6 +244,13 @@ describe('Module Effectif — scénario multi-rôles (PlayersController)', () =>
     );
     const membersService = {
       findByUserAndClub,
+      resolveOrProvisionMember: jest.fn((userId: number, clubId: number) => {
+        const found = membersByUserAndClub[`${userId}:${clubId}`];
+        if (found) return Promise.resolve(found);
+        return Promise.reject(
+          new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN),
+        );
+      }),
     } as unknown as MembersService;
 
     guard = new PermissionsGuard(

@@ -39,7 +39,7 @@ describe('PlayersService', () => {
   let profileUpdate: jest.Mock;
   let profileDelete: jest.Mock;
   let playerTeamFindFirst: jest.Mock;
-  let findByUserAndClub: jest.Mock;
+  let resolveOrProvisionMember: jest.Mock;
   let service: PlayersService;
 
   beforeEach(() => {
@@ -51,7 +51,7 @@ describe('PlayersService', () => {
     profileUpdate = jest.fn();
     profileDelete = jest.fn();
     playerTeamFindFirst = jest.fn().mockResolvedValue({ id: 1 });
-    findByUserAndClub = jest.fn();
+    resolveOrProvisionMember = jest.fn();
 
     const prismaStub = {
       member: { findUnique: memberFindUnique },
@@ -66,7 +66,7 @@ describe('PlayersService', () => {
       playerTeam: { findFirst: playerTeamFindFirst },
     } as unknown as PrismaService;
     const membersServiceStub = {
-      findByUserAndClub,
+      resolveOrProvisionMember,
     } as unknown as MembersService;
 
     service = new PlayersService(prismaStub, membersServiceStub);
@@ -135,8 +135,12 @@ describe('PlayersService', () => {
   });
 
   describe('findMe', () => {
-    it("refuse si l'appelant n'est pas Member de ce club", async () => {
-      findByUserAndClub.mockResolvedValue(null);
+    it("refuse si l'appelant n'a ni Member ni rôle plateforme dans ce club", async () => {
+      resolveOrProvisionMember.mockRejectedValue(
+        Object.assign(new Error('forbidden'), {
+          status: HttpStatus.FORBIDDEN,
+        }),
+      );
 
       await expect(service.findMe(1, 7)).rejects.toMatchObject({
         status: HttpStatus.FORBIDDEN,
@@ -144,7 +148,7 @@ describe('PlayersService', () => {
     });
 
     it("renvoie 404 si le membre n'a pas encore de profil joueur", async () => {
-      findByUserAndClub.mockResolvedValue(marcMember);
+      resolveOrProvisionMember.mockResolvedValue(marcMember);
       profileFindUnique.mockResolvedValue(null);
 
       await expect(service.findMe(1, 7)).rejects.toMatchObject({
@@ -153,11 +157,11 @@ describe('PlayersService', () => {
     });
 
     it('renvoie le profil du membre résolu depuis userId+clubId', async () => {
-      findByUserAndClub.mockResolvedValue(marcMember);
+      resolveOrProvisionMember.mockResolvedValue(marcMember);
       profileFindUnique.mockResolvedValue(marcProfile);
 
       await expect(service.findMe(1, 7)).resolves.toBe(marcProfile);
-      expect(findByUserAndClub).toHaveBeenCalledWith(7, 1);
+      expect(resolveOrProvisionMember).toHaveBeenCalledWith(7, 1);
       expect(profileFindUnique).toHaveBeenCalledWith({
         where: { memberId: 42 },
       });

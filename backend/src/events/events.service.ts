@@ -134,12 +134,13 @@ export class EventsService {
       sortOrder?: 'asc' | 'desc';
     } = {},
   ) {
-    const member = await this.membersService.findByUserAndClub(userId, clubId);
-    if (!member) {
-      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
-    }
+    const member = await this.membersService.resolveOrProvisionMember(
+      userId,
+      clubId,
+    );
 
-    const clubWideScope = await this.permissionsService.can(
+    const clubWideScope = await this.permissionsService.canEffective(
+      userId,
       member.id,
       'READ',
       'event',

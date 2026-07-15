@@ -185,6 +185,46 @@ export class MembersService {
   }
 
   /**
+   * Résout le Member de l'appelant pour ce club, ou le provisionne à la
+   * volée s'il n'existe pas encore ET que l'appelant détient un rôle
+   * plateforme actif (UserRole — SuperAdmin/Proprietaire, docs/modules/
+   * auth-roles.md §Rôles plateforme). Ne vérifie PAS de permission fine :
+   * même contrat que findMe/updateMe (résolution d'identité uniquement),
+   * la RBAC fine reste évaluée séparément (canEffective) par l'appelant.
+   *
+   * `upsert` (pas `create`) : deux requêtes concurrentes du même
+   * utilisateur plateforme sur le même club ne doivent jamais se percuter
+   * sur la contrainte unique (userId, clubId).
+   *
+   * Fiche provisionnée avec un nom placeholder (User n'a aucun champ nom) —
+   * trivialement corrigible ensuite via PATCH /clubs/:clubId/members/:id.
+   */
+  async resolveOrProvisionMember(userId: number, clubId: number) {
+    const existing = await this.findByUserAndClub(userId, clubId);
+    if (existing) {
+      return existing;
+    }
+
+    if (!(await this.permissionsService.hasActivePlatformRole(userId))) {
+      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const [localPart] = (user?.email ?? 'compte').split('@');
+
+    return this.prisma.member.upsert({
+      where: { userId_clubId: { userId, clubId } },
+      update: {},
+      create: {
+        userId,
+        clubId,
+        firstName: localPart,
+        lastName: '(compte plateforme)',
+      },
+    });
+  }
+
+  /**
    * "Mon profil" (docs/roadmap.md) : accès à ses propres données par
    * construction (le Member est résolu depuis le JWT via userId+clubId),
    * donc pas de scope RBAC à évaluer ici. Contourne volontairement
@@ -193,18 +233,11 @@ export class MembersService {
    * correspondance de scope sur une route sans teamId dans l'URL.
    */
   async findMe(clubId: number, userId: number) {
-    const member = await this.findByUserAndClub(userId, clubId);
-    if (!member) {
-      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
-    }
-    return member;
+    return this.resolveOrProvisionMember(userId, clubId);
   }
 
   async updateMe(clubId: number, userId: number, data: { birthDate?: Date }) {
-    const member = await this.findByUserAndClub(userId, clubId);
-    if (!member) {
-      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
-    }
+    const member = await this.resolveOrProvisionMember(userId, clubId);
     return this.prisma.member.update({ where: { id: member.id }, data });
   }
 
@@ -241,12 +274,10 @@ export class MembersService {
     range: { dateFrom: Date; dateTo: Date },
     teamIds?: number[],
   ): Promise<MemberBirthday[]> {
-    const member = await this.findByUserAndClub(userId, clubId);
-    if (!member) {
-      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
-    }
+    const member = await this.resolveOrProvisionMember(userId, clubId);
 
-    const clubWideScope = await this.permissionsService.can(
+    const clubWideScope = await this.permissionsService.canEffective(
+      userId,
       member.id,
       'READ',
       'member',

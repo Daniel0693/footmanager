@@ -42,10 +42,10 @@ export class PlayersService {
    * teamId dans l'URL. Voir décision du 2026-07-03 (étape A2).
    */
   async findMe(clubId: number, userId: number) {
-    const member = await this.membersService.findByUserAndClub(userId, clubId);
-    if (!member) {
-      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
-    }
+    const member = await this.membersService.resolveOrProvisionMember(
+      userId,
+      clubId,
+    );
 
     const profile = await this.prisma.playerProfile.findUnique({
       where: { memberId: member.id },

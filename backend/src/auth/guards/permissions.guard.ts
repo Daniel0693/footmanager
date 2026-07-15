@@ -22,8 +22,14 @@ export interface PermissionedRequest extends AuthenticatedRequest {
 
 /**
  * Applique la règle d'or de docs/modules/auth-roles.md : résout le `Member`
- * de l'utilisateur pour le `clubId` visé, puis délègue l'évaluation à
- * `PermissionsService.can()`, scopée au club/équipe de la requête.
+ * de l'utilisateur pour le `clubId` visé (s'il existe), puis délègue
+ * l'évaluation à `PermissionsService.canEffective()` — union du scope
+ * accordé via ce `Member` et du scope accordé via un rôle plateforme
+ * (`UserRole`, SuperAdmin/Proprietaire, docs/modules/auth-roles.md §Rôles
+ * plateforme), scopée au club/équipe de la requête. Si l'accès n'est
+ * accordé que via un rôle plateforme et qu'aucun `Member` n'existe encore
+ * pour ce club, une fiche est provisionnée à la volée (jamais avant que
+ * l'autorisation ait réussi).
  *
  * Résout `clubId`/`teamId` depuis les params de route, sinon le body, sinon
  * la query — aucune requête DB pour les résoudre. Les routes portant sur une
@@ -60,12 +66,10 @@ export class PermissionsGuard implements CanActivate {
       request.user.userId,
       clubId,
     );
-    if (!member) {
-      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
-    }
 
-    const scope = await this.permissionsService.can(
-      member.id,
+    const scope = await this.permissionsService.canEffective(
+      request.user.userId,
+      member?.id ?? null,
       required.action,
       required.resource,
       { clubId, teamId },
@@ -74,7 +78,16 @@ export class PermissionsGuard implements CanActivate {
       throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
     }
 
-    request.member = member;
+    // Provisionné uniquement après succès de l'autorisation, jamais avant —
+    // un utilisateur sans droit sur ce club ne crée jamais de Member en
+    // sondant des clubId arbitraires (docs/modules/auth-roles.md §Rôles
+    // plateforme).
+    request.member =
+      member ??
+      (await this.membersService.resolveOrProvisionMember(
+        request.user.userId,
+        clubId,
+      ));
     request.permissionScope = scope;
     return true;
   }

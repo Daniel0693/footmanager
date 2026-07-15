@@ -38,8 +38,8 @@ describe('TeamsService', () => {
   let teamStaffCount: jest.Mock;
   let championshipCount: jest.Mock;
   let eventCount: jest.Mock;
-  let findByUserAndClub: jest.Mock;
-  let can: jest.Mock;
+  let resolveOrProvisionMember: jest.Mock;
+  let canEffective: jest.Mock;
   let service: TeamsService;
 
   beforeEach(() => {
@@ -52,8 +52,8 @@ describe('TeamsService', () => {
     teamStaffCount = jest.fn().mockResolvedValue(0);
     championshipCount = jest.fn().mockResolvedValue(0);
     eventCount = jest.fn().mockResolvedValue(0);
-    findByUserAndClub = jest.fn();
-    can = jest.fn();
+    resolveOrProvisionMember = jest.fn();
+    canEffective = jest.fn();
     const prismaStub = {
       team: { findFirst, findMany, update, delete: deleteTeam },
       memberRole: { count: memberRoleCount },
@@ -63,9 +63,11 @@ describe('TeamsService', () => {
       event: { count: eventCount },
     } as unknown as PrismaService;
     const membersServiceStub = {
-      findByUserAndClub,
+      resolveOrProvisionMember,
     } as unknown as MembersService;
-    const permissionsServiceStub = { can } as unknown as PermissionsService;
+    const permissionsServiceStub = {
+      canEffective,
+    } as unknown as PermissionsService;
     service = new TeamsService(
       prismaStub,
       membersServiceStub,
@@ -105,8 +107,12 @@ describe('TeamsService', () => {
   });
 
   describe('findMineInClub', () => {
-    it("refuse si l'appelant n'est pas Member de ce club", async () => {
-      findByUserAndClub.mockResolvedValue(null);
+    it("refuse si l'appelant n'a ni Member ni rôle plateforme dans ce club", async () => {
+      resolveOrProvisionMember.mockRejectedValue(
+        Object.assign(new Error('forbidden'), {
+          status: HttpStatus.FORBIDDEN,
+        }),
+      );
 
       await expect(service.findMineInClub(1, 7)).rejects.toMatchObject({
         status: HttpStatus.FORBIDDEN,
@@ -114,8 +120,8 @@ describe('TeamsService', () => {
     });
 
     it('scope club-wide (CLUB/ALL) et canManage=true (AdminClub) : renvoie toutes les équipes du club', async () => {
-      findByUserAndClub.mockResolvedValue(coachMember);
-      can.mockResolvedValue('CLUB');
+      resolveOrProvisionMember.mockResolvedValue(coachMember);
+      canEffective.mockResolvedValue('CLUB');
       findMany.mockResolvedValue([team]);
 
       const result = await service.findMineInClub(1, 7);
@@ -132,8 +138,8 @@ describe('TeamsService', () => {
     });
 
     it('pas de scope club-wide et canManage=false (ex. Coach) : ne renvoie que les équipes où le membre a un rôle scopé équipe, sans droit de gestion', async () => {
-      findByUserAndClub.mockResolvedValue(coachMember);
-      can.mockResolvedValue(null);
+      resolveOrProvisionMember.mockResolvedValue(coachMember);
+      canEffective.mockResolvedValue(null);
       findMany.mockResolvedValue([team]);
 
       const result = await service.findMineInClub(1, 7);
@@ -143,8 +149,12 @@ describe('TeamsService', () => {
         canManage: false,
         readScope: null,
       });
-      expect(can).toHaveBeenCalledWith(42, 'READ', 'team', { clubId: 1 });
-      expect(can).toHaveBeenCalledWith(42, 'UPDATE', 'team', { clubId: 1 });
+      expect(canEffective).toHaveBeenCalledWith(7, 42, 'READ', 'team', {
+        clubId: 1,
+      });
+      expect(canEffective).toHaveBeenCalledWith(7, 42, 'UPDATE', 'team', {
+        clubId: 1,
+      });
       expect(findMany).toHaveBeenCalledWith({
         where: {
           clubId: 1,
