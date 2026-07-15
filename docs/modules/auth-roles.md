@@ -20,13 +20,24 @@ Ils correspondent à des ensembles de permissions pré-configurés.
 | `Parent` | Parent d'un joueur — convocations, confirmation de présence, suivi de l'enfant |
 | `Coach` | Entraîneur — gestion complète de séances, matchs, évaluation joueurs (scopé équipe) |
 | `AdminClub` | Administrateur d'un club — gestion de l'effectif, des équipes, lecture de tout |
-| `SuperAdmin` | Rôle technique le plus élevé — accès multi-club et administration de la plateforme |
-| `Proprietaire` | **Au-dessus de SuperAdmin** — propriétaire du club, mécanisme de transfert sécurisé |
+| `SuperAdmin` | Personnel de la plateforme FootManager — accès complet à tous les clubs, pour aider AdminClub/Entraîneurs |
+| `Proprietaire` | **Même niveau que SuperAdmin** — propriétaire de la plateforme elle-même, pas d'un club en particulier |
 
-**`Proprietaire`** est implémenté dès le MVP. Son transfert (succession) nécessite un mécanisme
-sécurisé (ex. validation par email + délai de confirmation, ou validation à double facteur) pour
-éviter tout transfert accidentel ou frauduleux. Ce mécanisme est à concevoir et documenter avant
-l'implémentation.
+**`SuperAdmin` et `Proprietaire` sont des rôles plateforme** : ils ne sont rattachés à aucun club
+directement (contrairement à `Player`/`Parent`/`Coach`/`AdminClub`, toujours attribués via une
+fiche `Member` d'un club précis). Un même individu peut cumuler un rôle plateforme ET un rôle
+club-scopé ordinaire (ex. Entraîneur d'une équipe dans un club où il joue lui-même) — voir §Rôles
+plateforme ci-dessous pour le mécanisme (`UserRole`) et la règle d'union appliquée dans ce cas.
+Hiérarchie de rang (succession/priorité, pas un raccourci de permission) :
+Propriétaire > AdminSystème (SuperAdmin) > AdminClub (gère un club) > Entraîneur (Coach
+`staffRole = PRINCIPAL`, gère une équipe) > Coach (`ADJOINT`/`CO_ENTRAINEUR`, sous les ordres de
+l'Entraîneur) > Joueur/Parent.
+
+**`Proprietaire`** est implémenté dès le MVP. Son transfert (succession, entre deux titulaires du
+rôle plateforme) nécessite un mécanisme sécurisé (ex. validation par email + délai de
+confirmation, ou validation à double facteur) pour éviter tout transfert accidentel ou frauduleux
+— à concevoir et documenter avant l'implémentation (Phase 9, hors scope du mécanisme `UserRole`
+lui-même).
 
 ---
 
@@ -227,8 +238,10 @@ guard" comme supposé initialement.** Introduit en B16 : `GET /clubs/:clubId/sea
 championships` (`SeasonChampionshipsController`) liste les championnats d'une saison **toutes
 équipes du club confondues** ; étendu en B20 : `GET /clubs/:clubId/championships`
 (`ClubChampionshipsController`) liste tous les championnats du club (colonne Équipe côté
-frontend, `ChampionshipsPageContent`), avec sélecteur de club pour SuperAdmin/Proprietaire
-(scope `ALL`, `GET /clubs` limité à ceux où l'appelant a une fiche `Member`).
+frontend, `ChampionshipsPageContent`), avec sélecteur de club pour SuperAdmin/Proprietaire (scope
+`ALL`, `GET /clubs` — depuis l'introduction des rôles plateforme (§Rôles plateforme ci-dessus),
+renvoie tous les clubs pour ces deux rôles, plus seulement ceux où l'appelant a une fiche
+`Member`).
 
 **Faille corrigée en B20, présente depuis B16** : la documentation initiale de B16 affirmait "un
 Coach/Player (scope TEAM) reçoit toujours 403, quel que soit le `?teamId=` fourni (non lu par le
@@ -274,15 +287,60 @@ joueurs réellement dans leur périmètre. **Pattern à réutiliser pour toute n
 scopée équipe** (Notes, Objectifs, Évaluation...) — ne pas se contenter de `assertPlayerInClub`
 dès qu'un scope `TEAM` existe sur la permission.
 
-**Le scope global (`clubId = null` sur `MemberRole`) ne dispense pas d'une fiche `Member` par
-club accédé.** `PermissionsGuard` résout toujours le `Member` de l'appelant pour le `clubId` de
-la requête (`MembersService.findByUserAndClub`) avant même d'évaluer la permission — un
-SuperAdmin ou Proprietaire dont le `MemberRole` a `clubId = null` (scope théoriquement
-multi-club) doit malgré tout avoir une fiche `Member` dans **chaque** club où il opère, sans
-quoi le guard refuse dès la résolution du membre. En pratique, un SuperAdmin n'est donc
-aujourd'hui pas "global" au sens propre — il faut lui créer un `Member` par club à couvrir. Un
-vrai mécanisme multi-club sans cette limitation reste à concevoir si le besoin se confirme
-(voir "Multi-club" dans `docs/roadmap.md` §Évolutions post-MVP).
+**Limitation multi-club — résolue.** Le scope global (`clubId = null` sur `MemberRole`) ne
+dispensait historiquement pas d'une fiche `Member` par club accédé : `PermissionsGuard` résolvait
+toujours le `Member` de l'appelant pour le `clubId` de la requête avant même d'évaluer la
+permission, donc un SuperAdmin/Proprietaire scopé "global" via `MemberRole.clubId = null` devait
+malgré tout avoir une fiche `Member` dans **chaque** club où il opérait, sans quoi le guard
+refusait dès la résolution du membre — un SuperAdmin n'était donc pas "global" au sens propre.
+Corrigé par l'introduction du mécanisme `UserRole` (§Rôles plateforme ci-dessous) : ces deux rôles
+ne passent plus du tout par `MemberRole`/`Member` pour leur autorisation. `MemberRole.clubId =
+null` reste supporté dans le moteur (`matchesContext`) mais n'est plus produit par aucun code —
+mécanisme legacy, conservé pour compatibilité avec d'éventuelles données pré-existantes.
+
+### Rôles plateforme — `UserRole`
+
+`SuperAdmin`/`Proprietaire` (les seuls rôles concernés en pratique — réservés au personnel
+FootManager, docs/roadmap.md) obtiennent leur accès via une nouvelle table `UserRole`
+(`User` ↔ `Role`, **sans** `Member` ni `Club`, docs/schema/fondations.md §UserRole) plutôt que via
+`MemberRole`. Deux méthodes dédiées sur `PermissionsService` :
+
+- **`canAsUser(userId, action, resource)`** — équivalent de `can()` mais sourcé sur `UserRole` ;
+  pas de `matchesContext` (un `UserRole` est par construction indépendant de tout club/équipe).
+- **`hasActivePlatformRole(userId)`** — existence pure (pas de résolution fine), utilisée pour
+  décider s'il faut provisionner un `Member` (ci-dessous) ou étendre la visibilité de
+  `ClubsService.findAllForUser` à tous les clubs.
+
+**`PermissionsGuard` appelle `PermissionsService.canEffective(userId, memberId, action, resource,
+context)`**, pas `can()` seul : union du scope obtenu via le `Member` local (s'il existe) et du
+scope obtenu via `canAsUser()`. Décision produit explicite : un Propriétaire/AdminSystème qui
+détient *aussi* une fiche `Member` ordinaire dans un club (ex. il y est inscrit comme Joueur)
+garde l'accès complet de son rôle plateforme dans ce club — le rôle plateforme ne se laisse jamais
+réduire par un rôle local plus restreint.
+
+**Provisioning différé du `Member`** : beaucoup de code en aval (`@CurrentMember()`, champs
+d'audit comme `authorId`/`evaluatorId`...) suppose un `Member` réel et persisté. Quand l'accès
+d'un appelant ne vient que de son rôle plateforme et qu'aucun `Member` n'existe encore pour ce
+club, `MembersService.resolveOrProvisionMember(userId, clubId)` en crée un à la volée (`upsert`,
+jamais `create`, pour rester idempotent sous requêtes concurrentes) — **uniquement après que
+l'autorisation a réussi**, jamais avant (un utilisateur sans droit ne doit jamais pouvoir créer de
+`Member` en sondant des `clubId` arbitraires). `Member.firstName`/`lastName` sont requis mais
+`User` n'a aucun champ nom : le placeholder utilise la partie locale de l'email
+(`firstName`) et le littéral `"(compte plateforme)"` (`lastName`) — trivialement corrigible
+ensuite via `PATCH /clubs/:clubId/members/:id`. Ce même helper remplace les résolutions
+`findByUserAndClub` + `throw AUTH.FORBIDDEN` manuelles des routes qui contournent déjà
+`PermissionsGuard` (`findMe`/`updateMe`/`findBirthdaysInClub`, `TeamsService`/`EventsService
+.findMineInClub`, `PlayersService.findMe`).
+
+**Bootstrap** : aucune UI/API self-service pour accorder un `UserRole` en MVP (item reporté,
+docs/roadmap.md Phase 9). Le tout premier `Proprietaire`/`SuperAdmin` — et tout ajout ultérieur
+tant que cette UI n'existe pas — s'obtient via `backend/scripts/bootstrap-platform-role.ts`
+(`npm run bootstrap:platform-role -- --email=... --role=... --confirm`), volontairement hors de
+`seed.ts` (rejoué régulièrement pour les données système, jamais pour des attributions
+instance-spécifiques). Voir le test de référence
+`backend/src/common/platform-role-multi-role.integration.spec.ts` (persona "Alice", `UserRole`
+Proprietaire, aucun `Member` nulle part — accès accordé et `Member` provisionné à la volée sur
+plusieurs clubs jamais visités).
 
 **`matchesContext()` exige une correspondance de `teamId` dès que le `MemberRole` en porte un —
 y compris pour une permission en scope `OWN`, qui ne devrait pourtant pas dépendre d'une
@@ -370,12 +428,20 @@ Coach y a droit, aucun besoin de consulter le carnet d'adresses hors contexte d'
 Marc-Parent (Club B) n'a strictement aucun accès aux 4 ressources — contrairement à la
 conception initiale de la Partie B qui envisageait un `READ TEAM` pour Parent au même titre que
 Player, jamais câblé dans le seed final (voir `docs/modules/saisons-championnats.md`
-§Droits par rôle).
+§Droits par rôle). Pour les rôles plateforme (§Rôles plateforme ci-dessus, correctif transverse
+post-Phase 3), `backend/src/common/platform-role-multi-role.integration.spec.ts` couvre un
+persona "Alice" détenant un `UserRole` `Proprietaire` mais **aucune** fiche `Member` nulle part :
+accès accordé (scope `ALL`) et `Member` provisionné à la volée sur deux clubs jamais visités,
+plus un cas témoin (aucun `Member`, aucun `UserRole`) qui reste refusé.
 
 ### Propriétaire — mécanisme de transfert sécurisé
 
-Le transfert du rôle `Proprietaire` doit passer par une procédure sécurisée (à détailler avant
-implémentation) : validation par email, délai de confirmation, log d'audit irréversible.
+Rôle plateforme (§Rôles plateforme ci-dessus) : le "transfert" est une succession de leadership
+de la plateforme elle-même (réassignation d'un `UserRole` `Proprietaire` d'un utilisateur à un
+autre), pas un transfert de club. Doit passer par une procédure sécurisée (à détailler avant
+implémentation) : validation par email, délai de confirmation, log d'audit irréversible. Item
+encore reporté (Phase 9) — seul le grant initial via `backend/scripts/bootstrap-platform-role.ts`
+est implémenté pour l'instant, pas de flux de transfert.
 
 ---
 

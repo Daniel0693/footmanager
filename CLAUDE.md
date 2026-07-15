@@ -66,8 +66,16 @@ d'écriture reste toujours gardée côté backend indépendamment de ce que mont
 
 Rôles fixes intégrés au système (non supprimables) :
 `Player`, `Parent`, `Coach` (principal / co-entraîneur / adjoint via `TeamStaff`),
-`AdminClub`, `SuperAdmin`, **`Proprietaire`** (au-dessus de SuperAdmin, mécanisme de transfert
-sécurisé pour la succession — à implémenter dès le MVP).
+`AdminClub`, `SuperAdmin`, **`Proprietaire`** (même niveau que `SuperAdmin`, mécanisme de
+transfert sécurisé pour la succession — à implémenter dès le MVP).
+
+`SuperAdmin`/`Proprietaire` sont des **rôles plateforme** : personnel de FootManager, non
+rattachés à un club particulier — accès complet à tous les clubs pour aider AdminClub/
+Entraîneurs, via une table `UserRole` (`User` ↔ `Role`, sans `Member`/`Club`), pas via le
+mécanisme `MemberRole` club-scopé utilisé par les autres rôles. Attribués uniquement via
+`backend/scripts/bootstrap-platform-role.ts` (pas d'UI self-service en MVP) — même posture que
+`prisma migrate reset` : destructif/sensible, jamais sans confirmation explicite (`--confirm`).
+Voir `docs/modules/auth-roles.md` §Rôles plateforme.
 
 Rôles personnalisés (créés via l'interface par un AdminClub ou SuperAdmin) : système de rôles
 dynamiques avec permissions granulaires configurables. Exemple : `Physiotherapeute` avec accès

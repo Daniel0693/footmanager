@@ -407,6 +407,43 @@ Tests après B21 : 560 tests backend (+0, champ ajouté à un test existant) + 5
 
 ---
 
+## Correctif transverse — Rôles plateforme (SuperAdmin/Proprietaire multi-club) ✅
+
+_2026-07-15_
+
+Correction d'une hypothèse erronée portée depuis le début du module Championship : `SuperAdmin`/
+`Proprietaire` ne sont pas des rôles rattachés à un club (même via le scope global `MemberRole
+.clubId = null`, qui exigeait quand même une fiche `Member` par club accédé — limitation
+documentée dans `docs/modules/auth-roles.md` depuis B16/B20, jusqu'ici acceptée comme une
+contrainte définitive). Ce sont des rôles **plateforme** : le personnel de FootManager, sans
+rattachement à un club particulier, avec accès complet à tous les clubs pour aider AdminClub/
+Entraîneurs. Correctif transverse (auth/permissions), sans lien avec le module Championship —
+sorti de la numérotation `B` pour cette raison, branche dédiée `feature/roles-plateforme`.
+
+Révèle au passage une élévation de privilège : `ClubsService.create` accordait jusqu'ici
+`Proprietaire` à quiconque créait un club — correct sous l'ancienne lecture ("propriétaire de ce
+club"), plus du tout sous la nouvelle ("propriétaire de la plateforme").
+
+| Livrable | Contenu |
+|---|---|
+| Schéma | `model UserRole` (`User` ↔ `Role`, sans `Member`/`Club`), `MemberRole.clubId = null` documenté legacy |
+| `PermissionsService` | `canAsUser`, `hasActivePlatformRole`, `canEffective` (union Member local + rôle plateforme) |
+| `PermissionsGuard` | repli sur `canEffective` + provisioning différé du `Member` (après succès de l'autorisation uniquement) |
+| `MembersService` | `resolveOrProvisionMember`, repris par les 7 points d'appel qui contournaient déjà le guard |
+| `ClubsService` | `create` accorde `AdminClub` (plus `Proprietaire`) ; `findAllForUser` étendu aux titulaires d'un rôle plateforme |
+| Bootstrap | `backend/scripts/bootstrap-platform-role.ts` — seul moyen d'attribuer un rôle plateforme (pas d'UI self-service en MVP) |
+| Tests | `platform-role-multi-role.integration.spec.ts` + mise à jour mécanique de 22 fixtures existantes |
+| Docs | `docs/modules/auth-roles.md`, `docs/schema/fondations.md`, `CLAUDE.md` |
+
+**Point reporté** : grant/revoke de `UserRole` en libre-service par un `Proprietaire` existant
+(UI/API) — Phase 9, "Gestion des rôles personnalisés". Le transfert sécurisé du rôle `Proprietaire`
+entre deux titulaires (succession) reste également à concevoir (Phase 9).
+
+Tests après ce correctif : 582 tests backend (+22 par rapport à la fin de B21) + 515 tests
+frontend (inchangé, aucune modification frontend).
+
+---
+
 ## Phase 4 — Matchs (notre équipe) ⬜
 
 _~3 semaines_
@@ -480,7 +517,9 @@ _~2 semaines_
 
 _~2 semaines_
 
-- Gestion des rôles personnalisés (interface de création + attribution de permissions).
+- Gestion des rôles personnalisés (interface de création + attribution de permissions) — devrait
+  aussi couvrir l'attribution/révocation self-service d'un rôle plateforme (`UserRole`) par un
+  Propriétaire existant, aujourd'hui limitée au script `bootstrap-platform-role.ts`.
 - Mécanisme de transfert sécurisé du rôle Propriétaire.
 - Connexion de tous les modules (présences → stats, statut blessé → convocations...).
 - Navigation contextuelle par rôle (menus adaptés selon rôles actifs).
@@ -506,5 +545,7 @@ et blessures.
 - Espace communautaire : fil d'actualité, photos/vidéos, messagerie.
 - Bibliothèques d'exercices partagées (club → publique → place de marché).
 - Statistiques avancées et analyses automatisées.
-- Multi-club (vue agrégée pour un Propriétaire sur plusieurs clubs).
+- Vue agrégée cross-club pour un Propriétaire/SuperAdmin (dashboard multi-clubs) — le mécanisme
+  d'accès sans rattachement club (`UserRole`) est livré (correctif transverse post-Phase 3), il
+  ne reste qu'une vue de consultation agrégée à concevoir.
 - Extension à d'autres sports.
