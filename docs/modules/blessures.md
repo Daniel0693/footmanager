@@ -1,6 +1,6 @@
 # Module — Suivi des blessures et rétablissement
 
-> Module Phase 6 de la roadmap. S'adresse aux différents intervenants du staff (préparateur
+> Module Phase 8 de la roadmap. S'adresse aux différents intervenants du staff (préparateur
 > physique, médecin du club, kiné, entraîneur...) et offre une vue centralisée de l'historique
 > médical des joueurs.
 
@@ -64,6 +64,6 @@ dans le tout premier incrément du module.
 
 ## Note de planification
 
-Ce module a été chiffré à environ **2 semaines** de développement supplémentaire (portant le
-total estimé du MVP à ~3,5 mois au lieu de ~3 mois) — voir `docs/roadmap.md`. Il s'implémente
+Ce module a été chiffré à environ **2 semaines** de développement — voir `docs/roadmap.md`
+§Total estimé MVP (~4,5 mois, Phases 1 à 9) pour l'estimation globale à jour. Il s'implémente
 après les autres fondamentaux (joueurs, utilisateurs/staff, calendrier déjà en place).

@@ -32,8 +32,8 @@
 | Modèle de visibilité Privé/Semi-privé/Public | Privé = staff seulement. Semi-privé = joueur + staff. Public = parents + joueur + staff. Coaches d'autres équipes du même club exclus (même en PUBLIC). Voir `effectif-joueurs.md`. |
 | Club.sport | Ajouté sur `Club` dès le MVP (`SportType` enum, défaut FOOTBALL). |
 | EvaluationCategory comme entité propre | `category` (String) remplacé par `categoryId` (FK → EvaluationCategory). |
-| Workflow de transition de saison | Wizard 4 étapes : Draft → import roster → config → activation. Saison archivée modifiable. |
-| Season.status | DRAFT / ACTIVE / ARCHIVED. Une seule ACTIVE par Team. |
+| Workflow de transition de saison | Révisé en Phase 3 (A14) : plus de wizard dédié — `Season` étant club-wide, l'activation se fait directement (`POST :id/activate`), sans étape d'import roster/config séparée. Saison archivée modifiable. |
+| Season.status | DRAFT / ACTIVE / ARCHIVED. Une seule ACTIVE par Club (révisé en A14 — auparavant par Team) à tout instant. |
 | ExternalPlayer.externalTeamId nullable | Validé. Assignable plus tard — tous les rapports existants en bénéficient. |
 | Rôle Recruteur | Preset de rôle dynamique (pas un rôle système). Configurable par AdminClub. |
 | TeamScoutingReport vs PlayerScoutingReport | Deux entités distinctes. Peuvent vivre ensemble ou séparément. |

@@ -69,6 +69,10 @@ associée est créée automatiquement. Il peut alors :
 **AdminClub** voit le contenu complet des séances (exercices, statistiques, présences) en
 lecture seule — oversight sans droit d'édition.
 
+**Parent** : les droits « de son enfant » ci-dessus supposent une liaison Parent↔Joueur qui
+n'est pas encore modélisée (décision ouverte #5, voir `docs/decisions-ouvertes-et-rgpd.md`) —
+non câblé tant que cette décision n'est pas tranchée.
+
 ---
 
 ## Éditeur graphique d'exercices

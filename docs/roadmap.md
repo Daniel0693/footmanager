@@ -22,7 +22,7 @@ création d'un club.
 
 ---
 
-## Phase 2 — Effectif & Calendrier 🚧
+## Phase 2 — Effectif & Calendrier ✅
 
 _Révisée à la hausse le 2026-07-06 (A7 avance 4 entités depuis la Phase 6 dans la Partie A)._
 
