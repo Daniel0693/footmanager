@@ -85,6 +85,17 @@ export class TeamsService {
    * — réservé à AdminClub+ dans le seed, un Coach n'y a jamais droit même
    * pour sa propre équipe (gestion structurelle du club, pas de l'effectif)
    * — jamais déduit d'un rôle côté client (règle CLAUDE.md).
+   *
+   * `readScope` (B21, retour utilisateur) — le scope brut derrière
+   * `clubWideScope` ci-dessous (`CLUB`/`ALL`/`null`), exposé pour que la nav
+   * "Effectif" (`SidebarNav`) sache quelle variante afficher : `ALL`
+   * (SuperAdmin/Proprietaire) → bouton "Club" vers la liste des clubs ;
+   * `CLUB` (AdminClub) → bouton "Équipes" vers le tableau des équipes ;
+   * `null` (Coach/Player, scope TEAM sur au moins une équipe, ou aucun accès)
+   * → bouton "Effectif" directement vers son équipe (`data[0]`, résolu par
+   * le frontend). Jamais `'TEAM'` littéralement : ce `can()` est appelé sans
+   * `teamId` dans le contexte, donc un scope TEAM ne matche structurellement
+   * jamais ici (voir `matchesContext`) — seul `CLUB`/`ALL` peuvent ressortir.
    */
   async findMineInClub(clubId: number, userId: number) {
     const member = await this.membersService.findByUserAndClub(userId, clubId);
@@ -117,6 +128,6 @@ export class TeamsService {
           orderBy: { name: 'asc' },
         });
 
-    return { data, canManage };
+    return { data, canManage, readScope: clubWideScope };
   }
 }

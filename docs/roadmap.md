@@ -382,6 +382,29 @@ SuperAdmin/Proprietaire voulait un sélecteur de club avant cette même vue.
 
 Tests après B20 : 560 tests backend (+7) + 512 tests frontend (+2).
 
+#### B21 — Nav "Effectif" : variante selon le rôle
+
+Retour utilisateur : le bouton "Effectif" de la barre de navigation menait toujours à la même
+destination (roster de la dernière équipe visitée, ou liste des équipes du club si aucune),
+quel que soit le rôle — pas adapté à un SuperAdmin/Proprietaire (plusieurs clubs) ni
+idéalement expressif pour un AdminClub (une étape de moins serait plus clair).
+
+- `GET /clubs/:clubId/teams/mine` renvoie désormais `readScope` (aux côtés de `canManage`,
+  même pattern que `createScope`/`readScope` sur les championnats, B19/B20) — le scope brut
+  derrière la logique déjà existante "club-wide ou pas" de `TeamsService.findMineInClub`.
+- `SidebarNav` adapte le bouton "Effectif" en conséquence, jamais déduit d'un rôle côté client :
+  - **SuperAdmin/Proprietaire** (`readScope: 'ALL'`) : bouton **"Club"** → `/home` (liste des
+    clubs de l'appelant) → choix d'un club → tableau de ses équipes → effectif.
+  - **AdminClub** (`readScope: 'CLUB'`) : bouton **"Équipes"** → tableau des équipes du club →
+    effectif.
+  - **Coach/Player** (`readScope: null` — un scope TEAM ne matche structurellement jamais ce
+    `can()` sans `teamId` dans le contexte, voir `TeamsService.findMineInClub`) : bouton
+    **"Effectif"** inchangé, directement vers sa propre équipe (`data[0]`) — il n'a pas besoin
+    de voir les autres effectifs.
+
+Tests après B21 : 560 tests backend (+0, champ ajouté à un test existant) + 515 tests frontend
+(+3).
+
 ---
 
 ## Phase 4 — Matchs (notre équipe) ⬜

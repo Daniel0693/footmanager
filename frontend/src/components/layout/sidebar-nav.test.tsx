@@ -163,6 +163,86 @@ describe("SidebarNav", () => {
     );
   });
 
+  it("bouton Effectif devient \"Club\" → /home pour un scope ALL (SuperAdmin/Proprietaire, B21)", async () => {
+    usePathname.mockReturnValue("/clubs/42/teams");
+    mockUseParams.mockReturnValue({ clubId: "42" });
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/teams/mine")) {
+        return Promise.resolve({
+          status: 200,
+          ok: true,
+          json: () => Promise.resolve({ data: [], canManage: true, readScope: "ALL" }),
+        });
+      }
+      return Promise.resolve({
+        status: 200,
+        ok: true,
+        json: () => Promise.resolve({ data: [], canManage: true }),
+      });
+    });
+
+    renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+    const link = await screen.findByRole("link", { name: "Club" });
+    expect(link).toHaveAttribute("href", "/home");
+    expect(screen.queryByRole("link", { name: "Effectif" })).not.toBeInTheDocument();
+  });
+
+  it("bouton Effectif devient \"Équipes\" → tableau des équipes pour un scope CLUB (AdminClub, B21)", async () => {
+    usePathname.mockReturnValue("/clubs/42/teams");
+    mockUseParams.mockReturnValue({ clubId: "42" });
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/teams/mine")) {
+        return Promise.resolve({
+          status: 200,
+          ok: true,
+          json: () => Promise.resolve({ data: [], canManage: true, readScope: "CLUB" }),
+        });
+      }
+      return Promise.resolve({
+        status: 200,
+        ok: true,
+        json: () => Promise.resolve({ data: [], canManage: true }),
+      });
+    });
+
+    renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+    const link = await screen.findByRole("link", { name: "Équipes" });
+    expect(link).toHaveAttribute("href", "/clubs/42/teams");
+  });
+
+  it("bouton Effectif reste \"Effectif\" et pointe directement sur l'équipe pour un rôle sans scope club-wide (Coach/Player, B21)", async () => {
+    usePathname.mockReturnValue("/clubs/42/teams");
+    mockUseParams.mockReturnValue({ clubId: "42" });
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/teams/mine")) {
+        return Promise.resolve({
+          status: 200,
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              data: [{ id: 7, name: "U15" }],
+              canManage: false,
+              readScope: null,
+            }),
+        });
+      }
+      return Promise.resolve({
+        status: 200,
+        ok: true,
+        json: () => Promise.resolve({ data: [], canManage: true }),
+      });
+    });
+
+    renderWithIntl(<SidebarNav open onNavigate={jest.fn()} />);
+
+    const link = await screen.findByRole("link", { name: "Effectif" });
+    await waitFor(() =>
+      expect(link).toHaveAttribute("href", "/clubs/42/teams/7/players"),
+    );
+  });
+
   it("appelle onNavigate quand un lien est cliqué (fermeture de la sidebar mobile)", async () => {
     usePathname.mockReturnValue("/home");
     const onNavigate = jest.fn();

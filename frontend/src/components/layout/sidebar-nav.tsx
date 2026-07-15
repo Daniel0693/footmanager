@@ -81,6 +81,58 @@ export function SidebarNav({ open, onNavigate }: SidebarNavProps) {
     }
   }, [user, clubId, teamId]);
 
+  // Variante du bouton "Effectif" selon le rôle réel (B21, retour
+  // utilisateur) — jamais déduite d'un rôle côté client, toujours du
+  // `readScope` renvoyé par `GET /clubs/:clubId/teams/mine`
+  // (`TeamsService.findMineInClub`) : `ALL` (SuperAdmin/Proprietaire) →
+  // bouton "Club" vers la liste des clubs (`/home`, qui liste déjà "mes
+  // clubs") ; `CLUB` (AdminClub) → bouton "Équipes" vers le tableau des
+  // équipes du club ; `null` (Coach/Player, un scope TEAM ne matche
+  // structurellement jamais ce `can()` sans teamId dans le contexte — voir
+  // le commentaire du service) → bouton "Effectif" directement vers sa
+  // propre équipe (`data[0]`), sans étape intermédiaire — il n'a pas besoin
+  // de voir les autres effectifs. `clubId` résolu depuis l'URL, sinon depuis
+  // la dernière équipe visitée (`last-team.ts`) pour que ce calcul reste
+  // possible même depuis une page sans clubId dans l'URL (ex. `/home`).
+  const effectiveClubId = clubId ?? (user ? getLastTeam(user.id)?.clubId : undefined);
+  const [rosterNav, setRosterNav] = useState<{ labelKey: string; href: string } | null>(null);
+  useEffect(() => {
+    if (!effectiveClubId || !user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await apiFetch(`/clubs/${effectiveClubId}/teams/mine`, {
+          headers: authHeaders(accessToken),
+        });
+        if (cancelled || !response.ok) return;
+        const body = (await response.json()) as {
+          data: { id: number }[];
+          readScope: string | null;
+        };
+        if (cancelled) return;
+        if (body.readScope === "ALL") {
+          setRosterNav({ labelKey: "club", href: "/home" });
+        } else if (body.readScope === "CLUB") {
+          setRosterNav({ labelKey: "teams", href: `/clubs/${effectiveClubId}/teams` });
+        } else {
+          const firstTeamId = body.data[0] ? String(body.data[0].id) : undefined;
+          setRosterNav({
+            labelKey: "roster",
+            href: firstTeamId
+              ? `/clubs/${effectiveClubId}/teams/${firstTeamId}/players`
+              : `/clubs/${effectiveClubId}/teams`,
+          });
+        }
+      } catch {
+        // Silencieux : en cas d'échec réseau, le lien garde son comportement
+        // par défaut (nav-modules.ts), la page elle-même gère son erreur.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveClubId, user, accessToken]);
+
   // Lecture pure (pas d'effect/state nécessaire) : SidebarNav ne monte
   // jamais pendant le rendu serveur — AppShell retourne null tant que
   // `user` n'est pas résolu (voir app-shell.tsx) — donc pas de risque de
@@ -120,10 +172,14 @@ export function SidebarNav({ open, onNavigate }: SidebarNavProps) {
           {visibleModules.map((module) => {
             const Icon = module.icon;
             const active = module.isActive(pathname);
+            const isRoster = module.key === "roster";
+            const href =
+              isRoster && rosterNav ? rosterNav.href : module.href(effectiveParams);
+            const labelKey = isRoster && rosterNav ? rosterNav.labelKey : module.labelKey;
             return (
               <Link
                 key={module.key}
-                href={module.href(effectiveParams)}
+                href={href}
                 onClick={onNavigate}
                 aria-current={active ? "page" : undefined}
                 className={cn(
@@ -134,7 +190,7 @@ export function SidebarNav({ open, onNavigate }: SidebarNavProps) {
                 )}
               >
                 <Icon className="size-4 shrink-0" />
-                {t(module.labelKey)}
+                {t(labelKey)}
               </Link>
             );
           })}

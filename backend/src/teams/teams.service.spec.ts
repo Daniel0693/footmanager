@@ -120,7 +120,11 @@ describe('TeamsService', () => {
 
       const result = await service.findMineInClub(1, 7);
 
-      expect(result).toEqual({ data: [team], canManage: true });
+      expect(result).toEqual({
+        data: [team],
+        canManage: true,
+        readScope: 'CLUB',
+      });
       expect(findMany).toHaveBeenCalledWith({
         where: { clubId: 1 },
         orderBy: { name: 'asc' },
@@ -134,7 +138,11 @@ describe('TeamsService', () => {
 
       const result = await service.findMineInClub(1, 7);
 
-      expect(result).toEqual({ data: [team], canManage: false });
+      expect(result).toEqual({
+        data: [team],
+        canManage: false,
+        readScope: null,
+      });
       expect(can).toHaveBeenCalledWith(42, 'READ', 'team', { clubId: 1 });
       expect(can).toHaveBeenCalledWith(42, 'UPDATE', 'team', { clubId: 1 });
       expect(findMany).toHaveBeenCalledWith({

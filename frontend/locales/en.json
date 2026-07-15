@@ -8,6 +8,8 @@
   "nav": {
     "home": "Home",
     "roster": "Roster",
+    "club": "Club",
+    "teams": "Teams",
     "calendar": "Calendar",
     "seasons": "Seasons",
     "championships": "Championships"

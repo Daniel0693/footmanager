@@ -8,6 +8,8 @@
   "nav": {
     "home": "Accueil",
     "roster": "Effectif",
+    "club": "Club",
+    "teams": "Équipes",
     "calendar": "Calendrier",
     "seasons": "Saisons",
     "championships": "Championnats"
