@@ -152,12 +152,12 @@ model MemberRole {
   member    Member    @relation(fields: [memberId], references: [id])
   roleId    Int
   role      Role      @relation(fields: [roleId], references: [id])
-  // `clubId = null` ("scope global") : mécanisme legacy, conservé pour
-  // compatibilité avec d'éventuelles données pré-existantes mais plus produit
-  // par aucun code depuis l'introduction de UserRole ci-dessous — voir
-  // docs/modules/auth-roles.md §Rôles plateforme. Les rôles plateforme
-  // (SuperAdmin/Proprietaire) passent désormais par UserRole, indépendant de
-  // tout Member/Club.
+  // `clubId = null` : mécanisme legacy, plus produit par aucun code depuis
+  // l'introduction de UserRole ci-dessous et plus honoré par
+  // PermissionsService.matchesContext (une telle ligne serait refusée, pas
+  // auto-matchée) — voir docs/modules/auth-roles.md §Rôles plateforme. Les
+  // rôles plateforme (SuperAdmin/Proprietaire) passent désormais par
+  // UserRole, indépendant de tout Member/Club.
   clubId    Int?
   club      Club?     @relation(fields: [clubId], references: [id])
   teamId    Int?

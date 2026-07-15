@@ -2,6 +2,7 @@ import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Member, Role, User } from '@prisma/client';
 import { AppException } from './exceptions/app.exception';
+import { isDateRangeActive } from './date-range-active';
 import {
   PermissionedRequest,
   PermissionsGuard,
@@ -105,13 +106,9 @@ class InMemoryPrisma {
     findMany: ({ where: { userId } }: { where: { userId: number } }) =>
       Promise.resolve(this.userRoles.filter((ur) => ur.userId === userId)),
     findFirst: ({ where: { userId } }: { where: { userId: number } }) => {
-      const now = new Date();
-      const active = this.userRoles.find((ur) => {
-        if (ur.userId !== userId) return false;
-        if (ur.startDate && ur.startDate > now) return false;
-        if (ur.endDate && ur.endDate < now) return false;
-        return true;
-      });
+      const active = this.userRoles.find(
+        (ur) => ur.userId === userId && isDateRangeActive(ur),
+      );
       return Promise.resolve(active ?? null);
     },
   };

@@ -1,5 +1,6 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsService } from './permissions.service';
+import { isDateRangeActive } from '../common/date-range-active';
 
 /**
  * Fixtures reproduisant le scénario multi-rôles de référence de
@@ -171,16 +172,11 @@ function buildPrismaStub() {
           Promise.resolve(userRolesByUser[userId] ?? []),
       ),
       findFirst: jest.fn(({ where }: { where: { userId: number } }) => {
-        const now = new Date();
         const rows = (userRolesByUser[where.userId] ?? []) as {
           startDate: Date | null;
           endDate: Date | null;
         }[];
-        const active = rows.find((row) => {
-          if (row.startDate && row.startDate > now) return false;
-          if (row.endDate && row.endDate < now) return false;
-          return true;
-        });
+        const active = rows.find((row) => isDateRangeActive(row));
         return Promise.resolve(active ?? null);
       }),
     },

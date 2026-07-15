@@ -51,9 +51,9 @@ export class PlayersController {
     );
   }
 
-  // Pas de @RequirePermission ici : lecture de son propre profil par
-  // construction (voir PlayersService.findMe). Doit être déclaré avant
-  // `:id` pour que 'me' ne soit pas capturé comme un id numérique.
+  // Pas de @RequirePermission : pattern self-service /me, voir
+  // docs/modules/auth-roles.md §Patterns découverts. Déclaré avant `:id`
+  // pour que 'me' ne soit pas capturé comme un id numérique.
   @Get('me')
   findMe(
     @Param('clubId', ParseIntPipe) clubId: number,
