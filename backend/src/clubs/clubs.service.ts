@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { SportType } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../prisma/prisma.service';
+import { PermissionsService } from '../roles/permissions.service';
 
 export interface CreateClubInput {
   name: string;
@@ -15,13 +16,23 @@ export interface CreateClubInput {
 
 @Injectable()
 export class ClubsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   /**
    * Crée un club et son premier Member (le créateur), qui reçoit le rôle
-   * système Proprietaire scopé à ce club. Génère aussi automatiquement les
+   * système AdminClub scopé à ce club. Génère aussi automatiquement les
    * ClubEvaluationConfig pour les EvaluationCategory système du sport choisi
    * (docs/schema/fondations.md §Club "Workflow de création").
+   *
+   * AdminClub, pas Proprietaire : depuis l'introduction des rôles plateforme
+   * (UserRole, docs/modules/auth-roles.md §Rôles plateforme), Proprietaire/
+   * SuperAdmin sont des rôles globaux réservés au personnel de la plateforme
+   * — les accorder automatiquement à quiconque crée un club serait une
+   * élévation de privilège. Ils sont désormais attribués exclusivement via
+   * backend/scripts/bootstrap-platform-role.ts.
    */
   async create(userId: number, dto: CreateClubInput) {
     const sport = dto.sport ?? 'FOOTBALL';
@@ -41,10 +52,10 @@ export class ClubsService {
         },
       });
 
-      const proprietaireRole = await tx.role.findFirst({
-        where: { name: 'Proprietaire', isSystem: true, clubId: null },
+      const adminClubRole = await tx.role.findFirst({
+        where: { name: 'AdminClub', isSystem: true, clubId: null },
       });
-      if (!proprietaireRole) {
+      if (!adminClubRole) {
         throw new AppException(
           'CLUB.SETUP_ROLE_MISSING',
           HttpStatus.INTERNAL_SERVER_ERROR,
@@ -53,7 +64,7 @@ export class ClubsService {
       await tx.memberRole.create({
         data: {
           memberId: member.id,
-          roleId: proprietaireRole.id,
+          roleId: adminClubRole.id,
           clubId: club.id,
         },
       });
@@ -76,8 +87,16 @@ export class ClubsService {
     });
   }
 
-  /** Clubs où l'utilisateur a une fiche Member (peu importe le rôle). */
-  findAllForUser(userId: number) {
+  /**
+   * Clubs visibles par l'utilisateur : tous les clubs pour un titulaire d'un
+   * rôle plateforme actif (UserRole — SuperAdmin/Proprietaire, docs/modules/
+   * auth-roles.md §Rôles plateforme), sinon seulement ceux où il a une fiche
+   * Member (peu importe le rôle local).
+   */
+  async findAllForUser(userId: number) {
+    if (await this.permissionsService.hasActivePlatformRole(userId)) {
+      return this.prisma.club.findMany({ orderBy: { name: 'asc' } });
+    }
     return this.prisma.club.findMany({
       where: { members: { some: { userId } } },
       orderBy: { name: 'asc' },
