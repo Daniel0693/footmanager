@@ -108,7 +108,7 @@ dans cette table (un rôle par contexte club/équipe).
 | `id` | PK | |
 | `memberId` | FK → Member | |
 | `roleId` | FK → Role | |
-| `clubId` | FK → Club, nullable | `null` = scope global — **legacy**, voir note ci-dessous |
+| `clubId` | FK → Club, nullable | `null` = mécanisme legacy inerte, voir note ci-dessous |
 | `teamId` | FK → Team, nullable | `null` = scope club entier |
 | `startDate` | Date, nullable | |
 | `endDate` | Date, nullable | historisation des changements de rôle |
@@ -116,15 +116,16 @@ dans cette table (un rôle par contexte club/équipe).
 **Règle d'évaluation des permissions** : toujours évaluer rôle par rôle, scopé au club et/ou
 à l'équipe de la ressource demandée. Jamais de raccourci global. Voir `docs/modules/auth-roles.md`.
 
-**`clubId = null` (scope global) — mécanisme legacy.** Historiquement utilisé pour
-SuperAdmin/Proprietaire, mais nécessitait quand même une fiche `Member` par club accédé (la
-résolution du `Member` de l'appelant se fait toujours pour le `clubId` précis de la requête,
+**`clubId = null` — mécanisme legacy inerte.** Historiquement utilisé pour tenter un scope
+global SuperAdmin/Proprietaire, mais nécessitait quand même une fiche `Member` par club accédé
+(la résolution du `Member` de l'appelant se fait toujours pour le `clubId` précis de la requête,
 avant même d'évaluer la permission) — ce qui rendait ces rôles non réellement "globaux" en
 pratique. Depuis l'introduction de `UserRole` (ci-dessous), plus aucun code ne produit de
-`MemberRole` avec `clubId = null` ; cette valeur reste seulement supportée pour compatibilité
-avec d'éventuelles données pré-existantes. Le mécanisme courant pour un accès plateforme réel,
-indépendant de tout club, est `UserRole`. Détail : `docs/modules/auth-roles.md` §Rôles
-plateforme.
+`MemberRole` avec `clubId = null`, et `PermissionsService.matchesContext` ne l'auto-matche plus
+non plus (traité comme un `clubId` non correspondant — refusé). La colonne reste nullable
+uniquement pour ne pas casser d'éventuelles données pré-existantes en base. Le mécanisme courant
+pour un accès plateforme réel, indépendant de tout club, est `UserRole`. Détail :
+`docs/modules/auth-roles.md` §Rôles plateforme.
 
 ---
 

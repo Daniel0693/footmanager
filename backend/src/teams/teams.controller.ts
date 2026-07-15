@@ -37,9 +37,9 @@ export class TeamsController {
     return this.teamsService.findAllByClub(clubId);
   }
 
-  // Pas de @RequirePermission ici : "mes équipes" par construction (voir
-  // TeamsService.findMineInClub). Doit être déclaré avant `:id` pour que
-  // 'mine' ne soit pas capturé comme un id numérique.
+  // Pas de @RequirePermission : pattern self-service /mine, voir
+  // docs/modules/auth-roles.md §Patterns découverts. Déclaré avant `:id`
+  // pour que 'mine' ne soit pas capturé comme un id numérique.
   @Get('mine')
   findMine(
     @Param('clubId', ParseIntPipe) clubId: number,

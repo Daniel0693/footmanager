@@ -176,7 +176,11 @@ elle-même l'accès, à la place d'un raccourci de rôle interdit par la règle 
 
 Ce pattern (route `/me` ou `/mine`, guard générique contourné, résolution directe dans le
 service) est à réutiliser pour toute future route de listing consommée par un rôle scopé équipe
-sans que la ressource elle-même porte de `teamId` dans son URL naturelle.
+sans que la ressource elle-même porte de `teamId` dans son URL naturelle. Occurrences actuelles,
+toutes sans `@RequirePermission` par construction (commentaire court dans le code renvoyant
+ici) : `GET /clubs/:clubId/players/me`, `GET /clubs/:clubId/teams/mine`,
+`GET/PATCH /clubs/:clubId/members/me`, `GET /clubs` ("mes clubs"),
+`GET /clubs/:clubId/events/mine`.
 
 **La même limitation s'applique à toute route portant sur une ressource déjà identifiée par id
 (GET/PATCH), pas seulement au listing.** `GET`/`PATCH /clubs/:clubId/players/:id` et
@@ -295,8 +299,10 @@ malgré tout avoir une fiche `Member` dans **chaque** club où il opérait, sans
 refusait dès la résolution du membre — un SuperAdmin n'était donc pas "global" au sens propre.
 Corrigé par l'introduction du mécanisme `UserRole` (§Rôles plateforme ci-dessous) : ces deux rôles
 ne passent plus du tout par `MemberRole`/`Member` pour leur autorisation. `MemberRole.clubId =
-null` reste supporté dans le moteur (`matchesContext`) mais n'est plus produit par aucun code —
-mécanisme legacy, conservé pour compatibilité avec d'éventuelles données pré-existantes.
+null` n'est plus produit par aucun code et n'est plus honoré par le moteur (`matchesContext`
+la traite comme un `clubId` non correspondant — refusée, pas auto-matchée) : c'est un mécanisme
+legacy entièrement inerte, la colonne restant nullable uniquement pour ne pas casser
+d'éventuelles données pré-existantes en base.
 
 ### Rôles plateforme — `UserRole`
 

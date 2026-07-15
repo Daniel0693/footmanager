@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { isDateRangeActive } from '../src/common/date-range-active';
 
 /**
  * Attribution du tout premier rôle plateforme (SuperAdmin/Proprietaire,
@@ -31,13 +32,6 @@ function parseArgs(argv: string[]) {
     args.set(key, rest.length > 0 ? rest.join('=') : true);
   }
   return args;
-}
-
-function isActive(userRole: { startDate: Date | null; endDate: Date | null }) {
-  const now = new Date();
-  if (userRole.startDate && userRole.startDate > now) return false;
-  if (userRole.endDate && userRole.endDate < now) return false;
-  return true;
 }
 
 async function main() {
@@ -76,7 +70,7 @@ async function main() {
   const existingUserRoles = await prisma.userRole.findMany({
     where: { userId: user.id, roleId: systemRole.id },
   });
-  const alreadyActive = existingUserRoles.some(isActive);
+  const alreadyActive = existingUserRoles.some((userRole) => isDateRangeActive(userRole));
   if (alreadyActive) {
     console.log(
       `${email} détient déjà un rôle plateforme actif "${role}" — rien à faire.`,

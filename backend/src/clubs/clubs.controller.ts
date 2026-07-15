@@ -14,8 +14,8 @@ export class ClubsController {
     return this.clubsService.create(user.userId, dto);
   }
 
-  // "Mes clubs" : résolution d'identité pure (clubs où je suis Member),
-  // pas de scope RBAC à évaluer — même logique que PlayersService.findMe.
+  // Pas de @RequirePermission : pattern self-service "mes clubs", voir
+  // docs/modules/auth-roles.md §Patterns découverts.
   @Get()
   findMine(@CurrentUser() user: { userId: number }) {
     return this.clubsService.findAllForUser(user.userId);

@@ -35,11 +35,9 @@ export class MembersController {
     return this.membersService.create({ clubId, ...dto });
   }
 
-  // "Mon profil" (docs/roadmap.md) : doit être déclaré avant ':id' (Nest
-  // résout les routes dans l'ordre de déclaration, sinon 'me' serait capturé
-  // par ':id'). Pas de @RequirePermission — MembersService.findMe/updateMe
-  // résolvent le Member depuis le JWT, aucun scope RBAC à évaluer pour
-  // éditer ses propres données (même pattern que PlayersController.findMe).
+  // Pas de @RequirePermission : pattern self-service /me, voir
+  // docs/modules/auth-roles.md §Patterns découverts. Déclaré avant `:id`
+  // pour que 'me' ne soit pas capturé comme un id numérique.
   @Get('me')
   findMe(
     @Param('clubId', ParseIntPipe) clubId: number,

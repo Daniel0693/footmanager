@@ -20,9 +20,8 @@ import { EventsService } from './events.service';
 export class EventsMineController {
   constructor(private readonly eventsService: EventsService) {}
 
-  // Pas de PermissionsGuard/@RequirePermission ici : "mes événements" par
-  // construction (voir EventsService.findMineInClub), même pattern que
-  // TeamsController.findMine / PlayersController.findMe.
+  // Pas de @RequirePermission : pattern self-service /mine, voir
+  // docs/modules/auth-roles.md §Patterns découverts.
   @Get('mine')
   findMine(
     @Param('clubId', ParseIntPipe) clubId: number,

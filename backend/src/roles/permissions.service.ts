@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PermissionAction, PermissionScope } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { isDateRangeActive } from '../common/date-range-active';
 
 export interface PermissionContext {
   clubId?: number;
@@ -41,7 +42,8 @@ export class PermissionsService {
     const rolePermissions = memberRoles
       .filter(
         (memberRole) =>
-          this.isActive(memberRole) && this.matchesContext(memberRole, context),
+          isDateRangeActive(memberRole) &&
+          this.matchesContext(memberRole, context),
       )
       .flatMap((memberRole) => memberRole.role.rolePermissions);
 
@@ -69,7 +71,7 @@ export class PermissionsService {
     });
 
     const rolePermissions = userRoles
-      .filter((userRole) => this.isActive(userRole))
+      .filter((userRole) => isDateRangeActive(userRole))
       .flatMap((userRole) => userRole.role.rolePermissions);
 
     return this.widestScope(rolePermissions, action, resource);
@@ -143,23 +145,17 @@ export class PermissionsService {
     }, null);
   }
 
-  private isActive(role: {
-    startDate: Date | null;
-    endDate: Date | null;
-  }): boolean {
-    const now = new Date();
-    if (role.startDate && role.startDate > now) return false;
-    if (role.endDate && role.endDate < now) return false;
-    return true;
-  }
-
+  /**
+   * Aucun code ne produit plus de `MemberRole.clubId = null` depuis
+   * l'introduction de `UserRole` (voir docs/schema/fondations.md). Une telle
+   * ligne est donc traitée comme n'importe quel `clubId` non correspondant :
+   * refusée plutôt qu'auto-matchée, pour ne pas conserver un raccourci
+   * d'autorisation globale sur une donnée qui ne devrait plus exister.
+   */
   private matchesContext(
     memberRole: { clubId: number | null; teamId: number | null },
     context: PermissionContext,
   ): boolean {
-    if (memberRole.clubId === null) {
-      return true; // scope global — legacy, voir docs/modules/auth-roles.md
-    }
     if (memberRole.clubId !== context.clubId) {
       return false;
     }
