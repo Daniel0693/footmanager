@@ -26,6 +26,7 @@ model User {
 
   members       Member[]
   refreshTokens RefreshToken[]
+  userRoles     UserRole[]
 }
 
 model RefreshToken {
@@ -142,6 +143,7 @@ model Role {
 
   memberRoles     MemberRole[]
   rolePermissions RolePermission[]
+  userRoles       UserRole[]
 }
 
 model MemberRole {
@@ -150,6 +152,12 @@ model MemberRole {
   member    Member    @relation(fields: [memberId], references: [id])
   roleId    Int
   role      Role      @relation(fields: [roleId], references: [id])
+  // `clubId = null` ("scope global") : mécanisme legacy, conservé pour
+  // compatibilité avec d'éventuelles données pré-existantes mais plus produit
+  // par aucun code depuis l'introduction de UserRole ci-dessous — voir
+  // docs/modules/auth-roles.md §Rôles plateforme. Les rôles plateforme
+  // (SuperAdmin/Proprietaire) passent désormais par UserRole, indépendant de
+  // tout Member/Club.
   clubId    Int?
   club      Club?     @relation(fields: [clubId], references: [id])
   teamId    Int?
@@ -161,6 +169,29 @@ model MemberRole {
 
   @@index([memberId])
   @@index([clubId, teamId])
+}
+
+/**
+ * Rôle plateforme — attribution d'un Role directement à un User, sans Member
+ * ni Club (docs/modules/auth-roles.md §Rôles plateforme). Réservé en
+ * pratique aux rôles système globaux (SuperAdmin, Proprietaire), granté via
+ * le script backend/scripts/bootstrap-platform-role.ts. Pas de contrainte
+ * unique sur (userId, roleId) : même historisation que MemberRole (une
+ * révocation via endDate peut être suivie d'un nouveau grant, comme une
+ * nouvelle ligne).
+ */
+model UserRole {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  roleId    Int
+  role      Role      @relation(fields: [roleId], references: [id])
+  startDate DateTime? @db.Date
+  endDate   DateTime? @db.Date
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
 }
 
 enum PermissionAction {

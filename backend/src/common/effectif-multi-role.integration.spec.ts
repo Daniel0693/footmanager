@@ -171,6 +171,7 @@ function buildGuard(roles: ResourceRoles) {
           Promise.resolve(memberRolesByMember[memberId] ?? []),
       ),
     },
+    userRole: { findMany: jest.fn().mockResolvedValue([]) },
   } as unknown as PrismaService;
   const permissionsService = new PermissionsService(permissionsPrismaStub);
 

@@ -38,12 +38,91 @@ export class PermissionsService {
       },
     });
 
-    const grantedScopes = memberRoles
+    const rolePermissions = memberRoles
       .filter(
         (memberRole) =>
           this.isActive(memberRole) && this.matchesContext(memberRole, context),
       )
-      .flatMap((memberRole) => memberRole.role.rolePermissions)
+      .flatMap((memberRole) => memberRole.role.rolePermissions);
+
+    return this.widestScope(rolePermissions, action, resource);
+  }
+
+  /**
+   * Équivalent de `can()` pour un rôle plateforme (`UserRole`, indépendant de
+   * tout Member/Club) — docs/modules/auth-roles.md §Rôles plateforme. Aucun
+   * `matchesContext` : un UserRole est par construction indépendant du
+   * contexte club/équipe.
+   */
+  async canAsUser(
+    userId: number,
+    action: PermissionAction,
+    resource: string,
+  ): Promise<PermissionScope | null> {
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId },
+      include: {
+        role: {
+          include: { rolePermissions: { include: { permission: true } } },
+        },
+      },
+    });
+
+    const rolePermissions = userRoles
+      .filter((userRole) => this.isActive(userRole))
+      .flatMap((userRole) => userRole.role.rolePermissions);
+
+    return this.widestScope(rolePermissions, action, resource);
+  }
+
+  /** Existence pure (pas de résolution fine de permission) d'un rôle plateforme actif. */
+  async hasActivePlatformRole(userId: number): Promise<boolean> {
+    const now = new Date();
+    const activeUserRole = await this.prisma.userRole.findFirst({
+      where: {
+        userId,
+        OR: [{ startDate: null }, { startDate: { lte: now } }],
+        AND: [{ OR: [{ endDate: null }, { endDate: { gte: now } }] }],
+      },
+    });
+    return activeUserRole !== null;
+  }
+
+  /**
+   * Union du scope obtenu via le Member local (s'il existe) et du scope
+   * obtenu via un rôle plateforme (`UserRole`) — un Propriétaire/AdminSystème
+   * qui détient aussi une fiche Member ordinaire dans un club garde l'accès
+   * complet de son rôle plateforme dans ce club (décision produit explicite,
+   * voir docs/modules/auth-roles.md §Rôles plateforme).
+   */
+  async canEffective(
+    userId: number,
+    memberId: number | null,
+    action: PermissionAction,
+    resource: string,
+    context: PermissionContext = {},
+  ): Promise<PermissionScope | null> {
+    const [viaMember, viaPlatform] = await Promise.all([
+      memberId !== null
+        ? this.can(memberId, action, resource, context)
+        : Promise.resolve(null),
+      this.canAsUser(userId, action, resource),
+    ]);
+    return this.widestOf([viaMember, viaPlatform]);
+  }
+
+  private widestScope(
+    rolePermissions: {
+      permission: {
+        resource: string;
+        action: PermissionAction;
+        scope: PermissionScope;
+      };
+    }[],
+    action: PermissionAction,
+    resource: string,
+  ): PermissionScope | null {
+    const grantedScopes = rolePermissions
       .filter(
         (rolePermission) =>
           rolePermission.permission.resource === resource &&
@@ -51,22 +130,26 @@ export class PermissionsService {
       )
       .map((rolePermission) => rolePermission.permission.scope);
 
-    if (grantedScopes.length === 0) {
-      return null;
-    }
-
-    return grantedScopes.reduce((widest, scope) =>
-      SCOPE_ORDER.indexOf(scope) > SCOPE_ORDER.indexOf(widest) ? scope : widest,
-    );
+    return this.widestOf(grantedScopes);
   }
 
-  private isActive(memberRole: {
+  private widestOf(scopes: (PermissionScope | null)[]): PermissionScope | null {
+    return scopes.reduce<PermissionScope | null>((widest, scope) => {
+      if (!scope) return widest;
+      if (!widest) return scope;
+      return SCOPE_ORDER.indexOf(scope) > SCOPE_ORDER.indexOf(widest)
+        ? scope
+        : widest;
+    }, null);
+  }
+
+  private isActive(role: {
     startDate: Date | null;
     endDate: Date | null;
   }): boolean {
     const now = new Date();
-    if (memberRole.startDate && memberRole.startDate > now) return false;
-    if (memberRole.endDate && memberRole.endDate < now) return false;
+    if (role.startDate && role.startDate > now) return false;
+    if (role.endDate && role.endDate < now) return false;
     return true;
   }
 
@@ -75,7 +158,7 @@ export class PermissionsService {
     context: PermissionContext,
   ): boolean {
     if (memberRole.clubId === null) {
-      return true; // scope global (SuperAdmin / Proprietaire hors club)
+      return true; // scope global — legacy, voir docs/modules/auth-roles.md
     }
     if (memberRole.clubId !== context.clubId) {
       return false;

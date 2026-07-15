@@ -164,6 +164,7 @@ function buildGuard(roles: ResourceRoles) {
           Promise.resolve(memberRolesByMember[memberId] ?? []),
       ),
     },
+    userRole: { findMany: jest.fn().mockResolvedValue([]) },
   } as unknown as PrismaService;
   const permissionsService = new PermissionsService(permissionsPrismaStub);
 
@@ -627,6 +628,7 @@ describe('B9 — scénario multi-rôles (agrégations "mine" — events/mine, me
             Promise.resolve(memberRolesByMember[memberId] ?? []),
         ),
       },
+      userRole: { findMany: jest.fn().mockResolvedValue([]) },
     } as unknown as PrismaService;
     permissionsService = new PermissionsService(permissionsPrismaStub);
 

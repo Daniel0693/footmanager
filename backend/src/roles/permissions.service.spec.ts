@@ -112,6 +112,51 @@ const memberRolesByMember: Record<number, any[]> = {
   1000: [],
 };
 
+// Rôle plateforme (UserRole, indépendant de tout Member/Club) — voir
+// docs/modules/auth-roles.md §Rôles plateforme.
+const platformPermissions = {
+  memberReadAll: { id: 6, resource: 'member', action: 'READ', scope: 'ALL' },
+};
+
+const platformRoles = {
+  proprietaire: {
+    id: 6,
+    isSystem: true,
+    rolePermissions: [{ permission: platformPermissions.memberReadAll }],
+  },
+};
+
+// userId 500 = Propriétaire actif, 501 = rôle plateforme expiré (endDate
+// passée), 502 = rôle plateforme pas encore actif (startDate future),
+// 1000 = aucun rôle plateforme.
+const userRolesByUser: Record<number, any[]> = {
+  500: [
+    {
+      userId: 500,
+      startDate: null,
+      endDate: null,
+      role: platformRoles.proprietaire,
+    },
+  ],
+  501: [
+    {
+      userId: 501,
+      startDate: null,
+      endDate: new Date('2020-01-01'),
+      role: platformRoles.proprietaire,
+    },
+  ],
+  502: [
+    {
+      userId: 502,
+      startDate: new Date('2999-01-01'),
+      endDate: null,
+      role: platformRoles.proprietaire,
+    },
+  ],
+  1000: [],
+};
+
 function buildPrismaStub() {
   return {
     memberRole: {
@@ -119,6 +164,25 @@ function buildPrismaStub() {
         ({ where: { memberId } }: { where: { memberId: number } }) =>
           Promise.resolve(memberRolesByMember[memberId] ?? []),
       ),
+    },
+    userRole: {
+      findMany: jest.fn(
+        ({ where: { userId } }: { where: { userId: number } }) =>
+          Promise.resolve(userRolesByUser[userId] ?? []),
+      ),
+      findFirst: jest.fn(({ where }: { where: { userId: number } }) => {
+        const now = new Date();
+        const rows = (userRolesByUser[where.userId] ?? []) as {
+          startDate: Date | null;
+          endDate: Date | null;
+        }[];
+        const active = rows.find((row) => {
+          if (row.startDate && row.startDate > now) return false;
+          if (row.endDate && row.endDate < now) return false;
+          return true;
+        });
+        return Promise.resolve(active ?? null);
+      }),
     },
   };
 }
@@ -206,5 +270,91 @@ describe('PermissionsService', () => {
     expect(
       await service.can(7, 'UPDATE', 'member', { clubId: 1, teamId: 5 }),
     ).toBeNull();
+  });
+
+  describe('canAsUser (rôle plateforme, UserRole)', () => {
+    it('accorde le scope du rôle plateforme actif', async () => {
+      expect(await service.canAsUser(500, 'READ', 'member')).toBe('ALL');
+    });
+
+    it('refuse pour un utilisateur sans aucun rôle plateforme', async () => {
+      expect(await service.canAsUser(1000, 'READ', 'member')).toBeNull();
+    });
+
+    it('ignore un rôle plateforme dont endDate est déjà passée', async () => {
+      expect(await service.canAsUser(501, 'READ', 'member')).toBeNull();
+    });
+
+    it("ignore un rôle plateforme dont startDate n'est pas encore atteinte", async () => {
+      expect(await service.canAsUser(502, 'READ', 'member')).toBeNull();
+    });
+  });
+
+  describe('hasActivePlatformRole', () => {
+    it('vrai pour un rôle plateforme actif', async () => {
+      expect(await service.hasActivePlatformRole(500)).toBe(true);
+    });
+
+    it('faux pour un utilisateur sans rôle plateforme', async () => {
+      expect(await service.hasActivePlatformRole(1000)).toBe(false);
+    });
+
+    it('faux pour un rôle plateforme expiré', async () => {
+      expect(await service.hasActivePlatformRole(501)).toBe(false);
+    });
+
+    it('faux pour un rôle plateforme pas encore actif', async () => {
+      expect(await service.hasActivePlatformRole(502)).toBe(false);
+    });
+  });
+
+  describe('canEffective (union Member local + rôle plateforme)', () => {
+    it("le rôle plateforme autorise même quand le Member local n'a aucun droit", async () => {
+      // memberId 1000 : aucun MemberRole. userId 500 : Propriétaire (ALL).
+      expect(
+        await service.canEffective(500, 1000, 'READ', 'member', {
+          clubId: 1,
+          teamId: 5,
+        }),
+      ).toBe('ALL');
+    });
+
+    it('le Member local autorise même sans rôle plateforme', async () => {
+      // memberId 42 (Marc, Coach TEAM sur l'U15) : userId 1000, aucun UserRole.
+      expect(
+        await service.canEffective(1000, 42, 'READ', 'member', {
+          clubId: 1,
+          teamId: 5,
+        }),
+      ).toBe('TEAM');
+    });
+
+    it('retient le scope le plus large entre Member local et rôle plateforme', async () => {
+      // memberId 99 : AdminClub (CLUB). userId 500 : Propriétaire (ALL) — ALL l'emporte.
+      expect(
+        await service.canEffective(500, 99, 'READ', 'member', {
+          clubId: 1,
+          teamId: 5,
+        }),
+      ).toBe('ALL');
+    });
+
+    it('refuse quand ni le Member local ni un rôle plateforme ne donnent accès', async () => {
+      expect(
+        await service.canEffective(1000, 1000, 'READ', 'member', {
+          clubId: 1,
+          teamId: 5,
+        }),
+      ).toBeNull();
+    });
+
+    it("refuse proprement quand aucun Member n'existe (memberId null) et aucun rôle plateforme", async () => {
+      expect(
+        await service.canEffective(1000, null, 'READ', 'member', {
+          clubId: 1,
+          teamId: 5,
+        }),
+      ).toBeNull();
+    });
   });
 });

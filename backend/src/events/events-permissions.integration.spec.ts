@@ -170,6 +170,7 @@ function buildPrismaStub() {
           Promise.resolve(memberRolesByMember[memberId] ?? []),
       ),
     },
+    userRole: { findMany: jest.fn().mockResolvedValue([]) },
   } as unknown as PrismaService;
 }
 

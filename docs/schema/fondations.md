@@ -108,7 +108,7 @@ dans cette table (un rôle par contexte club/équipe).
 | `id` | PK | |
 | `memberId` | FK → Member | |
 | `roleId` | FK → Role | |
-| `clubId` | FK → Club, nullable | `null` = scope global (SuperAdmin / Proprietaire uniquement) |
+| `clubId` | FK → Club, nullable | `null` = scope global — **legacy**, voir note ci-dessous |
 | `teamId` | FK → Team, nullable | `null` = scope club entier |
 | `startDate` | Date, nullable | |
 | `endDate` | Date, nullable | historisation des changements de rôle |
@@ -116,11 +116,35 @@ dans cette table (un rôle par contexte club/équipe).
 **Règle d'évaluation des permissions** : toujours évaluer rôle par rôle, scopé au club et/ou
 à l'équipe de la ressource demandée. Jamais de raccourci global. Voir `docs/modules/auth-roles.md`.
 
-**`clubId = null` (scope global) n'affranchit pas d'une fiche `Member` par club accédé** : la
-résolution du `Member` de l'appelant se fait toujours pour le `clubId` précis de la requête
-avant même d'évaluer la permission. Un SuperAdmin/Proprietaire doit donc avoir un `Member` dans
-chaque club où il opère, même si son `MemberRole` a `clubId = null`. Détail :
-`docs/modules/auth-roles.md` §Patterns découverts.
+**`clubId = null` (scope global) — mécanisme legacy.** Historiquement utilisé pour
+SuperAdmin/Proprietaire, mais nécessitait quand même une fiche `Member` par club accédé (la
+résolution du `Member` de l'appelant se fait toujours pour le `clubId` précis de la requête,
+avant même d'évaluer la permission) — ce qui rendait ces rôles non réellement "globaux" en
+pratique. Depuis l'introduction de `UserRole` (ci-dessous), plus aucun code ne produit de
+`MemberRole` avec `clubId = null` ; cette valeur reste seulement supportée pour compatibilité
+avec d'éventuelles données pré-existantes. Le mécanisme courant pour un accès plateforme réel,
+indépendant de tout club, est `UserRole`. Détail : `docs/modules/auth-roles.md` §Rôles
+plateforme.
+
+---
+
+## UserRole — Attribution d'un rôle plateforme (indépendant du club)
+
+Attribution directe d'un `Role` à un `User`, sans passer par `Member`/`Club` — réservée en
+pratique aux rôles système globaux (`SuperAdmin`, `Proprietaire`). C'est le mécanisme qui
+permet à ces rôles d'accéder à n'importe quel club sans y avoir de fiche `Member` préalable.
+Voir `docs/modules/auth-roles.md` §Rôles plateforme pour le détail du fonctionnement
+(`PermissionsService.canAsUser`/`canEffective`, provisioning différé du `Member`) et le script
+de bootstrap (`backend/scripts/bootstrap-platform-role.ts`), seul moyen d'attribuer un
+`UserRole` aujourd'hui (pas d'interface de gestion self-service en MVP).
+
+| Champ | Type | Notes |
+|---|---|---|
+| `id` | PK | |
+| `userId` | FK → User | |
+| `roleId` | FK → Role | |
+| `startDate` | Date, nullable | |
+| `endDate` | Date, nullable | historisation — un rôle révoqué (via `endDate`) peut être regranté comme une nouvelle ligne, pas de contrainte unique |
 
 ---
 
@@ -205,4 +229,5 @@ enum PermissionScope {
 @@index([clubId, teamId])           sur MemberRole
 @@index([roleId, permissionId])     sur RolePermission (clé primaire composite)
 @@index([userId])                   sur RefreshToken
+@@index([userId])                   sur UserRole
 ```
