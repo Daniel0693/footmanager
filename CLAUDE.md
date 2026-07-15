@@ -150,6 +150,12 @@ cd docker && docker-compose up
 Réinitialisation complète de la base de dev (destructif — jamais sans confirmation explicite) :
 `cd backend && npx prisma migrate reset`.
 
+Peuplement d'un jeu de données de démo complet (clubs/équipes/joueurs/événements/saisons/
+championnats, comptes de test) sur une base fraîchement reset : `cd backend && npm run
+seed:dev-data` — script séparé du seed système (`backend/prisma/seed-dev-data.ts`, pas
+idempotent). Identifiants générés dans `docs/dev-seed-accounts.md` (mot de passe unique
+`Test012345.`, dev uniquement).
+
 ## Convention Git — branches et commits
 
 ### Branches principales
