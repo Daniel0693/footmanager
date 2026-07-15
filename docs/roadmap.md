@@ -444,6 +444,36 @@ frontend (inchangé, aucune modification frontend).
 
 ---
 
+## Correctif transverse — Liaison Parent↔Enfant (décision ouverte #5) ✅
+
+_2026-07-15_
+
+Décision produit tranchée avec l'utilisateur : un mineur ne pouvant pas se connecter, son Parent
+agit à sa place sur son enfant précis (jamais sur le reste de l'équipe) — consultation, édition
+des informations personnelles (hors football), déclaration d'absence à venir. Correctif
+transverse (auth/permissions), backend uniquement — le câblage frontend (UI de liaison, vue "mes
+enfants") est un incrément séparé à faire ensuite, branche dédiée `feature/auth-parent-enfant`.
+
+| Livrable | Contenu |
+|---|---|
+| Schéma | `model ParentChild` (`Member` parent ↔ `Member` enfant), enum `PermissionScope` + `PARENT` |
+| Module | `backend/src/parent-child/` — `POST`/`GET`/`DELETE .../players/:playerId/parents` (staff uniquement), `GET .../parent-child/mine` (self-service Parent) |
+| Services étendus | `players`, `player-measurements`, `player-evaluations`, `player-interviews`, `player-notes` (PUBLIC uniquement), `player-objectives` (PUBLIC uniquement), `player-absences` (lecture + création, `isExcused` forcé `null`), `members` (édition informations personnelles) |
+| Helper | `assertParentChildLink` (`backend/src/common/parent-child-membership.ts`), calqué sur `assertPlayerInTeam` |
+| Piège corrigé en conception | cumul Player+Parent sur le même contexte club/équipe : la branche `PARENT` de chaque service reste un sur-ensemble strict d'`OWN` (vérifie toujours "est-ce moi ?" avant d'exiger le lien) |
+| Complément | `UpdateMyMemberDto` élargi (`firstName`/`lastName`/`phone`, plus seulement `birthDate`) — un membre auto-provisionné (nom placeholder dérivé de l'email) peut désormais corriger son identité en self-service |
+| Tests | `parent-child-multi-role.integration.spec.ts`, `parent-child.service.spec.ts` + mises à jour `members.service.spec.ts` |
+| Docs | `docs/modules/auth-roles.md` (nouveau §Rôle Parent), `docs/schema/fondations.md`, `docs/decisions-ouvertes-et-rgpd.md`, `docs/schema/joueurs.md`, `docs/modules/effectif-joueurs.md`, `docs/modules/calendrier-evenements.md` |
+
+**Hors scope** : confirmation de convocation Match/Entraînement (`docs/modules/matchs.md`,
+`docs/modules/entrainement.md`) — Phases 4/5, pas encore construites, le mécanisme sera réutilisé
+une fois ces modules livrés. Notifications au Parent : décision ouverte #2, inchangée.
+
+Tests après ce correctif : 601 tests backend (+19) + 515 tests frontend (inchangé, aucune
+modification frontend).
+
+---
+
 ## Phase 4 — Matchs (notre équipe) ⬜
 
 _~3 semaines_

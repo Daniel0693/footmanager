@@ -10,6 +10,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import type { Member, PermissionScope } from '@prisma/client';
+import { CurrentMember } from '../auth/decorators/current-member.decorator';
+import { CurrentPermissionScope } from '../auth/decorators/current-permission-scope.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -87,8 +90,13 @@ export class MembersController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMemberDto,
+    @CurrentMember() member: Member,
+    @CurrentPermissionScope() scope: PermissionScope,
   ) {
-    return this.membersService.update(clubId, id, dto);
+    return this.membersService.update(clubId, id, dto, {
+      memberId: member.id,
+      scope,
+    });
   }
 
   // Suppression RGPD en cascade (docs/decisions-ouvertes-et-rgpd.md) : ne

@@ -149,6 +149,27 @@ de bootstrap (`backend/scripts/bootstrap-platform-role.ts`), seul moyen d'attrib
 
 ---
 
+## ParentChild — Liaison Parent ↔ Joueur
+
+Lien direct entre un `Member` Parent et un `Member` enfant (docs/decisions-ouvertes-et-rgpd.md
+#5, tranché — voir `docs/modules/auth-roles.md` §Rôle Parent). Donne accès au scope
+`PermissionScope.PARENT` sur les ressources de l'enfant. Créé/supprimé uniquement par le staff
+(Coach/AdminClub/SuperAdmin) via `POST`/`DELETE /clubs/:clubId/players/:playerId/parents` —
+jamais par le Parent lui-même (donnée sensible sur un mineur, pas une auto-déclaration).
+
+| Champ | Type | Notes |
+|---|---|---|
+| `id` | PK | |
+| `parentMemberId` | FK → Member | |
+| `childMemberId` | FK → Member | |
+
+**Contrainte** : unicité sur `(parentMemberId, childMemberId)` — un même lien ne peut exister
+qu'une fois (un enfant peut avoir plusieurs parents liés, un parent peut avoir plusieurs enfants).
+Pas de `startDate`/`endDate` (contrairement à `MemberRole`/`UserRole`) : un lien erroné se corrige
+par suppression, pas par historisation — même logique que `ChampionshipParticipant`.
+
+---
+
 ## Role — Définition d'un rôle
 
 Rôles fixes (système) et rôles personnalisés partagent cette table.
@@ -214,6 +235,7 @@ enum PermissionAction {
 
 enum PermissionScope {
   OWN    // ses propres données uniquement
+  PARENT // les données d'un enfant lié via ParentChild (jamais plus)
   TEAM   // toutes les données de ses équipes
   CLUB   // toutes les données de son club
   ALL    // toutes les données (SuperAdmin / Proprietaire)

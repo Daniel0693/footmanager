@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertParentChildLink } from '../common/parent-child-membership';
 import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
 import { resolveSeasonPeriod } from '../common/season-period';
@@ -80,6 +81,17 @@ export class PlayerNotesService {
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
+    if (
+      requester.scope === 'PARENT' &&
+      player.memberId !== requester.memberId
+    ) {
+      await assertParentChildLink(
+        this.prisma,
+        requester.memberId,
+        player.memberId,
+        'PLAYER_NOTES.PLAYER_NOT_IN_CLUB',
+      );
+    }
 
     // Filtrage rétroactif par saison (A12) : prioritaire sur dateFrom/dateTo
     // si transmis — mutuellement exclusifs au niveau UI (voir DTO).
@@ -118,6 +130,17 @@ export class PlayerNotesService {
       include: { author: true },
       orderBy: { createdAt: query.sortOrder ?? 'desc' },
     });
+
+    // Un Parent ne voit que les notes PUBLIC — pas SEMI_PRIVE (réservé
+    // joueur+staff, y compris quand ce joueur est un mineur, décision
+    // produit qui préserve une part d'autonomie face au staff — voir
+    // docs/decisions-ouvertes-et-rgpd.md et le commentaire au-dessus de
+    // `enum NoteVisibility` dans schema.prisma). Plus restrictif que le
+    // scope OWN de l'enfant lui-même : voir docs/modules/auth-roles.md
+    // §Rôle Parent.
+    if (requester.scope === 'PARENT') {
+      return notes.filter((note) => note.visibility === 'PUBLIC');
+    }
 
     if (requester.scope !== 'OWN') return notes;
 

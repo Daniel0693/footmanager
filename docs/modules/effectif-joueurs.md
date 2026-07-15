@@ -388,14 +388,14 @@ dans la mesure du possible, être résolu côté backend (query params sur le `G
 - **Timeline** (même présentation que l'onglet Entretien) : une carte par note, badge de
   visibilité en tête (`Privé` avec icône cadenas, `Semi-privé`, `Public`), titre optionnel,
   contenu, date de création et auteur.
-- **Trois niveaux de visibilité, un seul filtré côté service** : `PRIVE` (staff seulement),
-  `SEMI_PRIVE` (joueur + staff), `PUBLIC` (parents + joueur + staff — voir
-  `docs/decisions-ouvertes-et-rgpd.md`). Le rôle Parent n'étant pas encore câblé sur le module
-  Effectif (pas de table de liaison Parent↔Joueur), seule la distinction PRIVE vs
-  SEMI_PRIVE/PUBLIC est réellement appliquée aujourd'hui : un Player (scope `OWN`) ne reçoit
-  jamais les notes `PRIVE` dans la réponse — même tension RGPD Article 15 que
-  `PlayerInterview.staffAssessment`. Le frontend ne fait aucune vérification de rôle : c'est
-  l'absence de la note dans le tableau JSON renvoyé qui pilote l'affichage.
+- **Trois niveaux de visibilité, filtrés côté service selon le scope de l'appelant** : `PRIVE`
+  (staff seulement), `SEMI_PRIVE` (joueur + staff), `PUBLIC` (parents + joueur + staff — voir
+  `docs/decisions-ouvertes-et-rgpd.md`). Un Player (scope `OWN`) ne reçoit jamais les notes
+  `PRIVE` — même tension RGPD Article 15 que `PlayerInterview.staffAssessment`. Le rôle Parent
+  est câblé via la liaison `ParentChild` (scope `PARENT`, docs/modules/auth-roles.md §Rôle
+  Parent) : plus restrictif que l'enfant lui-même, il ne reçoit que les notes `PUBLIC` (ni
+  `PRIVE` ni `SEMI_PRIVE`). Le frontend ne fait aucune vérification de rôle : c'est l'absence de
+  la note dans le tableau JSON renvoyé qui pilote l'affichage.
 - **`authorId` auto-assigné**, jamais choisi dans un sélecteur (même pattern que
   `PlayerInterview.staffId`).
 - **Filtre par plage de dates et tri, tous deux sur `createdAt`** (`PlayerNote` n'a pas de champ

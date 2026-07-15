@@ -155,6 +155,7 @@ async function seedRoles() {
   const UPDATE: PermissionAction = 'UPDATE';
   const DELETE: PermissionAction = 'DELETE';
   const OWN: PermissionScope = 'OWN';
+  const PARENT: PermissionScope = 'PARENT';
   const TEAM: PermissionScope = 'TEAM';
   const CLUB: PermissionScope = 'CLUB';
   const ALL: PermissionScope = 'ALL';
@@ -163,9 +164,6 @@ async function seedRoles() {
     string,
     [string, PermissionAction, PermissionScope, string][]
   > = {
-    // Le rôle Parent n'a pas encore de permission player_profile/team_staff :
-    // aucune liaison Parent↔Joueur n'est modélisée (voir décision ouverte #5,
-    // docs/decisions-ouvertes-et-rgpd.md). À compléter quand elle existera.
     Player: [
       ['member', READ, OWN, 'Consulter son propre profil membre'],
       ['player_profile', READ, OWN, 'Consulter son propre profil joueur'],
@@ -235,8 +233,64 @@ async function seedRoles() {
         'Consulter les rencontres et résultats de son équipe',
       ],
     ],
+    // Liaison Parent↔Joueur tranchée (docs/decisions-ouvertes-et-rgpd.md #5,
+    // voir docs/modules/auth-roles.md §Rôle Parent) : scope PARENT, résolu
+    // via la table ParentChild (jamais auto-déclarée par le Parent). Mêmes
+    // droits que l'enfant en tant que Joueur (scope OWN), sauf les notes/
+    // objectifs (PUBLIC uniquement, pas SEMI_PRIVE) et l'écriture, limitée
+    // aux informations personnelles du Member (jamais player_profile/
+    // player_team, qui restent hors de portée).
     Parent: [
-      ['member', READ, OWN, 'Consulter le profil membre lié à son enfant'],
+      ['member', READ, PARENT, 'Consulter le profil membre de son enfant'],
+      [
+        'member',
+        UPDATE,
+        PARENT,
+        'Modifier les informations personnelles de son enfant',
+      ],
+      [
+        'player_profile',
+        READ,
+        PARENT,
+        'Consulter le profil joueur de son enfant',
+      ],
+      [
+        'player_measurement',
+        READ,
+        PARENT,
+        'Consulter les mesures physiques de son enfant',
+      ],
+      [
+        'player_evaluation',
+        READ,
+        PARENT,
+        'Consulter les scores d’évaluation de son enfant',
+      ],
+      [
+        'player_interview',
+        READ,
+        PARENT,
+        'Consulter les comptes-rendus d’entretien de son enfant',
+      ],
+      [
+        'player_note',
+        READ,
+        PARENT,
+        'Consulter les notes publiques concernant son enfant',
+      ],
+      [
+        'player_objective',
+        READ,
+        PARENT,
+        'Consulter les objectifs publics de son enfant',
+      ],
+      ['player_absence', READ, PARENT, 'Consulter les absences de son enfant'],
+      [
+        'player_absence',
+        CREATE,
+        PARENT,
+        'Déclarer une absence à venir pour son enfant',
+      ],
     ],
     Coach: [
       ['member', READ, TEAM, 'Consulter les membres de ses équipes'],
@@ -278,6 +332,27 @@ async function seedRoles() {
         DELETE,
         TEAM,
         'Retirer une affectation de staff de ses équipes',
+      ],
+      // Liaison Parent↔Joueur (docs/modules/auth-roles.md §Rôle Parent) :
+      // jamais auto-déclarée par le Parent, toujours créée/supprimée par le
+      // staff.
+      [
+        'parent_child',
+        CREATE,
+        TEAM,
+        'Lier un parent à un joueur de ses équipes',
+      ],
+      [
+        'parent_child',
+        READ,
+        TEAM,
+        'Consulter les liens parent-enfant de ses équipes',
+      ],
+      [
+        'parent_child',
+        DELETE,
+        TEAM,
+        'Délier un parent d’un joueur de ses équipes',
       ],
       ['player_team', READ, TEAM, "Consulter l'effectif de ses équipes"],
       ['player_team', CREATE, TEAM, 'Affecter un joueur à ses équipes'],
@@ -549,6 +624,24 @@ async function seedRoles() {
       ['team_staff', UPDATE, CLUB, 'Modifier une affectation de staff'],
       ['team_staff', DELETE, CLUB, 'Retirer une affectation de staff'],
       [
+        'parent_child',
+        CREATE,
+        CLUB,
+        'Lier un parent à un joueur du club',
+      ],
+      [
+        'parent_child',
+        READ,
+        CLUB,
+        'Consulter les liens parent-enfant du club',
+      ],
+      [
+        'parent_child',
+        DELETE,
+        CLUB,
+        'Délier un parent d’un joueur du club',
+      ],
+      [
         'player_team',
         READ,
         CLUB,
@@ -806,6 +899,24 @@ async function seedRoles() {
         DELETE,
         ALL,
         "Retirer n'importe quelle affectation de staff",
+      ],
+      [
+        'parent_child',
+        CREATE,
+        ALL,
+        "Lier un parent à n'importe quel joueur",
+      ],
+      [
+        'parent_child',
+        READ,
+        ALL,
+        "Consulter n'importe quel lien parent-enfant",
+      ],
+      [
+        'parent_child',
+        DELETE,
+        ALL,
+        "Délier un parent de n'importe quel joueur",
       ],
       [
         'player_team',

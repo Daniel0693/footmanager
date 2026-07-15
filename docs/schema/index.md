@@ -136,6 +136,7 @@ enum TeamSide {
 | Club | `fondations.md` |
 | Team | `fondations.md` |
 | Member, MemberRole | `fondations.md` |
+| ParentChild | `fondations.md` |
 | Role, Permission, RolePermission | `fondations.md` |
 | PlayerProfile | `joueurs.md` |
 | PlayerMeasurement | `joueurs.md` |

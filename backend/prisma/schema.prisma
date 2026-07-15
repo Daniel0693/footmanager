@@ -127,6 +127,8 @@ model Member {
   assignedObjectives  PlayerObjective[]
   evaluationsGiven    PlayerEvaluation[]
   reportedAbsences    PlayerAbsence[]
+  parentLinks         ParentChild[]      @relation("ParentChildAsParent")
+  childLinks          ParentChild[]      @relation("ParentChildAsChild")
 
   @@unique([userId, clubId])
 }
@@ -194,6 +196,29 @@ model UserRole {
   @@index([userId])
 }
 
+/**
+ * Lien Parent ↔ Joueur (docs/decisions-ouvertes-et-rgpd.md #5, tranché —
+ * voir docs/modules/auth-roles.md §Rôle Parent). Donne accès au scope
+ * PermissionScope.PARENT sur les ressources de l'enfant. Créé/supprimé
+ * uniquement par le staff (Coach/AdminClub/SuperAdmin) — jamais par le
+ * Parent lui-même, donnée sensible sur un mineur, pas une auto-déclaration.
+ * Pas de startDate/endDate (contrairement à MemberRole/UserRole) : un lien
+ * erroné se corrige par suppression, pas par historisation.
+ */
+model ParentChild {
+  id             Int      @id @default(autoincrement())
+  parentMemberId Int
+  parentMember   Member   @relation("ParentChildAsParent", fields: [parentMemberId], references: [id])
+  childMemberId  Int
+  childMember    Member   @relation("ParentChildAsChild", fields: [childMemberId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([parentMemberId, childMemberId])
+  @@index([parentMemberId])
+  @@index([childMemberId])
+}
+
 enum PermissionAction {
   READ
   CREATE
@@ -203,6 +228,12 @@ enum PermissionAction {
 
 enum PermissionScope {
   OWN
+  // Accès à un enfant lié via ParentChild — voir ce modèle ci-dessus et
+  // docs/modules/auth-roles.md §Rôle Parent. Chaque service qui l'utilise
+  // vérifie d'abord "est-ce moi ?" (comme OWN) avant d'exiger le lien, pour
+  // rester correct si un même membre cumule aussi un rôle Player sur le même
+  // contexte club/équipe (voir le même paragraphe de doc).
+  PARENT
   TEAM
   CLUB
   ALL

@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { PermissionScope } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertParentChildLink } from '../common/parent-child-membership';
 import { assertPlayerInClub } from '../common/player-club-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
 import { resolveSeasonPeriod } from '../common/season-period';
@@ -86,6 +87,17 @@ export class PlayerObjectivesService {
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, playerId, requester.teamId);
     }
+    if (
+      requester.scope === 'PARENT' &&
+      player.memberId !== requester.memberId
+    ) {
+      await assertParentChildLink(
+        this.prisma,
+        requester.memberId,
+        player.memberId,
+        'PLAYER_OBJECTIVES.PLAYER_NOT_IN_CLUB',
+      );
+    }
 
     // Filtrage rétroactif par saison (A12) : prioritaire sur dateFrom/dateTo
     // si transmis — mutuellement exclusifs au niveau UI (voir DTO).
@@ -124,6 +136,14 @@ export class PlayerObjectivesService {
         startDate: { sort: query.sortOrder ?? 'desc', nulls: 'last' },
       },
     });
+
+    // Un Parent ne voit que les objectifs PUBLIC — pas SEMI_PRIVE, même
+    // règle que PlayerNote (docs/modules/auth-roles.md §Rôle Parent).
+    if (requester.scope === 'PARENT') {
+      return objectives.filter(
+        (objective) => objective.visibility === 'PUBLIC',
+      );
+    }
 
     if (requester.scope !== 'OWN') return objectives;
 

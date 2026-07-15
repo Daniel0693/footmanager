@@ -144,9 +144,10 @@ Ces statistiques sont filtrables par `Season`, `Championship`, ou toutes périod
 | Voir la fiche match complète | ✅ | ✅ | ✅ | ✅ (résultat + sa note) | ✅ (résultat) |
 | Supprimer un match | ✅ | ✅ | ✅ | ❌ | ❌ |
 
-**Parent** : les droits « son enfant » ci-dessus supposent une liaison Parent↔Joueur qui n'est
-pas encore modélisée (décision ouverte #5, voir `docs/decisions-ouvertes-et-rgpd.md`) — non
-câblé tant que cette décision n'est pas tranchée.
+**Parent** : les droits « son enfant » ci-dessus s'appuieront sur la liaison `ParentChild` et le
+scope `PermissionScope.PARENT`, désormais disponibles (décision ouverte #5, tranchée — voir
+`docs/modules/auth-roles.md` §Rôle Parent). Pas encore câblés ici : ce module (Phase 4) n'est pas
+construit, `MatchAttendance` n'existe pas encore.
 
 ---
 

@@ -118,7 +118,12 @@ describe('MembersService', () => {
       } as unknown as PrismaService;
       const service = new MembersService(prismaStub, permissionsServiceStub);
 
-      const result = await service.update(1, 1, { firstName: 'Thomas' });
+      const result = await service.update(
+        1,
+        1,
+        { firstName: 'Thomas' },
+        { memberId: 99, scope: 'CLUB' },
+      );
 
       expect(findFirst).toHaveBeenCalledWith({ where: { id: 1, clubId: 1 } });
       expect(update).toHaveBeenCalledWith({
@@ -137,7 +142,12 @@ describe('MembersService', () => {
       } as unknown as PrismaService;
       const service = new MembersService(prismaStub, permissionsServiceStub);
 
-      await service.update(1, 1, { birthDate });
+      await service.update(
+        1,
+        1,
+        { birthDate },
+        { memberId: 99, scope: 'CLUB' },
+      );
 
       expect(update).toHaveBeenCalledWith({
         where: { id: 1 },
@@ -153,7 +163,12 @@ describe('MembersService', () => {
       const service = new MembersService(prismaStub, permissionsServiceStub);
 
       await expect(
-        service.update(2, 1, { firstName: 'Thomas' }),
+        service.update(
+          2,
+          1,
+          { firstName: 'Thomas' },
+          { memberId: 99, scope: 'CLUB' },
+        ),
       ).rejects.toBeInstanceOf(AppException);
     });
   });
@@ -366,6 +381,30 @@ describe('MembersService', () => {
       expect(update).toHaveBeenCalledWith({
         where: { id: member.id },
         data: { birthDate },
+      });
+    });
+
+    it('met à jour firstName/lastName/phone du membre courant (ex. un Parent auto-provisionné remplaçant son nom placeholder)', async () => {
+      const findUnique = jest.fn().mockResolvedValue(member);
+      const update = jest.fn().mockResolvedValue({
+        ...member,
+        firstName: 'Alice',
+        phone: '0600000000',
+      });
+      const prismaStub = {
+        member: { findUnique, update },
+      } as unknown as PrismaService;
+      const service = new MembersService(prismaStub, permissionsServiceStub);
+
+      await service.updateMe(1, 7, {
+        firstName: 'Alice',
+        lastName: 'Martin',
+        phone: '0600000000',
+      });
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: member.id },
+        data: { firstName: 'Alice', lastName: 'Martin', phone: '0600000000' },
       });
     });
 

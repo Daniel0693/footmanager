@@ -378,14 +378,74 @@ club-entier, retombent sur "l'appelant a-t-il UN `MemberRole` quelconque avec un
 sur cette équipe ?" — une requête relationnelle directe sur `MemberRole`, qui ne revérifie pas que
 LA permission demandée (`event READ`, `member READ`...) est bien accordée à CE rôle précis sur
 CETTE équipe. Concrètement : un rôle qui obtiendrait un jour un `MemberRole` scopé équipe sans la
-permission `event`/`member` correspondante (le rôle `Parent`, par exemple, s'il était un jour
-rattaché à l'équipe de son enfant) verrait quand même le calendrier/les anniversaires de cette
-équipe via `/mine`, uniquement parce que le `MemberRole` existe. Sans impact aujourd'hui (`Parent`
-n'est pas câblé à un `MemberRole` équipe en pratique, décision ouverte #5) et cohérent avec le
-comportement déjà établi de `TeamsService.findMineInClub` (Phase 3, antérieur au module
-Calendrier) — décision de ne pas corriger maintenant, documentée plutôt que laissée implicite.
-Si un rôle scopé équipe sans permission Calendrier apparaît un jour, revoir ce point avant de le
-déployer.
+permission `event`/`member` correspondante verrait quand même le calendrier/les anniversaires de
+cette équipe via `/mine`, uniquement parce que le `MemberRole` existe. C'est précisément le cas du
+rôle `Parent` depuis que la liaison ParentChild est câblée (décision ouverte #5, tranchée — voir
+§Rôle Parent ci-dessous) : son `MemberRole` est typiquement scopé à l'équipe de son enfant, sans
+que `Parent` porte de permission `event`/`member` à ce scope équipe (seulement `PARENT`, résolu
+différemment). Exposition acceptée telle quelle, cohérente avec le comportement déjà établi de
+`TeamsService.findMineInClub` (Phase 3, antérieur au module Calendrier) : limitée aux anniversaires
+des coéquipiers de l'enfant (pas de tout le club), jamais aux ressources scopées joueur (notes,
+absences...) qui passent par le moteur RBAC générique, pas par ce raccourci `/mine`. À revoir si un
+jour ce loophole doit couvrir une donnée plus sensible.
+
+### Rôle Parent — liaison `ParentChild`
+
+Décision ouverte #5 (`docs/decisions-ouvertes-et-rgpd.md`), tranchée : un mineur ne pouvant pas se
+connecter, son Parent agit à sa place sur son enfant précis — jamais sur le reste de l'équipe.
+Trois droits concrets : consulter les informations de l'enfant, modifier ses informations
+personnelles (jamais les données foot), déclarer une absence à venir pour lui.
+
+**Mécanisme** : nouvelle table `ParentChild` (`docs/schema/fondations.md`), créée/supprimée
+uniquement par le staff (Coach/AdminClub/SuperAdmin, permission `parent_child`
+CREATE/READ/DELETE) via `POST`/`GET`/`DELETE /clubs/:clubId/players/:playerId/parents` — jamais
+par le Parent lui-même. Un nouveau scope `PARENT` (enum `PermissionScope`) est accordé au rôle
+Parent pour `member` (READ/UPDATE), `player_profile`/`player_measurement`/`player_evaluation`/
+`player_interview`/`player_note`/`player_objective`/`player_absence` (READ), et `player_absence`
+CREATE — voir `backend/prisma/seed.ts`. `GET /clubs/:clubId/parent-child/mine` (self-service, même
+pattern que `/me`/`/mine` ci-dessus) liste les enfants liés à l'appelant.
+
+**Vérification fine — même pattern que le scope `TEAM`/`assertPlayerInTeam`.** `PermissionsGuard`
+ne vérifie que "ce membre a-t-il un scope quelconque sur cette ressource dans ce club/équipe ?" —
+jamais que l'enfant ciblé par l'URL est bien SON enfant. Chaque service concerné vérifie donc le
+lien via un nouveau helper, `assertParentChildLink` (`backend/src/common/parent-child-membership.ts`),
+calqué sur `assertPlayerInTeam`.
+
+**Piège découvert en conception — le scope `PARENT` doit toujours rester un sur-ensemble strict du
+scope `OWN`.** Un même membre peut cumuler un rôle Player et un rôle Parent sur le même contexte
+club/équipe (ex. un Parent dont l'enfant lié joue dans la même équipe que lui-même, ou plus
+simplement un membre déjà scopé Player qui devient aussi Parent d'un tiers dans cette équipe).
+`PermissionsService.widestOf` ne résout qu'**un seul** scope par appel (`SCOPE_ORDER`, placé entre
+`OWN` et `TEAM`) — si le scope résolu devient `PARENT` alors que l'appelant consulte **son propre**
+profil, une vérification naïve de `assertParentChildLink` échouerait à tort (aucun lien
+`ParentChild(soi, soi)` n'existe). Parade appliquée dans chaque service : la branche `PARENT` ne
+déclenche `assertParentChildLink` que si la ressource ciblée n'est **pas** celle de l'appelant lui-même :
+```ts
+if (requester.scope === 'PARENT' && profile.memberId !== requester.memberId) {
+  await assertParentChildLink(prisma, requester.memberId, profile.memberId, notFoundErrorCode);
+}
+```
+Test de référence : `backend/src/common/parent-child-multi-role.integration.spec.ts` (persona
+"Bob", Player ET Parent sur le même contexte, consulte son propre profil sans lien sur lui-même).
+
+**Visibilité des notes/objectifs — plus restrictive que le scope `OWN` de l'enfant lui-même.** Le
+modèle `NoteVisibility` (Privé/Semi-privé/Public) réservait déjà `SEMI_PRIVE` au joueur et au staff,
+sans les parents (voir le commentaire au-dessus de `enum NoteVisibility`, `schema.prisma`) — une
+décision RGPD antérieure à ce câblage, préservant une part d'autonomie de l'enfant face au staff.
+Le scope `PARENT` respecte cette règle telle quelle : `PlayerNotesService`/`PlayerObjectivesService`
+filtrent sur `visibility === 'PUBLIC'` uniquement pour ce scope, alors que l'enfant lui-même
+(scope `OWN`) voit `SEMI_PRIVE` + `PUBLIC`.
+
+**`isExcused` sur `PlayerAbsence`** : un Parent qui déclare une absence pour son enfant ne peut pas
+plus s'auto-excuser que l'enfant lui-même (`requester.scope === 'OWN' || requester.scope ===
+'PARENT'` force `isExcused` à `null`, seul un Coach/AdminClub peut le renseigner ensuite).
+
+**Complément — self-service `/me` élargi.** Un membre auto-provisionné
+(`resolveOrProvisionMember`) reçoit un nom placeholder dérivé de son email ; `UpdateMyMemberDto`
+accepte désormais aussi `firstName`/`lastName`/`phone` (plus seulement `birthDate`) pour que
+n'importe quel membre — un Parent en particulier, seule donnée fiable détenue par le système étant
+son email — puisse le remplacer par ses vraies informations, essentielles pour que le staff
+puisse le joindre.
 
 ### Multi-rôles — règle de test obligatoire
 
