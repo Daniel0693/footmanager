@@ -87,14 +87,15 @@ Services `docker-compose` :
 **L'application est multi-langue dès la première ligne de code.** Aucun texte visible dans l'UI
 ne doit être codé en dur — toutes les chaînes passent par le système i18n.
 
-Langues cibles : français (MVP), puis anglais, allemand, portugais, italien, espagnol et d'autres.
+Langues cibles : français (MVP) et anglais déjà livrés (`locales/fr.json`, `locales/en.json`,
+structure de clés identique) ; allemand, portugais, italien, espagnol et d'autres à venir.
 
 ### Convention
 
 - **Clés de traduction** : en anglais (`training.session.title`, `player.profile.position`...).
-- **Bibliothèque côté front** : `next-intl` (recommandée pour Next.js, SSR inclus) ou `i18next`
-  avec `react-i18next` si on préfère rester indépendant du framework.
-- **Fichiers de traduction** : `locales/fr.json`, `locales/en.json`, etc. Un fichier par langue,
+- **Bibliothèque côté front** : `next-intl` (choix retenu — SSR inclus, intégration App Router
+  via `src/i18n/routing.ts`/`request.ts`/`navigation.ts` et `src/proxy.ts`).
+- **Fichiers de traduction** : `locales/fr.json`, `locales/en.json`. Un fichier par langue,
   organisé hiérarchiquement par module.
 - **Côté back** : les messages d'erreur retournés à l'UI sont des codes (pas du texte brut), la
   traduction est entièrement gérée côté front. Les emails/notifications passent par des templates

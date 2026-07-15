@@ -144,6 +144,10 @@ Ces statistiques sont filtrables par `Season`, `Championship`, ou toutes périod
 | Voir la fiche match complète | ✅ | ✅ | ✅ | ✅ (résultat + sa note) | ✅ (résultat) |
 | Supprimer un match | ✅ | ✅ | ✅ | ❌ | ❌ |
 
+**Parent** : les droits « son enfant » ci-dessus supposent une liaison Parent↔Joueur qui n'est
+pas encore modélisée (décision ouverte #5, voir `docs/decisions-ouvertes-et-rgpd.md`) — non
+câblé tant que cette décision n'est pas tranchée.
+
 ---
 
 ## Lien avec les autres modules
@@ -154,4 +158,5 @@ Ces statistiques sont filtrables par `Season`, `Championship`, ou toutes périod
 - **Effectif** : `MatchPlayerRating` et `MatchEvent` enrichissent le profil joueur (stats,
   dashboard).
 - **Blessures** : joueurs blessés signalés lors de la préparation de la composition.
-- **Scouting** : un `ScoutingReport` peut être rattaché à un `ChampionshipMatch` (optionnel).
+- **Scouting** : un `TeamScoutingReport` ou `PlayerScoutingReport` peut être rattaché à un
+  `ChampionshipMatch` (`championshipMatchId` nullable, optionnel). Voir `docs/schema/scouting.md`.

@@ -547,14 +547,14 @@ plus récente ; les sessions précédentes restent en base pour l'historique.
 
 Trois niveaux de visibilité, appliqués aux `PlayerNote` et `PlayerObjective` :
 
-- **Privé** : visible uniquement par les rôles strictement supérieurs (staff avec droits
-  d'écriture sur ce joueur). Le joueur lui-même ne voit pas.
-- **Semi-privé** : visible par le sujet (le joueur concerné) + les rôles supérieurs.
-- **Public** : visible par le joueur, les parents rattachés, et les rôles avec accès à l'équipe.
+- **Privé** : visible uniquement par le staff (rôles avec droits d'écriture sur ce joueur). Le
+  joueur lui-même ne voit pas.
+- **Semi-privé** : visible par le joueur concerné + le staff.
+- **Public** : visible par le joueur, les parents rattachés, et le staff — coaches d'autres
+  équipes du même club exclus, même en Public.
 
-**Le détail exact des audiences par rôle pour chaque niveau doit être vérifié par rapport aux
-artefacts UI/prototypes produits**, puis documenté ici une fois confirmé. Tension RGPD associée
-(Article 15) : voir `docs/decisions-ouvertes-et-rgpd.md`.
+Audiences confirmées et implémentées (`NoteVisibility`), voir `docs/decisions-ouvertes-et-rgpd.md`
+pour la décision tranchée. Tension RGPD associée (Article 15) : voir ce même fichier.
 
 ---
 
