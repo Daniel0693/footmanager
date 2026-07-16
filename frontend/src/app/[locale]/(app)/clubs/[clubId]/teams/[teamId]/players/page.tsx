@@ -34,6 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AddStaffMemberDialog } from "@/components/players/add-staff-member-dialog";
 import { BulkCreatePlayersDialog } from "@/components/players/bulk-create-players-dialog";
 import { BulkEditPlayersDialog } from "@/components/players/bulk-edit-players-dialog";
 import { ImportPlayersDialog } from "@/components/players/import-players-dialog";
@@ -79,6 +80,8 @@ interface RosterResponse {
   canCreate: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  canCreateStaff: boolean;
+  canAssignPrincipal: boolean;
 }
 
 type RosterSortBy =
@@ -102,6 +105,8 @@ const EMPTY_CAPABILITIES = {
   canCreate: false,
   canEdit: false,
   canDelete: false,
+  canCreateStaff: false,
+  canAssignPrincipal: false,
 };
 
 // Composant nommé séparé du default export de page.tsx : voir la même note
@@ -118,6 +123,7 @@ export function TeamPlayersPageContent({
   const t = useTranslations("players");
   const tBulk = useTranslations("bulkPlayers");
   const tImport = useTranslations("importPlayers");
+  const tStaff = useTranslations("staffForm");
   const tRoles = useTranslations("rosterRoles");
   const tPositions = useTranslations("positions");
   const tPositionLines = useTranslations("positionLines");
@@ -201,6 +207,8 @@ export function TeamPlayersPageContent({
         canCreate: result.canCreate,
         canEdit: result.canEdit,
         canDelete: result.canDelete,
+        canCreateStaff: result.canCreateStaff,
+        canAssignPrincipal: result.canAssignPrincipal,
       });
       setHasError(false);
     } catch {
@@ -222,6 +230,8 @@ export function TeamPlayersPageContent({
             canCreate: result.canCreate,
             canEdit: result.canEdit,
             canDelete: result.canDelete,
+            canCreateStaff: result.canCreateStaff,
+            canAssignPrincipal: result.canAssignPrincipal,
           });
           setHasError(false);
         }
@@ -357,6 +367,17 @@ export function TeamPlayersPageContent({
               onSuccess={loadRoster}
               trigger={
                 <Button variant="outline">{tImport("triggerLabel")}</Button>
+              }
+            />
+          )}
+          {capabilities.canCreateStaff && (
+            <AddStaffMemberDialog
+              clubId={clubId}
+              teamId={teamId}
+              canAssignPrincipal={capabilities.canAssignPrincipal}
+              onSuccess={loadRoster}
+              trigger={
+                <Button variant="outline">{tStaff("triggerLabel")}</Button>
               }
             />
           )}

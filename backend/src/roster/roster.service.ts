@@ -116,6 +116,8 @@ export class RosterService {
     canCreate: boolean;
     canEdit: boolean;
     canDelete: boolean;
+    canCreateStaff: boolean;
+    canAssignPrincipal: boolean;
   }> {
     const { clubId, teamId } = requester;
     await assertTeamInClub(
@@ -131,40 +133,58 @@ export class RosterService {
     // contrôles afficher (docs/modules/effectif-joueurs.md) — sans exposer
     // de nouvel endpoint "mes permissions", cohérent avec la convention du
     // projet ("permission toujours évaluée backend").
-    const [archiveScope, createScope, editScope, deleteScope] =
-      await Promise.all([
-        this.permissionsService.can(
-          requester.memberId,
-          'READ',
-          'roster_archive',
-          {
-            clubId,
-            teamId,
-          },
-        ),
-        this.permissionsService.can(
-          requester.memberId,
-          'CREATE',
-          'player_team',
-          {
-            clubId,
-            teamId,
-          },
-        ),
-        this.permissionsService.can(
-          requester.memberId,
-          'UPDATE',
-          'player_team',
-          {
-            clubId,
-            teamId,
-          },
-        ),
-        this.permissionsService.can(requester.memberId, 'DELETE', 'member', {
+    const [
+      archiveScope,
+      createScope,
+      editScope,
+      deleteScope,
+      staffCreateScope,
+    ] = await Promise.all([
+      this.permissionsService.can(
+        requester.memberId,
+        'READ',
+        'roster_archive',
+        {
           clubId,
           teamId,
-        }),
-      ]);
+        },
+      ),
+      this.permissionsService.can(requester.memberId, 'CREATE', 'player_team', {
+        clubId,
+        teamId,
+      }),
+      this.permissionsService.can(requester.memberId, 'UPDATE', 'player_team', {
+        clubId,
+        teamId,
+      }),
+      this.permissionsService.can(requester.memberId, 'DELETE', 'member', {
+        clubId,
+        teamId,
+      }),
+      this.permissionsService.can(requester.memberId, 'CREATE', 'team_staff', {
+        clubId,
+        teamId,
+      }),
+    ]);
+
+    // Miroir de TeamStaffService.assertCanCreateStaff (docs/modules/
+    // auth-roles.md §Staff technique d'une équipe) : un scope TEAM ne peut
+    // créer du staff que s'il est lui-même le Principal en poste — le
+    // bouton "Ajouter un membre du staff" ne doit s'afficher que si l'action
+    // aboutirait réellement, pas seulement si team_staff CREATE est accordé
+    // génériquement au rôle Coach.
+    let canCreateStaff = staffCreateScope !== null;
+    if (staffCreateScope === 'TEAM') {
+      const ownAssignment = await this.prisma.teamStaff.findFirst({
+        where: { teamId, memberId: requester.memberId, endDate: null },
+      });
+      canCreateStaff = ownAssignment?.staffRole === 'PRINCIPAL';
+    }
+    // Miroir de TeamStaffService.assertCanAssignPrincipal : indique au
+    // frontend s'il doit proposer PRINCIPAL comme choix de staffRole dans le
+    // formulaire de création (réservé au scope CLUB/ALL).
+    const canAssignPrincipal =
+      staffCreateScope !== null && staffCreateScope !== 'TEAM';
 
     if (status !== 'ACTIVE' && !archiveScope) {
       throw new AppException('ROSTER.ARCHIVE_FORBIDDEN', HttpStatus.FORBIDDEN);
@@ -205,6 +225,8 @@ export class RosterService {
       canCreate: !!createScope,
       canEdit: !!editScope,
       canDelete: !!deleteScope,
+      canCreateStaff,
+      canAssignPrincipal,
     };
   }
 

@@ -31,8 +31,13 @@ export class TeamStaffController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('teamId', ParseIntPipe) teamId: number,
     @Body() dto: CreateTeamStaffDto,
+    @CurrentMember() member: Member,
+    @CurrentPermissionScope() scope: PermissionScope,
   ) {
-    return this.teamStaffService.create(clubId, teamId, dto);
+    return this.teamStaffService.create(clubId, teamId, dto, {
+      memberId: member.id,
+      scope,
+    });
   }
 
   @RequirePermission('team_staff', 'READ')

@@ -1,6 +1,6 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Member, TeamStaff } from '@prisma/client';
+import type { Member, Team, TeamStaff } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import {
   PermissionedRequest,
@@ -60,6 +60,27 @@ const principalAssignment: TeamStaff = {
   updatedAt: new Date(),
 };
 
+// Marc (memberId 42) est Adjoint dans cette équipe, pas Principal — utilisé
+// pour le scénario de création (assertCanCreateStaff).
+const marcAdjointAssignment: TeamStaff = {
+  id: 301,
+  teamId: 5,
+  memberId: 42,
+  staffRole: 'ADJOINT',
+  startDate: null,
+  endDate: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const team: Team = {
+  id: 5,
+  clubId: 1,
+  name: 'U15 A',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
 const permissions = {
   teamStaffUpdateTeam: {
     id: 1,
@@ -73,18 +94,36 @@ const permissions = {
     action: 'UPDATE',
     scope: 'CLUB',
   },
+  teamStaffCreateTeam: {
+    id: 3,
+    resource: 'team_staff',
+    action: 'CREATE',
+    scope: 'TEAM',
+  },
+  teamStaffCreateClub: {
+    id: 4,
+    resource: 'team_staff',
+    action: 'CREATE',
+    scope: 'CLUB',
+  },
 } as const;
 
 const roles = {
   adjoint: {
     id: 1,
     isSystem: true,
-    rolePermissions: [{ permission: permissions.teamStaffUpdateTeam }],
+    rolePermissions: [
+      { permission: permissions.teamStaffUpdateTeam },
+      { permission: permissions.teamStaffCreateTeam },
+    ],
   },
   adminClub: {
     id: 2,
     isSystem: true,
-    rolePermissions: [{ permission: permissions.teamStaffUpdateClub }],
+    rolePermissions: [
+      { permission: permissions.teamStaffUpdateClub },
+      { permission: permissions.teamStaffCreateClub },
+    ],
   },
 };
 
@@ -137,12 +176,21 @@ function buildContext(
 
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const updateHandler = TeamStaffController.prototype.update;
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const createHandler = TeamStaffController.prototype.create;
 
 describe('Module Effectif — scénario multi-rôles (TeamStaffController)', () => {
   let guard: PermissionsGuard;
   let teamStaffService: TeamStaffService;
   let tsFindFirst: jest.Mock;
   let tsUpdate: jest.Mock;
+  let teamFindFirst: jest.Mock;
+  let memberFindFirst: jest.Mock;
+  let tx: {
+    teamStaff: { findFirst: jest.Mock; update: jest.Mock; create: jest.Mock };
+    role: { findFirst: jest.Mock };
+    memberRole: { findFirst: jest.Mock; create: jest.Mock };
+  };
 
   beforeEach(() => {
     const permissionsService = new PermissionsService(buildPrismaStub());
@@ -165,8 +213,31 @@ describe('Module Effectif — scénario multi-rôles (TeamStaffController)', () 
 
     tsFindFirst = jest.fn().mockResolvedValue(principalAssignment);
     tsUpdate = jest.fn().mockResolvedValue(principalAssignment);
+    teamFindFirst = jest.fn().mockResolvedValue(team);
+    memberFindFirst = jest.fn().mockResolvedValue(adjointMember);
+    tx = {
+      teamStaff: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        update: tsUpdate,
+        create: jest.fn(),
+      },
+      role: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ id: 6, name: 'Coach', isSystem: true }),
+      },
+      memberRole: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
+      },
+    };
     const prismaStub = {
-      teamStaff: { findFirst: tsFindFirst, update: tsUpdate },
+      team: { findFirst: teamFindFirst },
+      member: { findFirst: memberFindFirst },
+      teamStaff: { findFirst: tsFindFirst },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback(tx),
+      ),
     } as unknown as PrismaService;
     teamStaffService = new TeamStaffService(prismaStub);
   });
@@ -228,5 +299,60 @@ describe('Module Effectif — scénario multi-rôles (TeamStaffController)', () 
     await expect(
       guard.canActivate(buildContext(request, updateHandler)),
     ).rejects.toBeInstanceOf(AppException);
+  });
+
+  describe('création de staff — réservée au Principal (scope TEAM) ou à un scope CLUB/ALL', () => {
+    it("l'Adjoint (scope TEAM, généralement autorisé par team_staff CREATE) est bloqué par le service car il n'est pas Principal", async () => {
+      const request = {
+        params: { clubId: '1', teamId: '5' },
+        user: { userId: 7 },
+      } as Partial<PermissionedRequest>;
+
+      await guard.canActivate(buildContext(request, createHandler));
+      expect(request.permissionScope).toBe('TEAM');
+
+      // assertCanCreateStaff interroge la propre affectation du demandeur.
+      tsFindFirst.mockResolvedValue(marcAdjointAssignment);
+
+      await expect(
+        teamStaffService.create(
+          1,
+          5,
+          { memberId: 55, staffRole: 'ADJOINT' },
+          { memberId: request.member!.id, scope: request.permissionScope! },
+        ),
+      ).rejects.toMatchObject({ status: 403 });
+      expect(tx.teamStaff.create).not.toHaveBeenCalled();
+    });
+
+    it("l'AdminClub (scope CLUB) peut créer une affectation de staff", async () => {
+      const request = {
+        params: { clubId: '1', teamId: '5' },
+        user: { userId: 70 },
+      } as Partial<PermissionedRequest>;
+
+      await guard.canActivate(buildContext(request, createHandler));
+      expect(request.permissionScope).toBe('CLUB');
+
+      tx.teamStaff.create.mockResolvedValue(marcAdjointAssignment);
+
+      await expect(
+        teamStaffService.create(
+          1,
+          5,
+          { memberId: 55, staffRole: 'ADJOINT' },
+          { memberId: request.member!.id, scope: request.permissionScope! },
+        ),
+      ).resolves.toBe(marcAdjointAssignment);
+      expect(tx.memberRole.create).toHaveBeenCalledWith({
+        data: {
+          memberId: 55,
+          roleId: 6,
+          clubId: 1,
+          teamId: 5,
+          startDate: undefined,
+        },
+      });
+    });
   });
 });

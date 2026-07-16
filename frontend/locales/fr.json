@@ -871,13 +871,20 @@
   },
   "staffForm": {
     "editTitle": "Modifier le membre du staff",
+    "createTitle": "Ajouter un membre du staff",
+    "triggerLabel": "Ajouter un membre du staff",
     "firstName": "Prénom",
     "lastName": "Nom",
     "phone": "Téléphone",
+    "gender": "Genre",
+    "genderUnspecified": "Non renseigné",
     "birthDate": "Date de naissance",
+    "startDate": "Date d'arrivée",
     "role": "Rôle",
     "submitEdit": "Enregistrer",
+    "submitCreate": "Ajouter",
     "updated": "Membre du staff modifié avec succès",
+    "created": "Membre du staff ajouté avec succès",
     "firstNameRequired": "Le prénom est requis",
     "lastNameRequired": "Le nom est requis"
   },
@@ -1032,8 +1039,12 @@
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
       "MEMBER_NOT_IN_CLUB": "Ce membre n'appartient pas à ce club",
+      "MISSING_MEMBER_OR_IDENTITY": "Précisez un membre existant ou l'identité (prénom, nom) de la nouvelle personne",
       "ALREADY_ACTIVE": "Ce membre a déjà une affectation active dans le staff de cette équipe",
       "CANNOT_MODIFY_PRINCIPAL": "Un Adjoint ou Co-entraîneur ne peut pas modifier la fiche de l'Entraîneur principal",
+      "ONLY_PRINCIPAL_CAN_CREATE": "Seul l'Entraîneur principal de cette équipe peut ajouter un membre du staff",
+      "ONLY_ADMIN_CAN_ASSIGN_PRINCIPAL": "Seuls le Propriétaire, un SuperAdmin ou l'AdminClub peuvent désigner un Entraîneur principal",
+      "COACH_ROLE_MISSING": "Le rôle Coach est introuvable dans le système",
       "NOT_FOUND": "Affectation de staff introuvable"
     },
     "TEAMS": {
