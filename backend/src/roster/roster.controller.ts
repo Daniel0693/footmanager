@@ -24,6 +24,7 @@ import { BulkCreateRosterDto } from './dto/bulk-create-roster.dto';
 import { BulkUpdateRosterDto } from './dto/bulk-update-roster.dto';
 import { FindPlayerMatchQueryDto } from './dto/find-player-match-query.dto';
 import { FindRosterQueryDto } from './dto/find-roster-query.dto';
+import { CommitImportDto } from './dto/import-row-decision.dto';
 import { PreviewImportDto } from './dto/preview-import.dto';
 import {
   MAX_IMPORT_FILE_SIZE_BYTES,
@@ -148,6 +149,25 @@ export class RosterController {
       clubId,
       teamId,
       dto.rows,
+      scope,
+    );
+  }
+
+  // Import fichier (étape 5/6) : applique les décisions déjà prises par
+  // l'utilisateur (écran de prévisualisation), transaction unique tout-ou-
+  // rien. Même permission que les deux endpoints précédents.
+  @RequirePermission('player_team', 'CREATE')
+  @Post('import/commit')
+  commitImport(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @CurrentPermissionScope() scope: PermissionScope,
+    @Body() dto: CommitImportDto,
+  ) {
+    return this.rosterImportService.commitImport(
+      clubId,
+      teamId,
+      dto.decisions,
       scope,
     );
   }

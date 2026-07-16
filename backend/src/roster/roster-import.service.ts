@@ -1,10 +1,11 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { PermissionScope } from '@prisma/client';
+import type { PermissionScope, Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { Readable } from 'stream';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
+import type { ImportRowDecisionDto } from './dto/import-row-decision.dto';
 import type { ImportRowInputDto } from './dto/import-row-input.dto';
 import {
   PlayerMatchCandidate,
@@ -190,5 +191,284 @@ export class RosterImportService {
       });
     }
     return results;
+  }
+
+  /**
+   * Rapprochement joueur (import fichier) — étape 5/6 : applique les
+   * décisions déjà prises par l'utilisateur à l'écran de prévisualisation
+   * (étape 4), une seule transaction, tout-ou-rien — même convention que
+   * RosterService.bulkCreate/bulkUpdate (B4). Ne rejoue jamais la cascade de
+   * rapprochement (RosterMatchingService), qui n'intervient qu'à l'étape 3 :
+   * la décision de l'utilisateur fait foi.
+   */
+  async commitImport(
+    clubId: number,
+    teamId: number,
+    decisions: ImportRowDecisionDto[],
+    requesterScope: PermissionScope,
+  ): Promise<{ created: number; updated: number; reactivated: number }> {
+    if (requesterScope === 'OWN' || requesterScope === 'PARENT') {
+      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
+    }
+    await assertTeamInClub(
+      this.prisma,
+      clubId,
+      teamId,
+      'ROSTER.TEAM_NOT_IN_CLUB',
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      let created = 0;
+      let updated = 0;
+      let reactivated = 0;
+
+      for (const decision of decisions) {
+        if (decision.action === 'CREATE') {
+          await this.createImportRow(tx, clubId, teamId, decision.row);
+          created++;
+        } else if (decision.action === 'UPDATE') {
+          if (
+            decision.playerId === undefined ||
+            decision.playerTeamId === undefined
+          ) {
+            throw new AppException(
+              'ROSTER_IMPORT.MISSING_TARGET',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+          await this.updateImportRow(
+            tx,
+            clubId,
+            teamId,
+            decision.playerId,
+            decision.playerTeamId,
+            decision.row,
+          );
+          updated++;
+        } else {
+          if (decision.playerId === undefined) {
+            throw new AppException(
+              'ROSTER_IMPORT.MISSING_TARGET',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+          await this.reactivateImportRow(
+            tx,
+            clubId,
+            teamId,
+            decision.playerId,
+            decision.row,
+          );
+          reactivated++;
+        }
+      }
+
+      return { created, updated, reactivated };
+    });
+  }
+
+  private async createImportRow(
+    tx: Prisma.TransactionClient,
+    clubId: number,
+    teamId: number,
+    row: ImportRowInputDto,
+  ) {
+    if (row.jerseyNumber !== undefined) {
+      await this.assertJerseyNumberAvailable(tx, teamId, row.jerseyNumber);
+    }
+    await this.assertLicenseNumberAvailable(tx, clubId, row.licenseNumber);
+
+    const member = await tx.member.create({
+      data: {
+        clubId,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        phone: row.phone,
+        gender: row.gender,
+        birthDate: row.birthDate,
+      },
+    });
+    const player = await tx.playerProfile.create({
+      data: {
+        memberId: member.id,
+        licenseNumber: row.licenseNumber,
+        nationality: row.nationality,
+        preferredFoot: row.preferredFoot,
+      },
+    });
+    await tx.playerTeam.create({
+      data: {
+        playerId: player.id,
+        teamId,
+        jerseyNumber: row.jerseyNumber,
+        mainPosition: row.mainPosition,
+        secondaryPositions: row.secondaryPositions ?? [],
+        joinDate: row.joinDate,
+      },
+    });
+  }
+
+  // Statut MODIFICATION accepté : met à jour Member + PlayerProfile +
+  // PlayerTeam avec les valeurs de la ligne — seul cas de l'import qui
+  // réécrit l'identité d'un profil déjà existant (voir ImportRowDecisionDto).
+  private async updateImportRow(
+    tx: Prisma.TransactionClient,
+    clubId: number,
+    teamId: number,
+    playerId: number,
+    playerTeamId: number,
+    row: ImportRowInputDto,
+  ) {
+    const assignment = await tx.playerTeam.findFirst({
+      where: { id: playerTeamId, teamId, playerId, leaveDate: null },
+      include: { player: true },
+    });
+    if (!assignment) {
+      throw new AppException(
+        'ROSTER.PLAYER_TEAM_NOT_FOUND',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    if (
+      row.jerseyNumber !== undefined &&
+      row.jerseyNumber !== assignment.jerseyNumber
+    ) {
+      await this.assertJerseyNumberAvailable(
+        tx,
+        teamId,
+        row.jerseyNumber,
+        playerTeamId,
+      );
+    }
+    await this.assertLicenseNumberAvailable(
+      tx,
+      clubId,
+      row.licenseNumber,
+      playerId,
+    );
+
+    await tx.member.update({
+      where: { id: assignment.player.memberId },
+      data: {
+        firstName: row.firstName,
+        lastName: row.lastName,
+        phone: row.phone,
+        gender: row.gender,
+        birthDate: row.birthDate,
+      },
+    });
+    await tx.playerProfile.update({
+      where: { id: playerId },
+      data: {
+        licenseNumber: row.licenseNumber,
+        nationality: row.nationality,
+        preferredFoot: row.preferredFoot,
+      },
+    });
+    await tx.playerTeam.update({
+      where: { id: playerTeamId },
+      data: {
+        jerseyNumber: row.jerseyNumber,
+        mainPosition: row.mainPosition,
+        secondaryPositions: row.secondaryPositions ?? [],
+        joinDate: row.joinDate,
+      },
+    });
+  }
+
+  // Statut RÉACTIVATION accepté (ou candidat choisi sur AMBIGU) : réutilise
+  // le PlayerProfile existant, crée uniquement une nouvelle affectation
+  // PlayerTeam — jamais de mise à jour du Member/PlayerProfile, même
+  // convention que la réactivation dans PlayerFormDialog (les champs
+  // d'identité de la ligne sont ignorés, seuls les champs d'équipe
+  // s'appliquent).
+  private async reactivateImportRow(
+    tx: Prisma.TransactionClient,
+    clubId: number,
+    teamId: number,
+    playerId: number,
+    row: ImportRowInputDto,
+  ) {
+    const player = await tx.playerProfile.findFirst({
+      where: { id: playerId, member: { clubId } },
+    });
+    if (!player) {
+      throw new AppException('PLAYERS.NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+
+    const activeAssignment = await tx.playerTeam.findFirst({
+      where: { playerId, teamId, leaveDate: null },
+    });
+    if (activeAssignment) {
+      throw new AppException(
+        'PLAYER_TEAMS.ALREADY_ACTIVE',
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    if (row.jerseyNumber !== undefined) {
+      await this.assertJerseyNumberAvailable(tx, teamId, row.jerseyNumber);
+    }
+
+    await tx.playerTeam.create({
+      data: {
+        playerId,
+        teamId,
+        jerseyNumber: row.jerseyNumber,
+        mainPosition: row.mainPosition,
+        secondaryPositions: row.secondaryPositions ?? [],
+        joinDate: row.joinDate,
+      },
+    });
+  }
+
+  // Même vérification que RosterService (bulk B4)/PlayerTeamsService — pas
+  // de contrainte SQL sur (teamId, jerseyNumber), voir docs/schema/joueurs.md
+  // — réécrite ici pour opérer sur le client de transaction de l'import.
+  private async assertJerseyNumberAvailable(
+    tx: Prisma.TransactionClient,
+    teamId: number,
+    jerseyNumber: number,
+    excludeId?: number,
+  ) {
+    const conflict = await tx.playerTeam.findFirst({
+      where: {
+        teamId,
+        jerseyNumber,
+        leaveDate: null,
+        ...(excludeId !== undefined ? { id: { not: excludeId } } : {}),
+      },
+    });
+    if (conflict) {
+      throw new AppException('ROSTER.JERSEY_NUMBER_TAKEN', HttpStatus.CONFLICT);
+    }
+  }
+
+  // Même vérification que PlayersService (unicité scopée au club, pas
+  // globale — voir docs/schema/joueurs.md et docs/decisions-ouvertes-et-rgpd.md,
+  // décision du 2026-07-16) — réécrite ici pour opérer sur le client de
+  // transaction de l'import, sur tous les Member du club (actifs ou non).
+  private async assertLicenseNumberAvailable(
+    tx: Prisma.TransactionClient,
+    clubId: number,
+    licenseNumber: string | undefined,
+    excludeId?: number,
+  ) {
+    if (!licenseNumber) {
+      return;
+    }
+    const conflict = await tx.playerProfile.findFirst({
+      where: {
+        licenseNumber,
+        member: { clubId },
+        ...(excludeId !== undefined ? { id: { not: excludeId } } : {}),
+      },
+    });
+    if (conflict) {
+      throw new AppException(
+        'PLAYERS.LICENSE_NUMBER_ALREADY_USED_IN_CLUB',
+        HttpStatus.CONFLICT,
+      );
+    }
   }
 }

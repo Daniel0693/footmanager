@@ -184,4 +184,333 @@ describe('RosterImportService', () => {
       ]);
     });
   });
+
+  describe('commitImport', () => {
+    function buildCommitPrismaStub(overrides: Record<string, unknown> = {}) {
+      const tx = {
+        member: {
+          create: jest.fn().mockResolvedValue({ id: 900 }),
+          update: jest.fn().mockResolvedValue({ id: 42 }),
+        },
+        playerProfile: {
+          create: jest.fn().mockResolvedValue({ id: 950 }),
+          update: jest.fn().mockResolvedValue({ id: 100 }),
+          // Deux usages distincts partagent ce même mock : l'existence du
+          // joueur ciblé par REACTIVATE (`where.id` un nombre simple, doit
+          // résoudre le profil) vs. la vérification d'unicité de licence
+          // (`where.licenseNumber` présent, `where.id` absent ou `{not: X}`
+          // — jamais un nombre simple) — null (pas de conflit) par défaut
+          // pour ce second cas.
+          findFirst: jest.fn((args: { where: Record<string, unknown> }) => {
+            if (typeof args.where.id === 'number') {
+              return Promise.resolve({ id: args.where.id, memberId: 42 });
+            }
+            return Promise.resolve(null);
+          }),
+        },
+        playerTeam: {
+          create: jest.fn().mockResolvedValue({ id: 990 }),
+          update: jest.fn().mockResolvedValue({ id: 200 }),
+          // Trois usages bien distincts partagent ce même mock (voir
+          // roster.service.spec.ts pour le même procédé) : la recherche de
+          // l'affectation ciblée par UPDATE (`where.id` un nombre simple),
+          // la vérification de disponibilité du maillot (`where.jerseyNumber`
+          // présent), et la vérification "déjà actif" de REACTIVATE (ni l'un
+          // ni l'autre) — null (aucun conflit/aucune affectation active) par
+          // défaut pour ces deux derniers cas.
+          findFirst: jest.fn((args: { where: Record<string, unknown> }) => {
+            if (typeof args.where.id === 'number') {
+              return Promise.resolve({
+                id: args.where.id,
+                playerId: 100,
+                jerseyNumber: 9,
+                player: { memberId: 42 },
+              });
+            }
+            return Promise.resolve(null);
+          }),
+        },
+      };
+      const transaction = jest.fn((callback: (tx: unknown) => unknown) =>
+        callback(tx),
+      );
+      const prismaStub = {
+        team: { findFirst: jest.fn().mockResolvedValue(team) },
+        $transaction: transaction,
+        ...overrides,
+      } as unknown as PrismaService;
+      return { prismaStub, tx, transaction };
+    }
+
+    function buildService(prismaStub: PrismaService) {
+      return new RosterImportService(
+        prismaStub,
+        {} as unknown as RosterMatchingService,
+      );
+    }
+
+    const createRow = {
+      firstName: 'Nouveau',
+      lastName: 'Joueur',
+      licenseNumber: 'CH-1234',
+      nationality: 'Suisse',
+      jerseyNumber: 10,
+    };
+
+    it.each(['OWN', 'PARENT'] as const)(
+      'refuse un appelant en scope %s, avant toute transaction',
+      async (scope) => {
+        const { prismaStub, transaction } = buildCommitPrismaStub();
+        const service = buildService(prismaStub);
+
+        await expect(
+          service.commitImport(
+            1,
+            5,
+            [{ action: 'CREATE', row: createRow }],
+            scope,
+          ),
+        ).rejects.toMatchObject({ status: HttpStatus.FORBIDDEN });
+        expect(transaction).not.toHaveBeenCalled();
+      },
+    );
+
+    it("refuse si l'équipe n'appartient pas au club, avant toute transaction", async () => {
+      const { prismaStub, transaction } = buildCommitPrismaStub({
+        team: { findFirst: jest.fn().mockResolvedValue(null) },
+      });
+      const service = buildService(prismaStub);
+
+      await expect(
+        service.commitImport(
+          1,
+          5,
+          [{ action: 'CREATE', row: createRow }],
+          'CLUB',
+        ),
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+      expect(transaction).not.toHaveBeenCalled();
+    });
+
+    it('CREATE : crée Member + PlayerProfile (avec licence/nationalité) + PlayerTeam', async () => {
+      const { prismaStub, tx } = buildCommitPrismaStub();
+      const service = buildService(prismaStub);
+
+      const result = await service.commitImport(
+        1,
+        5,
+        [{ action: 'CREATE', row: createRow }],
+        'CLUB',
+      );
+
+      expect(tx.member.create).toHaveBeenCalledWith({
+        data: {
+          clubId: 1,
+          firstName: 'Nouveau',
+          lastName: 'Joueur',
+          phone: undefined,
+          gender: undefined,
+          birthDate: undefined,
+        },
+      });
+      expect(tx.playerProfile.create).toHaveBeenCalledWith({
+        data: {
+          memberId: 900,
+          licenseNumber: 'CH-1234',
+          nationality: 'Suisse',
+          preferredFoot: undefined,
+        },
+      });
+      expect(tx.playerTeam.create).toHaveBeenCalledWith({
+        data: {
+          playerId: 950,
+          teamId: 5,
+          jerseyNumber: 10,
+          mainPosition: undefined,
+          secondaryPositions: [],
+          joinDate: undefined,
+        },
+      });
+      expect(result).toEqual({ created: 1, updated: 0, reactivated: 0 });
+    });
+
+    it('UPDATE : nécessite playerId et playerTeamId, sinon 400', async () => {
+      const { prismaStub } = buildCommitPrismaStub();
+      const service = buildService(prismaStub);
+
+      await expect(
+        service.commitImport(
+          1,
+          5,
+          [{ action: 'UPDATE', row: createRow }],
+          'CLUB',
+        ),
+      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+    });
+
+    it('UPDATE : met à jour Member + PlayerProfile + PlayerTeam ciblés', async () => {
+      const { prismaStub, tx } = buildCommitPrismaStub();
+      const service = buildService(prismaStub);
+
+      const result = await service.commitImport(
+        1,
+        5,
+        [
+          {
+            action: 'UPDATE',
+            playerId: 100,
+            playerTeamId: 200,
+            row: createRow,
+          },
+        ],
+        'CLUB',
+      );
+
+      expect(tx.member.update).toHaveBeenCalledWith({
+        where: { id: 42 },
+        data: {
+          firstName: 'Nouveau',
+          lastName: 'Joueur',
+          phone: undefined,
+          gender: undefined,
+          birthDate: undefined,
+        },
+      });
+      expect(tx.playerProfile.update).toHaveBeenCalledWith({
+        where: { id: 100 },
+        data: {
+          licenseNumber: 'CH-1234',
+          nationality: 'Suisse',
+          preferredFoot: undefined,
+        },
+      });
+      expect(tx.playerTeam.update).toHaveBeenCalledWith({
+        where: { id: 200 },
+        data: {
+          jerseyNumber: 10,
+          mainPosition: undefined,
+          secondaryPositions: [],
+          joinDate: undefined,
+        },
+      });
+      expect(result).toEqual({ created: 0, updated: 1, reactivated: 0 });
+    });
+
+    it("UPDATE : 404 si l'affectation ciblée est introuvable", async () => {
+      const { prismaStub, tx } = buildCommitPrismaStub();
+      (tx.playerTeam.findFirst as jest.Mock).mockResolvedValue(null);
+      const service = buildService(prismaStub);
+
+      await expect(
+        service.commitImport(
+          1,
+          5,
+          [
+            {
+              action: 'UPDATE',
+              playerId: 100,
+              playerTeamId: 200,
+              row: createRow,
+            },
+          ],
+          'CLUB',
+        ),
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+    });
+
+    it('REACTIVATE : nécessite playerId, sinon 400', async () => {
+      const { prismaStub } = buildCommitPrismaStub();
+      const service = buildService(prismaStub);
+
+      await expect(
+        service.commitImport(
+          1,
+          5,
+          [{ action: 'REACTIVATE', row: createRow }],
+          'CLUB',
+        ),
+      ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+    });
+
+    it('REACTIVATE : crée uniquement une nouvelle affectation PlayerTeam, ignore les champs d’identité de la ligne', async () => {
+      const { prismaStub, tx } = buildCommitPrismaStub();
+      const service = buildService(prismaStub);
+
+      const result = await service.commitImport(
+        1,
+        5,
+        [{ action: 'REACTIVATE', playerId: 100, row: createRow }],
+        'CLUB',
+      );
+
+      expect(tx.member.create).not.toHaveBeenCalled();
+      expect(tx.member.update).not.toHaveBeenCalled();
+      expect(tx.playerProfile.update).not.toHaveBeenCalled();
+      expect(tx.playerTeam.create).toHaveBeenCalledWith({
+        data: {
+          playerId: 100,
+          teamId: 5,
+          jerseyNumber: 10,
+          mainPosition: undefined,
+          secondaryPositions: [],
+          joinDate: undefined,
+        },
+      });
+      expect(result).toEqual({ created: 0, updated: 0, reactivated: 1 });
+    });
+
+    it("REACTIVATE : 404 si le joueur n'appartient pas au club", async () => {
+      const { prismaStub, tx } = buildCommitPrismaStub();
+      (tx.playerProfile.findFirst as jest.Mock).mockResolvedValue(null);
+      const service = buildService(prismaStub);
+
+      await expect(
+        service.commitImport(
+          1,
+          5,
+          [{ action: 'REACTIVATE', playerId: 100, row: createRow }],
+          'CLUB',
+        ),
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+    });
+
+    it('REACTIVATE : refuse (409) si une affectation active existe déjà dans cette équipe', async () => {
+      const { prismaStub, tx } = buildCommitPrismaStub();
+      (tx.playerTeam.findFirst as jest.Mock).mockResolvedValue({ id: 300 });
+      const service = buildService(prismaStub);
+
+      await expect(
+        service.commitImport(
+          1,
+          5,
+          [{ action: 'REACTIVATE', playerId: 100, row: createRow }],
+          'CLUB',
+        ),
+      ).rejects.toMatchObject({ status: HttpStatus.CONFLICT });
+      expect(tx.playerTeam.create).not.toHaveBeenCalled();
+    });
+
+    it('un lot mixte renvoie le décompte correct par type de décision', async () => {
+      const { prismaStub } = buildCommitPrismaStub();
+      const service = buildService(prismaStub);
+
+      const result = await service.commitImport(
+        1,
+        5,
+        [
+          { action: 'CREATE', row: createRow },
+          {
+            action: 'UPDATE',
+            playerId: 100,
+            playerTeamId: 200,
+            row: createRow,
+          },
+          { action: 'REACTIVATE', playerId: 100, row: createRow },
+        ],
+        'CLUB',
+      );
+
+      expect(result).toEqual({ created: 1, updated: 1, reactivated: 1 });
+    });
+  });
 });

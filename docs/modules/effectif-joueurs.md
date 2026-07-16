@@ -334,9 +334,9 @@ une date d'arrivée déjà vide n'est jamais réécrite avec la date du jour.
 > ligne plutôt qu'une logique de matching séparée. Découpage en six incréments :
 > 1. Upload + extraction brute des en-têtes/lignes (implémenté).
 > 2. Mapping des colonnes (frontend, à venir).
-> 3. Envoi au backend, rapprochement par ligne (à venir).
-> 4. Tableau de prévisualisation avec décision par ligne (à venir).
-> 5. Validation, transaction tout-ou-rien (à venir).
+> 3. Envoi au backend, rapprochement par ligne (implémenté).
+> 4. Tableau de prévisualisation avec décision par ligne (frontend, à venir).
+> 5. Validation, transaction tout-ou-rien (implémenté, backend complet).
 > 6. Rechargement du tableau Effectif existant (à venir).
 
 **Étape 1 — `POST /clubs/:clubId/teams/:teamId/roster/import/parse`** (`RosterImportService`,
@@ -361,6 +361,35 @@ le vrai `Buffer` de `@types/node` dès que le paquet est importé et rend tout `
 structurellement incompatible avec le paramètre attendu par `.load()` — aucun cast direct ne
 peut satisfaire les deux définitions à la fois. Contourné par un `any` documenté (dernier recours,
 `docs/typescript-conventions.md` §3), isolé à cette seule ligne.
+
+**Étape 3 — `POST .../roster/import/preview`** : reçoit les lignes déjà mappées par l'utilisateur
+(`ImportRowInputDto`, étend `CreateRosterRowDto` de B4 — jamais modifié — avec
+`licenseNumber`/`nationality`/`preferredFoot`, absents du bulk manuel). Vérifie le scope de
+l'appelant et l'appartenance de l'équipe au club **une seule fois**, puis rapproche chaque ligne
+via `RosterMatchingService.findMatchesForRow` — nouvelle méthode extraite de `findMatches` (utilisée
+par `lookup`) pour ne pas répéter cette vérification à chaque ligne d'un import de plusieurs
+centaines. Renvoie `{ index, status, candidates }` par ligne, aucune écriture.
+
+**Étape 5 — `POST .../roster/import/commit`** (backend complet) : applique les décisions déjà
+prises par l'utilisateur à l'écran de prévisualisation — ne rejoue jamais la cascade de
+rapprochement, la décision de l'utilisateur fait foi. Une seule transaction, tout-ou-rien (même
+convention que `bulkCreate`/`bulkUpdate`, B4). Trois actions par ligne (`ImportRowDecisionDto`) :
+- **`CREATE`** : nouveau Member + PlayerProfile + PlayerTeam — comme `bulkCreate`, avec en plus
+  `licenseNumber`/`nationality`/`preferredFoot` sur le `PlayerProfile`.
+- **`UPDATE`** (statut `MODIFICATION` — le seul cas où l'import diffère du formulaire unitaire,
+  qui bloque ce statut faute d'action pertinente dans un flux de création pure) : met à jour
+  Member + PlayerProfile + PlayerTeam existants avec les valeurs de la ligne — c'est le seul cas de
+  l'import qui réécrit l'identité d'un profil déjà présent en base.
+- **`REACTIVATE`** (statut `RÉACTIVATION` accepté, ou candidat choisi sur `AMBIGU`) : réutilise le
+  `PlayerProfile` existant, crée uniquement une nouvelle affectation `PlayerTeam` — **jamais** de
+  mise à jour du Member/PlayerProfile, même convention que la réactivation dans `PlayerFormDialog`
+  (les champs d'identité de la ligne sont ignorés, seuls les champs d'équipe s'appliquent).
+
+Réutilise les vérifications déjà établies, réécrites pour opérer sur le client de transaction :
+unicité du maillot parmi les affectations actives (`ROSTER.JERSEY_NUMBER_TAKEN`), unicité de la
+licence scopée au club (`PLAYERS.LICENSE_NUMBER_ALREADY_USED_IN_CLUB`, décision du 2026-07-16), et
+`PLAYER_TEAMS.ALREADY_ACTIVE` pour `REACTIVATE` si une affectation active existe déjà (garde-fou,
+ne devrait pas arriver si le statut `MODIFICATION` a été correctement résolu à l'étape 3).
 
 ## Profil joueur — mise en page 2 colonnes
 
