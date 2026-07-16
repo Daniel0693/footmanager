@@ -328,6 +328,100 @@ préremplie à la date du jour plutôt que laissée vide — modifiable libremen
 arrivée future ou rattraper un retard de saisie. Ne s'applique qu'à la création : en édition,
 une date d'arrivée déjà vide n'est jamais réécrite avec la date du jour.
 
+## Import fichier (Excel/CSV) (branche `feature/effectif-import-fichier`)
+
+> Réutilise le service de rapprochement (`RosterMatchingService`, ci-dessus) par ligne plutôt
+> qu'une logique de matching séparée. Découpage en six incréments, tous implémentés :
+> 1. Upload + extraction brute des en-têtes/lignes.
+> 2. Mapping des colonnes (frontend).
+> 3. Envoi au backend, rapprochement par ligne.
+> 4. Tableau de prévisualisation avec décision par ligne (frontend).
+> 5. Validation, transaction tout-ou-rien.
+> 6. Rechargement du tableau Effectif existant (frontend).
+
+**Étape 1 — `POST /clubs/:clubId/teams/:teamId/roster/import/parse`** (`RosterImportService`,
+module `roster`) : upload multipart (`FileInterceptor`), aucune écriture en base. Un seul format
+de fichier accepté par extension (`.csv` ou `.xlsx`, jamais déduit du mime-type — trop
+inconsistant selon les navigateurs). Limites volontairement basses (bornent la taille de la
+transaction de l'étape 5, un import de club restant de l'ordre de quelques dizaines à quelques
+centaines de lignes) : 2 Mo, 500 lignes de données maximum (hors en-tête). Renvoie les en-têtes et
+les lignes à l'état brut (toutes les valeurs converties en chaîne, dates au format AAAA-MM-JJ en
+date locale) — aucune interprétation métier ici, le mapping colonne → champ étant une décision de
+l'utilisateur (étape 2, frontend). Gardé par `player_team CREATE` (même ressource que
+l'aboutissement de l'import) — exclut donc déjà Player/Parent par construction, contrairement à
+`lookup` qui avait dû ajouter un rejet explicite côté service (voir plus haut).
+
+**Dépendance ajoutée : `exceljs`** (lecture XLSX et CSV avec une seule bibliothèque — CSV via
+`workbook.csv.read()`, une fonctionnalité déjà intégrée, pas une bibliothèque séparée). `uuid`
+(dépendance transitive d'exceljs) forcé à `^11.1.1` via `overrides` dans `package.json` : la
+version historiquement tirée par exceljs a une vulnérabilité modérée corrigible sans changement
+cassant. **Défaut de types connu d'exceljs** : son fichier `index.d.ts` déclare son propre
+`Buffer` ambiant minimal (`declare interface Buffer extends ArrayBuffer {}`), qui se fusionne avec
+le vrai `Buffer` de `@types/node` dès que le paquet est importé et rend tout `Buffer` Node.js réel
+structurellement incompatible avec le paramètre attendu par `.load()` — aucun cast direct ne
+peut satisfaire les deux définitions à la fois. Contourné par un `any` documenté (dernier recours,
+`docs/typescript-conventions.md` §3), isolé à cette seule ligne.
+
+**Étape 3 — `POST .../roster/import/preview`** : reçoit les lignes déjà mappées par l'utilisateur
+(`ImportRowInputDto`, étend `CreateRosterRowDto` de B4 — jamais modifié — avec
+`licenseNumber`/`nationality`/`preferredFoot`, absents du bulk manuel). Vérifie le scope de
+l'appelant et l'appartenance de l'équipe au club **une seule fois**, puis rapproche chaque ligne
+via `RosterMatchingService.findMatchesForRow` — nouvelle méthode extraite de `findMatches` (utilisée
+par `lookup`) pour ne pas répéter cette vérification à chaque ligne d'un import de plusieurs
+centaines. Renvoie `{ index, status, candidates }` par ligne, aucune écriture.
+
+**Étape 5 — `POST .../roster/import/commit`** (backend complet) : applique les décisions déjà
+prises par l'utilisateur à l'écran de prévisualisation — ne rejoue jamais la cascade de
+rapprochement, la décision de l'utilisateur fait foi. Une seule transaction, tout-ou-rien (même
+convention que `bulkCreate`/`bulkUpdate`, B4). Trois actions par ligne (`ImportRowDecisionDto`) :
+- **`CREATE`** : nouveau Member + PlayerProfile + PlayerTeam — comme `bulkCreate`, avec en plus
+  `licenseNumber`/`nationality`/`preferredFoot` sur le `PlayerProfile`.
+- **`UPDATE`** (statut `MODIFICATION` — le seul cas où l'import diffère du formulaire unitaire,
+  qui bloque ce statut faute d'action pertinente dans un flux de création pure) : met à jour
+  Member + PlayerProfile + PlayerTeam existants avec les valeurs de la ligne — c'est le seul cas de
+  l'import qui réécrit l'identité d'un profil déjà présent en base.
+- **`REACTIVATE`** (statut `RÉACTIVATION` accepté, ou candidat choisi sur `AMBIGU`) : réutilise le
+  `PlayerProfile` existant, crée uniquement une nouvelle affectation `PlayerTeam` — **jamais** de
+  mise à jour du Member/PlayerProfile, même convention que la réactivation dans `PlayerFormDialog`
+  (les champs d'identité de la ligne sont ignorés, seuls les champs d'équipe s'appliquent).
+
+Réutilise les vérifications déjà établies, réécrites pour opérer sur le client de transaction :
+unicité du maillot parmi les affectations actives (`ROSTER.JERSEY_NUMBER_TAKEN`), unicité de la
+licence scopée au club (`PLAYERS.LICENSE_NUMBER_ALREADY_USED_IN_CLUB`, décision du 2026-07-16), et
+`PLAYER_TEAMS.ALREADY_ACTIVE` pour `REACTIVATE` si une affectation active existe déjà (garde-fou,
+ne devrait pas arriver si le statut `MODIFICATION` a été correctement résolu à l'étape 3).
+
+**Étapes 2/4/6 — `ImportPlayersDialog`** (frontend, `components/players/import-players-dialog.tsx`) :
+assistant en trois étapes (upload → mapping → prévisualisation), déclenché depuis le tableau
+Effectif (bouton "Importer un fichier", gardé par `capabilities.canCreate` — même convention que
+les autres actions d'écriture du tableau).
+- **Mapping (étape 2)** : un `<Select>` par colonne détectée, associant à un champ cible ou
+  "Ignorer cette colonne". Pré-remplissage heuristique best-effort (alias de noms de colonnes
+  courants, FR/EN, jamais affiché à l'utilisateur — seulement une aide au clic, jamais bloquant) ;
+  l'utilisateur confirme ou corrige toujours manuellement. Un champ ne peut être associé qu'à une
+  seule colonne à la fois : en choisir un déjà pris ailleurs remet l'ancienne colonne à "Ignorer"
+  plutôt que de bloquer avec une erreur de validation. Prénom/nom doivent être mappés pour
+  continuer.
+- **Conversion valeur brute → champ typé** : les enums (genre, poste, pied fort) sont reconnus à la
+  fois sous leur code brut (ex. `CB`) et sous leur libellé traduit (ex. "Défenseur central") — la
+  correspondance est construite dynamiquement à partir des traductions déjà existantes
+  (`gender`/`positions`/`foot`), sans dupliquer de dictionnaire d'alias par langue. Une valeur non
+  reconnue est simplement ignorée (champ laissé vide) plutôt que de faire échouer toute la ligne.
+  Les dates acceptent le format ISO (`AAAA-MM-JJ`, déjà produit par l'étape 1 pour les cellules
+  Excel) et le format `JJ/MM/AAAA`. Les lignes entièrement vides sont ignorées silencieusement (avec
+  un décompte affiché) ; une ligne sans prénom ou nom après mapping est ignorée avec un avertissement
+  distinct — ni l'une ni l'autre ne bloque l'import des lignes valides.
+- **Prévisualisation (étape 4)** : une ligne par résultat de `RosterMatchingService`, avec une
+  case "Inclure" (cochée par défaut) et une décision selon le statut — `NOUVEAU` s'inclut tel quel,
+  `MODIFICATION` affiche une notice (mise à jour automatique, pas de choix), `RÉACTIVATION` propose
+  une case à cocher (réactiver par défaut, décocher = créer un nouveau joueur à la place), `AMBIGU`
+  impose un choix explicite parmi les candidats (ou "aucun ne correspond") — le bouton de
+  validation reste désactivé tant qu'une ligne `AMBIGU` incluse n'a pas de choix résolu.
+- **Validation (étape 6)** : construit un `ImportRowDecisionDto[]` à partir des décisions
+  résolues (lignes exclues omises), `POST .../roster/import/commit`, puis referme la modale et
+  recharge le tableau Effectif (`onSuccess`/`loadRoster`, même convention que les autres modales
+  d'écriture du tableau).
+
 ## Profil joueur — mise en page 2 colonnes
 
 La fiche joueur est structurée en deux colonnes :

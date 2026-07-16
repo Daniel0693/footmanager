@@ -95,6 +95,21 @@ export class RosterMatchingService {
       'ROSTER.TEAM_NOT_IN_CLUB',
     );
 
+    return this.findMatchesForRow(clubId, teamId, identity);
+  }
+
+  /**
+   * Même cascade que `findMatches`, sans revérifier le scope de l'appelant
+   * ni l'appartenance de l'équipe au club — à l'usage exclusif d'un appelant
+   * qui a déjà fait ces vérifications une seule fois pour l'ensemble d'un
+   * lot (ex. RosterImportService, une ligne de fichier à la fois), pour ne
+   * pas répéter une requête `assertTeamInClub` par ligne.
+   */
+  async findMatchesForRow(
+    clubId: number,
+    teamId: number,
+    identity: PlayerMatchIdentity,
+  ): Promise<PlayerMatchResult> {
     const profiles = await this.findCandidateProfiles(clubId, identity);
 
     if (profiles.length === 0) {

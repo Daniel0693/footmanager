@@ -2,23 +2,34 @@ import {
   Body,
   Controller,
   Get,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Member, PermissionScope } from '@prisma/client';
 import { CurrentMember } from '../auth/decorators/current-member.decorator';
 import { CurrentPermissionScope } from '../auth/decorators/current-permission-scope.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { AppException } from '../common/exceptions/app.exception';
 import { BulkCreateRosterDto } from './dto/bulk-create-roster.dto';
 import { BulkUpdateRosterDto } from './dto/bulk-update-roster.dto';
 import { FindPlayerMatchQueryDto } from './dto/find-player-match-query.dto';
 import { FindRosterQueryDto } from './dto/find-roster-query.dto';
+import { CommitImportDto } from './dto/import-row-decision.dto';
+import { PreviewImportDto } from './dto/preview-import.dto';
+import {
+  MAX_IMPORT_FILE_SIZE_BYTES,
+  RosterImportService,
+} from './roster-import.service';
 import { RosterMatchingService } from './roster-matching.service';
 import { RosterService } from './roster.service';
 
@@ -33,6 +44,7 @@ export class RosterController {
   constructor(
     private readonly rosterService: RosterService,
     private readonly rosterMatchingService: RosterMatchingService,
+    private readonly rosterImportService: RosterImportService,
   ) {}
 
   @RequirePermission('player_team', 'READ')
@@ -95,5 +107,68 @@ export class RosterController {
     @Body() dto: BulkUpdateRosterDto,
   ) {
     return this.rosterService.bulkUpdate(clubId, teamId, dto.items);
+  }
+
+  // Import fichier (étape 1/6, docs/modules/effectif-joueurs.md §Import) :
+  // upload + extraction brute des en-têtes/lignes, aucune écriture. Gardé
+  // par player_team CREATE (même ressource que l'aboutissement de l'import),
+  // exclut donc déjà Player/Parent par construction — aucune vérification de
+  // scope supplémentaire nécessaire ici, contrairement à `lookup` (qui
+  // réutilise player_profile READ, accordé aussi à ces deux rôles).
+  @RequirePermission('player_team', 'CREATE')
+  @Post('import/parse')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_IMPORT_FILE_SIZE_BYTES },
+    }),
+  )
+  parseImportFile(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new AppException(
+        'ROSTER_IMPORT.FILE_REQUIRED',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return this.rosterImportService.parseFile(file);
+  }
+
+  // Import fichier (étape 3/6) : rapprochement ligne par ligne, lecture
+  // seule. Le scope OWN/PARENT est rejeté dans RosterImportService (comme
+  // pour `lookup`, dont cet endpoint réutilise la même cascade via
+  // RosterMatchingService) — défense de cohérence plutôt que réellement
+  // atteignable avec player_team CREATE dans le seed actuel.
+  @RequirePermission('player_team', 'CREATE')
+  @Post('import/preview')
+  previewImport(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @CurrentPermissionScope() scope: PermissionScope,
+    @Body() dto: PreviewImportDto,
+  ) {
+    return this.rosterImportService.previewImport(
+      clubId,
+      teamId,
+      dto.rows,
+      scope,
+    );
+  }
+
+  // Import fichier (étape 5/6) : applique les décisions déjà prises par
+  // l'utilisateur (écran de prévisualisation), transaction unique tout-ou-
+  // rien. Même permission que les deux endpoints précédents.
+  @RequirePermission('player_team', 'CREATE')
+  @Post('import/commit')
+  commitImport(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @CurrentPermissionScope() scope: PermissionScope,
+    @Body() dto: CommitImportDto,
+  ) {
+    return this.rosterImportService.commitImport(
+      clubId,
+      teamId,
+      dto.decisions,
+      scope,
+    );
   }
 }

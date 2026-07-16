@@ -8,11 +8,16 @@ export function authHeaders(accessToken: string | null | undefined): HeadersInit
   return { Authorization: `Bearer ${accessToken}` };
 }
 
+// FormData (upload fichier, import D2) : ne jamais forcer Content-Type,
+// le navigateur doit fixer lui-même le boundary multipart.
 export function apiFetch(path: string, options: RequestInit = {}) {
+  const isFormData = options.body instanceof FormData;
   return fetch(`${API_URL}${path}`, {
     ...options,
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: isFormData
+      ? { ...options.headers }
+      : { "Content-Type": "application/json", ...options.headers },
   });
 }
 
