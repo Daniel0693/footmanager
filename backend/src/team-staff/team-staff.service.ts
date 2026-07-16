@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { PermissionScope } from '@prisma/client';
+import type { PermissionScope, Prisma, TeamStaffRole } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,21 +11,43 @@ export interface StaffRequestContext {
   scope: PermissionScope;
 }
 
+// Nom du rôle système accordé automatiquement à toute affectation TeamStaff
+// (PRINCIPAL/CO_ENTRAINEUR/ADJOINT confondus — la distinction n'existe qu'au
+// niveau TeamStaff.staffRole, pas au niveau RBAC, voir plus bas).
+const COACH_ROLE_NAME = 'Coach';
+
 /**
- * Gère l'affectation staff ↔ équipe (docs/schema/joueurs.md — TeamStaff).
+ * Gère l'affectation staff ↔ équipe (docs/schema/joueurs.md — TeamStaff) ET
+ * le MemberRole `Coach` (scopé équipe) qui en découle — les deux sont créés/
+ * révoqués ensemble dans une même transaction : un TeamStaff sans MemberRole
+ * correspondant (ou l'inverse) est exactement le bug constaté en usage réel
+ * qui a motivé cette écriture jointe (voir docs/modules/effectif-joueurs.md
+ * §Staff d'équipe).
+ *
  * Parité complète PRINCIPAL/CO_ENTRAINEUR/ADJOINT sur la gestion du staff,
- * à une exception près : un détenteur d'un accès scopé TEAM (donc un membre
- * du staff, pas un AdminClub/SuperAdmin en CLUB/ALL) ne peut pas modifier ou
- * retirer la fiche d'un PRINCIPAL autre que la sienne — protection contre
- * l'auto-promotion. Cette règle n'est pas exprimable dans le système de
- * permission générique (même rôle, même scope, seule la ligne cible
- * diffère) : elle est donc appliquée ici, explicitement.
+ * à deux exceptions près, aucune n'exprimable dans le système de permission
+ * générique (même rôle, même scope, seule la ligne/valeur cible diffère) —
+ * appliquées ici, explicitement :
+ * - un détenteur d'un accès scopé TEAM (donc un membre du staff, pas un
+ *   AdminClub/SuperAdmin/Proprietaire en CLUB/ALL) ne peut pas modifier ou
+ *   retirer la fiche d'un PRINCIPAL autre que la sienne (protection contre
+ *   l'auto-promotion, préexistant) ;
+ * - créer une affectation nécessite d'être soi-même le PRINCIPAL de cette
+ *   équipe (scope TEAM) ou un scope CLUB/ALL ; et assigner le rôle PRINCIPAL
+ *   (à la création ou par promotion via update) est réservé au scope CLUB/ALL
+ *   — même le PRINCIPAL en poste ne peut pas se remplacer ou se dupliquer
+ *   lui-même (décision produit du 2026-07-16).
  */
 @Injectable()
 export class TeamStaffService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(clubId: number, teamId: number, dto: CreateTeamStaffDto) {
+  async create(
+    clubId: number,
+    teamId: number,
+    dto: CreateTeamStaffDto,
+    requester: StaffRequestContext,
+  ) {
     await assertTeamInClub(
       this.prisma,
       clubId,
@@ -33,21 +55,41 @@ export class TeamStaffService {
       'TEAM_STAFF.TEAM_NOT_IN_CLUB',
     );
     await this.assertMemberInClub(clubId, dto.memberId);
+    await this.assertCanCreateStaff(teamId, requester);
+    this.assertCanAssignPrincipal(dto.staffRole, requester);
 
-    const activeAssignment = await this.prisma.teamStaff.findFirst({
-      where: { memberId: dto.memberId, teamId, endDate: null },
-    });
-    if (activeAssignment) {
-      throw new AppException('TEAM_STAFF.ALREADY_ACTIVE', HttpStatus.CONFLICT);
-    }
+    return this.prisma.$transaction(async (tx) => {
+      const activeAssignment = await tx.teamStaff.findFirst({
+        where: { memberId: dto.memberId, teamId, endDate: null },
+      });
+      if (activeAssignment) {
+        throw new AppException(
+          'TEAM_STAFF.ALREADY_ACTIVE',
+          HttpStatus.CONFLICT,
+        );
+      }
 
-    return this.prisma.teamStaff.create({
-      data: {
-        memberId: dto.memberId,
-        teamId,
-        staffRole: dto.staffRole,
-        startDate: dto.startDate,
-      },
+      const assignment = await tx.teamStaff.create({
+        data: {
+          memberId: dto.memberId,
+          teamId,
+          staffRole: dto.staffRole,
+          startDate: dto.startDate,
+        },
+      });
+
+      const coachRole = await this.findCoachRole(tx);
+      await tx.memberRole.create({
+        data: {
+          memberId: dto.memberId,
+          roleId: coachRole.id,
+          clubId,
+          teamId,
+          startDate: dto.startDate,
+        },
+      });
+
+      return assignment;
     });
   }
 
@@ -95,14 +137,39 @@ export class TeamStaffService {
   ) {
     const assignment = await this.findAssignmentOrThrow(clubId, teamId, id);
     this.assertCanModifyPrincipal(assignment, requester);
+    this.assertCanAssignPrincipal(
+      dto.staffRole,
+      requester,
+      assignment.staffRole,
+    );
 
-    return this.prisma.teamStaff.update({
-      where: { id },
-      data: {
-        staffRole: dto.staffRole,
-        startDate: dto.startDate,
-        endDate: dto.endDate,
-      },
+    // Bascule active → terminée dans ce même appel (archivage, ou update
+    // direct avec endDate) : révoque le MemberRole Coach en même temps que
+    // le TeamStaff, jamais l'un sans l'autre.
+    const isEndingNow =
+      dto.endDate !== undefined && assignment.endDate === null;
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.teamStaff.update({
+        where: { id },
+        data: {
+          staffRole: dto.staffRole,
+          startDate: dto.startDate,
+          endDate: dto.endDate,
+        },
+      });
+
+      if (isEndingNow) {
+        await this.revokeCoachMemberRole(
+          tx,
+          assignment.memberId,
+          clubId,
+          teamId,
+          dto.endDate as Date,
+        );
+      }
+
+      return updated;
     });
   }
 
@@ -115,7 +182,18 @@ export class TeamStaffService {
     const assignment = await this.findAssignmentOrThrow(clubId, teamId, id);
     this.assertCanModifyPrincipal(assignment, requester);
 
-    await this.prisma.teamStaff.delete({ where: { id } });
+    await this.prisma.$transaction(async (tx) => {
+      if (assignment.endDate === null) {
+        await this.revokeCoachMemberRole(
+          tx,
+          assignment.memberId,
+          clubId,
+          teamId,
+          new Date(),
+        );
+      }
+      await tx.teamStaff.delete({ where: { id } });
+    });
   }
 
   private assertCanModifyPrincipal(
@@ -133,6 +211,93 @@ export class TeamStaffService {
         HttpStatus.FORBIDDEN,
       );
     }
+  }
+
+  // Créer une affectation (scope TEAM) est réservé au PRINCIPAL en poste sur
+  // CETTE équipe — un Co-entraîneur/Adjoint ne peut pas ajouter de staff,
+  // seulement un scope CLUB/ALL (AdminClub/SuperAdmin/Proprietaire) ou le
+  // Principal lui-même (décision produit du 2026-07-16).
+  private async assertCanCreateStaff(
+    teamId: number,
+    requester: StaffRequestContext,
+  ) {
+    if (requester.scope !== 'TEAM') {
+      return;
+    }
+    const requesterAssignment = await this.prisma.teamStaff.findFirst({
+      where: { teamId, memberId: requester.memberId, endDate: null },
+    });
+    if (requesterAssignment?.staffRole !== 'PRINCIPAL') {
+      throw new AppException(
+        'TEAM_STAFF.ONLY_PRINCIPAL_CAN_CREATE',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+  }
+
+  // Assigner PRINCIPAL (création OU promotion via update) est réservé au
+  // scope CLUB/ALL — même le Principal en poste ne peut ni se remplacer ni
+  // se dupliquer via cet endpoint. `currentStaffRole` absent (création) ou
+  // déjà PRINCIPAL (auto-édition sans changement de rôle, ex. dates) ne
+  // déclenchent pas cette règle dans ce dernier cas — seule une PROMOTION
+  // réelle (staffRole cible PRINCIPAL, staffRole actuel différent ou absent)
+  // est bloquée.
+  private assertCanAssignPrincipal(
+    targetStaffRole: TeamStaffRole | undefined,
+    requester: StaffRequestContext,
+    currentStaffRole?: TeamStaffRole,
+  ) {
+    if (requester.scope !== 'TEAM') return;
+    if (targetStaffRole !== 'PRINCIPAL') return;
+    if (currentStaffRole === 'PRINCIPAL') return;
+    throw new AppException(
+      'TEAM_STAFF.ONLY_ADMIN_CAN_ASSIGN_PRINCIPAL',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+
+  private async findCoachRole(tx: Prisma.TransactionClient) {
+    const role = await tx.role.findFirst({
+      where: { name: COACH_ROLE_NAME, isSystem: true, clubId: null },
+    });
+    if (!role) {
+      throw new AppException(
+        'TEAM_STAFF.COACH_ROLE_MISSING',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+    return role;
+  }
+
+  // Révoque (endDate, jamais une suppression — cohérent avec
+  // isDateRangeActive/PermissionsService) le MemberRole Coach actif
+  // correspondant à cette affectation, s'il existe — silencieux s'il est
+  // absent (affectation créée avant l'introduction de cette écriture
+  // jointe, ex. correctif manuel en base) : la révocation ne doit jamais
+  // faire échouer l'archivage/retrait du TeamStaff lui-même.
+  private async revokeCoachMemberRole(
+    tx: Prisma.TransactionClient,
+    memberId: number,
+    clubId: number,
+    teamId: number,
+    endDate: Date,
+  ) {
+    const activeMemberRole = await tx.memberRole.findFirst({
+      where: {
+        memberId,
+        clubId,
+        teamId,
+        endDate: null,
+        role: { name: COACH_ROLE_NAME, isSystem: true },
+      },
+    });
+    if (!activeMemberRole) {
+      return;
+    }
+    await tx.memberRole.update({
+      where: { id: activeMemberRole.id },
+      data: { endDate },
+    });
   }
 
   private async findAssignmentOrThrow(

@@ -141,14 +141,29 @@ précis d'un Coach au sein d'une équipe. En termes de droits applicatifs :
 - **Parité complète** entre `PRINCIPAL`, `CO_ENTRAINEUR` et `ADJOINT` sur la gestion de
   l'équipe (séances, matchs, évaluations) — y compris sur `team_staff` lui-même (CRUD complet,
   pas seulement lecture : une première version du seed n'avait donné que `READ` au rôle Coach,
-  ce qui rendait l'exception ci-dessous vide de sens puisqu'il n'y avait rien à modifier).
-- **Exception unique** : un Adjoint ou Co-entraîneur ne peut pas modifier ou retirer la fiche
-  `TeamStaff` d'un *autre* membre Principal (protection contre l'auto-promotion). Il peut
-  modifier sa propre fiche même si elle est Principal. Un scope `CLUB`/`ALL` (AdminClub,
-  SuperAdmin) n'est jamais restreint par cette règle.
-  **Cette règle n'est pas exprimable dans le système de permission générique** (même rôle, même
-  scope, seule la ligne ciblée diffère) : elle est appliquée explicitement dans
-  `TeamStaffService.assertCanModifyPrincipal()`, pas dans `PermissionsService`.
+  ce qui rendait les exceptions ci-dessous vides de sens puisqu'il n'y avait rien à modifier/créer).
+- **Trois exceptions**, aucune exprimable dans le système de permission générique (même rôle,
+  même scope, seule la ligne/valeur ciblée diffère) — appliquées explicitement dans
+  `TeamStaffService`, pas dans `PermissionsService` :
+  - un Adjoint ou Co-entraîneur ne peut pas modifier ou retirer la fiche `TeamStaff` d'un
+    *autre* membre Principal (protection contre l'auto-promotion, `assertCanModifyPrincipal`).
+    Il peut modifier sa propre fiche même si elle est Principal ;
+  - **créer** une affectation de staff (n'importe quel `staffRole`) est réservé, en scope
+    `TEAM`, au Principal en poste sur cette équipe (`assertCanCreateStaff`, décision du
+    2026-07-16) — un Adjoint/Co-entraîneur ne peut pas ajouter de staff, même si
+    `team_staff CREATE` (scopé `TEAM`) lui est accordé génériquement par le rôle `Coach` ;
+  - **assigner** `PRINCIPAL` (création ou promotion via `update`) est réservé au scope
+    `CLUB`/`ALL` (`assertCanAssignPrincipal`, décision du 2026-07-16) — même le Principal en
+    poste ne peut ni se remplacer ni promouvoir quelqu'un à ce rang.
+  Un scope `CLUB`/`ALL` (AdminClub, SuperAdmin, Proprietaire) n'est jamais restreint par aucune
+  de ces trois règles.
+- **`TeamStaffService` crée/révoque aussi le `MemberRole` Coach** (scopé `clubId`+`teamId`) en
+  même temps que le `TeamStaff` — les deux dans une même transaction, voir
+  `docs/modules/effectif-joueurs.md` §B5.5. Sans cette écriture jointe, un membre du staff créé
+  via l'API n'a historiquement jamais reçu la moindre permission (constat en usage réel,
+  2026-07-16) : `MemberRole` reste l'unique source de vérité des permissions (`PermissionsService`
+  ne consulte jamais `TeamStaff`), donc un `TeamStaff` sans `MemberRole` correspondant laisse ce
+  membre sans aucun droit malgré une fiche staff visible.
 
 ### Patterns découverts en implémentant le module Effectif (Phase 2)
 

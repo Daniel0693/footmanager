@@ -328,6 +328,46 @@ préremplie à la date du jour plutôt que laissée vide — modifiable libremen
 arrivée future ou rattraper un retard de saisie. Ne s'applique qu'à la création : en édition,
 une date d'arrivée déjà vide n'est jamais réécrite avec la date du jour.
 
+> **B5.5 — création de staff + attribution du rôle Coach (backend implémenté, frontend à venir,
+> branche `feature/effectif-staff-roles-fixes`)** : constat en usage réel (2026-07-16) —
+> `POST .../teams/:teamId/staff` existait déjà mais ne créait jamais le `MemberRole` Coach
+> correspondant, et aucune interface ne permettait de toute façon d'atteindre cet endpoint
+> (`StaffFormDialog` est édition seulement). Un membre du staff ajouté restait donc sans
+> aucune permission tant qu'un développeur n'insérait pas la ligne `MemberRole` manuellement en
+> base — exactement le trou constaté avec le club réel de l'utilisateur. `TeamStaffService`
+> réécrit pour créer/révoquer `TeamStaff` ET `MemberRole` (rôle système `Coach`, scopé
+> `clubId`+`teamId`) ensemble, dans une même transaction, aux trois endpoints existants :
+> - **`create`** : crée les deux à la fois (une affectation TeamStaff sans son MemberRole,
+>   ou l'inverse, ne devrait plus jamais se produire pour une affectation créée après ce
+>   correctif).
+> - **`update`/`archive`** et **`remove`** : si l'affectation passe d'active à terminée
+>   (`endDate` transmis alors qu'elle était `null`, ou suppression), le `MemberRole` Coach actif
+>   correspondant est révoqué (son `endDate` est fixé — jamais supprimé, cohérent avec
+>   `isDateRangeActive`/`PermissionsService`, qui traite déjà `MemberRole.endDate` comme la
+>   fenêtre d'activité). Silencieux si aucun `MemberRole` actif n'est trouvé (affectation créée
+>   avant ce correctif, ex. le patch manuel appliqué pour l'utilisateur) — la révocation ne doit
+>   jamais faire échouer l'action principale sur `TeamStaff`.
+>
+> **Deux règles métier nouvelles, non exprimables dans le système de permission générique**
+> (même rôle/scope, seule la valeur/ligne cible diffère — même limitation que
+> `assertCanModifyPrincipal`, préexistant) — décision produit du 2026-07-16 :
+> - **Créer une affectation de staff** (n'importe quel `staffRole`) est réservé, en scope
+>   `TEAM`, au **Principal en poste sur cette équipe** — un Co-entraîneur/Adjoint ne peut pas
+>   ajouter de staff, même si `team_staff CREATE` (scopé `TEAM`) leur est accordé génériquement
+>   par le rôle `Coach` dans le seed. Un scope `CLUB`/`ALL` (AdminClub/SuperAdmin/Proprietaire)
+>   n'est jamais concerné par cette restriction (`TEAM_STAFF.ONLY_PRINCIPAL_CAN_CREATE`).
+> - **Assigner le rôle `PRINCIPAL`** — à la création, ou par promotion via `update` (un
+>   Co-entraîneur/Adjoint existant dont le `staffRole` cible devient `PRINCIPAL`) — est réservé
+>   au scope `CLUB`/`ALL` : même le Principal en poste ne peut ni se remplacer, ni désigner un
+>   co-Principal, ni promouvoir qui que ce soit à ce rang (`TEAM_STAFF.ONLY_ADMIN_CAN_ASSIGN_PRINCIPAL`).
+>   Ne se déclenche pas quand le `staffRole` cible est déjà `PRINCIPAL` avant l'appel (auto-
+>   édition sans changement de rôle, ex. le Principal modifie ses propres dates — cas déjà permis
+>   par `assertCanModifyPrincipal`).
+>
+> Le frontend (nouveau bouton "Ajouter un membre du staff" sur le tableau Effectif, création
+> d'un nouveau membre uniquement pour cette première version — pas de rapprochement avec un
+> membre existant, à la différence du flux joueur) reste à construire.
+
 ## Import fichier (Excel/CSV) (branche `feature/effectif-import-fichier`)
 
 > Réutilise le service de rapprochement (`RosterMatchingService`, ci-dessus) par ligne plutôt

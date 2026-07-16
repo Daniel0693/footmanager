@@ -1034,6 +1034,9 @@
       "MEMBER_NOT_IN_CLUB": "This member does not belong to this club",
       "ALREADY_ACTIVE": "This member already has an active staff assignment in this team",
       "CANNOT_MODIFY_PRINCIPAL": "An Assistant or Co-coach cannot modify the Head Coach's record",
+      "ONLY_PRINCIPAL_CAN_CREATE": "Only this team's Head Coach can add a staff member",
+      "ONLY_ADMIN_CAN_ASSIGN_PRINCIPAL": "Only the Owner, a SuperAdmin, or the Club Admin can appoint a Head Coach",
+      "COACH_ROLE_MISSING": "The Coach role could not be found in the system",
       "NOT_FOUND": "Staff assignment not found"
     },
     "TEAMS": {
