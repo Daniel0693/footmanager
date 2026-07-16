@@ -53,11 +53,18 @@ describe('ChampionshipMatchesService', () => {
   let teamFindFirst: jest.Mock;
   let championshipFindFirst: jest.Mock;
   let participantFindFirst: jest.Mock;
+  let participantFindUniqueOrThrow: jest.Mock;
   let matchFindFirst: jest.Mock;
   let matchFindMany: jest.Mock;
   let matchCreate: jest.Mock;
   let matchUpdate: jest.Mock;
   let matchDelete: jest.Mock;
+  let linkedMatchFindUnique: jest.Mock;
+  let linkedMatchCreate: jest.Mock;
+  let linkedMatchDelete: jest.Mock;
+  let eventCreate: jest.Mock;
+  let eventUpdate: jest.Mock;
+  let eventDelete: jest.Mock;
   let permissionsCan: jest.Mock;
   let service: ChampionshipMatchesService;
 
@@ -71,16 +78,36 @@ describe('ChampionshipMatchesService', () => {
           [homeParticipant, awayParticipant].find((p) => p.id === id) ?? null,
         ),
       );
+    // Participants sans internalTeamId (ownTeamId = 5 du fixture
+    // `championship`) : createLinkedMatchIfOwnTeamInvolved ne trouve jamais
+    // notre équipe et n'a donc aucun effet dans ces tests génériques — la
+    // liaison Match/Event est testée spécifiquement plus bas (A3).
+    participantFindUniqueOrThrow = jest
+      .fn()
+      .mockImplementation(({ where: { id } }: { where: { id: number } }) =>
+        Promise.resolve(
+          [homeParticipant, awayParticipant].find((p) => p.id === id) ?? null,
+        ),
+      );
     matchFindFirst = jest.fn().mockResolvedValue(match);
     matchFindMany = jest.fn();
     matchCreate = jest.fn();
     matchUpdate = jest.fn();
     matchDelete = jest.fn();
+    linkedMatchFindUnique = jest.fn().mockResolvedValue(null);
+    linkedMatchCreate = jest.fn();
+    linkedMatchDelete = jest.fn();
+    eventCreate = jest.fn().mockResolvedValue({ id: 300 });
+    eventUpdate = jest.fn();
+    eventDelete = jest.fn();
 
     const prismaStub = {
       team: { findFirst: teamFindFirst },
       championship: { findFirst: championshipFindFirst },
-      championshipParticipant: { findFirst: participantFindFirst },
+      championshipParticipant: {
+        findFirst: participantFindFirst,
+        findUniqueOrThrow: participantFindUniqueOrThrow,
+      },
       championshipMatch: {
         findFirst: matchFindFirst,
         findMany: matchFindMany,
@@ -88,7 +115,15 @@ describe('ChampionshipMatchesService', () => {
         update: matchUpdate,
         delete: matchDelete,
       },
-      $transaction: jest.fn((operations: unknown[]) => Promise.all(operations)),
+      match: {
+        findUnique: linkedMatchFindUnique,
+        create: linkedMatchCreate,
+        delete: linkedMatchDelete,
+      },
+      event: { create: eventCreate, update: eventUpdate, delete: eventDelete },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback(prismaStub),
+      ),
     } as unknown as PrismaService;
 
     permissionsCan = jest.fn().mockResolvedValue('TEAM');
@@ -354,6 +389,133 @@ describe('ChampionshipMatchesService', () => {
     it('supprime une rencontre existante', async () => {
       await service.remove(1, 5, 100, 900);
 
+      expect(matchDelete).toHaveBeenCalledWith({ where: { id: 900 } });
+    });
+  });
+
+  // Liaison Calendrier (Phase 4, A3, docs/modules/matchs.md) : Event+Match
+  // créés automatiquement uniquement si l'une des deux équipes EST notre
+  // équipe propriétaire (championship.teamId = 5, fixture ci-dessus).
+  describe('liaison Match/Event (A3)', () => {
+    const ownParticipant = {
+      id: 1,
+      championshipId: 100,
+      internalTeamId: 5,
+      internalTeam: null,
+      externalTeamId: null,
+      externalTeam: null,
+    };
+    const opponentParticipant = {
+      id: 2,
+      championshipId: 100,
+      internalTeamId: null,
+      internalTeam: null,
+      externalTeamId: 20,
+      externalTeam: { id: 20, name: 'FC Rivals' },
+    };
+
+    beforeEach(() => {
+      participantFindFirst.mockImplementation(
+        ({ where: { id } }: { where: { id: number } }) =>
+          Promise.resolve(
+            [ownParticipant, opponentParticipant].find((p) => p.id === id) ??
+              null,
+          ),
+      );
+      participantFindUniqueOrThrow.mockImplementation(
+        ({ where: { id } }: { where: { id: number } }) =>
+          Promise.resolve(
+            [ownParticipant, opponentParticipant].find((p) => p.id === id) ??
+              null,
+          ),
+      );
+    });
+
+    it('crée Event+Match quand notre équipe est participante (create)', async () => {
+      matchCreate.mockResolvedValue(match);
+
+      await service.create(1, 5, 100, {
+        homeParticipantId: 1,
+        awayParticipantId: 2,
+        scheduledAt: match.scheduledAt,
+      });
+
+      expect(eventCreate).toHaveBeenCalledWith({
+        data: {
+          teamId: 5,
+          type: 'MATCH',
+          title: 'FC Rivals',
+          startAt: match.scheduledAt,
+        },
+      });
+      expect(linkedMatchCreate).toHaveBeenCalledWith({
+        data: {
+          eventId: 300,
+          championshipMatchId: 900,
+          matchType: 'CHAMPIONNAT',
+          homeOrAway: 'HOME',
+          numberOfPeriods: null,
+          periodDurationMinutes: null,
+        },
+      });
+    });
+
+    it("ne crée aucun Event+Match si aucune de nos équipes n'est participante", async () => {
+      const otherOpponent = { ...opponentParticipant, id: 3 };
+      participantFindFirst.mockImplementation(
+        ({ where: { id } }: { where: { id: number } }) =>
+          Promise.resolve(
+            [opponentParticipant, otherOpponent].find((p) => p.id === id) ??
+              null,
+          ),
+      );
+      participantFindUniqueOrThrow.mockImplementation(
+        ({ where: { id } }: { where: { id: number } }) =>
+          Promise.resolve(
+            [opponentParticipant, otherOpponent].find((p) => p.id === id) ??
+              null,
+          ),
+      );
+      matchCreate.mockResolvedValue({
+        ...match,
+        homeParticipantId: 2,
+        awayParticipantId: 3,
+      });
+
+      await service.create(1, 5, 100, {
+        homeParticipantId: 2,
+        awayParticipantId: 3,
+        scheduledAt: match.scheduledAt,
+      });
+
+      expect(eventCreate).not.toHaveBeenCalled();
+      expect(linkedMatchCreate).not.toHaveBeenCalled();
+    });
+
+    it('répercute un changement de date sur l’Event lié (update)', async () => {
+      linkedMatchFindUnique.mockResolvedValue({ eventId: 300 });
+      matchUpdate.mockResolvedValue({
+        ...match,
+        scheduledAt: new Date('2026-09-20T15:00:00Z'),
+      });
+
+      await service.update(1, 5, 100, 900, {
+        scheduledAt: new Date('2026-09-20T15:00:00Z'),
+      });
+
+      expect(eventUpdate).toHaveBeenCalledWith({
+        where: { id: 300 },
+        data: { startAt: new Date('2026-09-20T15:00:00Z') },
+      });
+    });
+
+    it('supprime le Match+Event lié avant la rencontre (remove)', async () => {
+      linkedMatchFindUnique.mockResolvedValue({ id: 901, eventId: 300 });
+
+      await service.remove(1, 5, 100, 900);
+
+      expect(linkedMatchDelete).toHaveBeenCalledWith({ where: { id: 901 } });
+      expect(eventDelete).toHaveBeenCalledWith({ where: { id: 300 } });
       expect(matchDelete).toHaveBeenCalledWith({ where: { id: 900 } });
     });
   });

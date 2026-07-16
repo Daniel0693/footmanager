@@ -420,6 +420,17 @@ describe('B15 — scénario multi-rôles bout-en-bout (module Championship)', ()
               ) ?? null,
             ),
         ),
+        // Liaison Match/Event (A3) : même sélection que findMany/create,
+        // avec en plus les FK brutes (internalTeamId/externalTeamId) lues
+        // par ChampionshipMatchesService.createLinkedMatchIfOwnTeamInvolved.
+        findUniqueOrThrow: jest.fn(({ where }: { where: { id: number } }) => {
+          const participant = participantsStore.find((p) => p.id === where.id)!;
+          return Promise.resolve({
+            ...participantSelect(participant),
+            internalTeamId: participant.internalTeamId,
+            externalTeamId: participant.externalTeamId,
+          });
+        }),
       },
       championshipMatch: {
         create: jest.fn(({ data }: { data: Partial<ChampionshipMatch> }) => {
@@ -468,6 +479,18 @@ describe('B15 — scénario multi-rôles bout-en-bout (module Championship)', ()
             return Promise.resolve(match);
           },
         ),
+      },
+      // Liaison Calendrier (A3) : notre équipe (team 5) est presque toujours
+      // participante dans ce scénario (Marc-Coach planifie une rencontre
+      // pour SON championnat), donc l'Event+Match lié est bien créé — ces
+      // deux stores n'ont pas besoin d'assertions dédiées ici (couvertes par
+      // championship-matches.service.spec.ts §liaison Match/Event), juste de
+      // ne pas faire échouer le flux.
+      event: {
+        create: jest.fn(() => Promise.resolve({ id: nextId++ })),
+      },
+      match: {
+        create: jest.fn(() => Promise.resolve({ id: nextId++ })),
       },
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         callback(prismaStub),

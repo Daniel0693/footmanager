@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,11 +25,24 @@ const MATCH_INCLUDE = {
  * championships/:championshipId/matches` (même route directe que
  * ChampionshipsService/ChampionshipParticipantsService).
  *
- * `matchId` (lien vers `Match`, Phase 4) est totalement absent des DTO —
- * jamais modifiable via cette route en Phase 3. Le passage au statut
- * FINISHED exige `scoreHome`/`scoreAway` non-null (source de vérité du
- * score pour le classement, B12) — vérifié ici, pas en décorateur puisque
- * la règle dépend à la fois du DTO et de l'état déjà persisté.
+ * `matchId` (lien vers `Match`) est totalement absent des DTO — jamais
+ * modifiable directement via cette route. Le passage au statut FINISHED
+ * exige `scoreHome`/`scoreAway` non-null (source de vérité du score pour le
+ * classement, B12) — vérifié ici, pas en décorateur puisque la règle dépend
+ * à la fois du DTO et de l'état déjà persisté.
+ *
+ * **Liaison Calendrier (Phase 4, A3)** : `create`/`createBulk` créent
+ * automatiquement l'`Event`+`Match` liés (`createLinkedMatchIfOwnTeamInvolved`),
+ * dans la même transaction, uniquement si l'une de nos équipes (
+ * `Championship.teamId`) participe à la rencontre — une rencontre entre
+ * deux adversaires n'a jamais de fiche match pour nous
+ * (docs/modules/matchs.md). `update` répercute un changement de
+ * `scheduledAt` sur l'`Event.startAt` lié s'il existe ; `remove` supprime le
+ * `Match`+`Event` lié avant la rencontre elle-même, pour ne jamais laisser
+ * de fiche match orpheline. Le statut (`ChampionshipMatchStatus` ↔
+ * `LiveMatchStatus`) n'est volontairement PAS synchronisé — la clôture d'un
+ * match live (Partie C) reste l'unique flux qui fait passer un `Match` à
+ * `FINISHED`.
  */
 @Injectable()
 export class ChampionshipMatchesService {
@@ -43,7 +57,11 @@ export class ChampionshipMatchesService {
     championshipId: number,
     dto: CreateChampionshipMatchDto,
   ) {
-    await this.findChampionshipOrThrow(clubId, teamId, championshipId);
+    const championship = await this.findChampionshipOrThrow(
+      clubId,
+      teamId,
+      championshipId,
+    );
 
     if (dto.homeParticipantId === dto.awayParticipantId) {
       throw new AppException(
@@ -60,17 +78,25 @@ export class ChampionshipMatchesService {
       dto.awayParticipantId,
     );
 
-    return this.prisma.championshipMatch.create({
-      data: {
-        championshipId,
-        homeParticipantId: dto.homeParticipantId,
-        awayParticipantId: dto.awayParticipantId,
-        scheduledAt: dto.scheduledAt,
-        round: dto.round,
-        numberOfPeriods: dto.numberOfPeriods,
-        periodDurationMinutes: dto.periodDurationMinutes,
-      },
-      include: MATCH_INCLUDE,
+    return this.prisma.$transaction(async (tx) => {
+      const championshipMatch = await tx.championshipMatch.create({
+        data: {
+          championshipId,
+          homeParticipantId: dto.homeParticipantId,
+          awayParticipantId: dto.awayParticipantId,
+          scheduledAt: dto.scheduledAt,
+          round: dto.round,
+          numberOfPeriods: dto.numberOfPeriods,
+          periodDurationMinutes: dto.periodDurationMinutes,
+        },
+        include: MATCH_INCLUDE,
+      });
+      await this.createLinkedMatchIfOwnTeamInvolved(
+        tx,
+        championship.teamId,
+        championshipMatch,
+      );
+      return championshipMatch;
     });
   }
 
@@ -79,14 +105,21 @@ export class ChampionshipMatchesService {
   // appliquées à chaque ligne AVANT toute écriture — puis création en une
   // seule transaction, tout ou rien (pas de lot partiellement créé si une
   // ligne est invalide, plus simple à comprendre pour l'utilisateur qu'un
-  // résultat mixte succès/échec par ligne).
+  // résultat mixte succès/échec par ligne). Transaction interactive
+  // (callback), pas le style tableau d'opérations utilisé avant A3 : chaque
+  // création doit pouvoir déclencher sa propre liaison Match/Event
+  // conditionnelle juste après.
   async createBulk(
     clubId: number,
     teamId: number,
     championshipId: number,
     dtos: CreateChampionshipMatchDto[],
   ) {
-    await this.findChampionshipOrThrow(clubId, teamId, championshipId);
+    const championship = await this.findChampionshipOrThrow(
+      clubId,
+      teamId,
+      championshipId,
+    );
 
     for (const dto of dtos) {
       if (dto.homeParticipantId === dto.awayParticipantId) {
@@ -105,9 +138,10 @@ export class ChampionshipMatchesService {
       );
     }
 
-    return this.prisma.$transaction(
-      dtos.map((dto) =>
-        this.prisma.championshipMatch.create({
+    return this.prisma.$transaction(async (tx) => {
+      const championshipMatches = [];
+      for (const dto of dtos) {
+        const championshipMatch = await tx.championshipMatch.create({
           data: {
             championshipId,
             homeParticipantId: dto.homeParticipantId,
@@ -118,9 +152,16 @@ export class ChampionshipMatchesService {
             periodDurationMinutes: dto.periodDurationMinutes,
           },
           include: MATCH_INCLUDE,
-        }),
-      ),
-    );
+        });
+        await this.createLinkedMatchIfOwnTeamInvolved(
+          tx,
+          championship.teamId,
+          championshipMatch,
+        );
+        championshipMatches.push(championshipMatch);
+      }
+      return championshipMatches;
+    });
   }
 
   async findAllByChampionship(
@@ -170,18 +211,37 @@ export class ChampionshipMatchesService {
       );
     }
 
-    return this.prisma.championshipMatch.update({
-      where: { id },
-      data: {
-        scheduledAt: dto.scheduledAt,
-        scoreHome: dto.scoreHome,
-        scoreAway: dto.scoreAway,
-        status: dto.status,
-        round: dto.round,
-        numberOfPeriods: dto.numberOfPeriods,
-        periodDurationMinutes: dto.periodDurationMinutes,
-      },
-      include: MATCH_INCLUDE,
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.championshipMatch.update({
+        where: { id },
+        data: {
+          scheduledAt: dto.scheduledAt,
+          scoreHome: dto.scoreHome,
+          scoreAway: dto.scoreAway,
+          status: dto.status,
+          round: dto.round,
+          numberOfPeriods: dto.numberOfPeriods,
+          periodDurationMinutes: dto.periodDurationMinutes,
+        },
+        include: MATCH_INCLUDE,
+      });
+
+      // Répercute un changement de date sur l'Event lié, s'il existe (A3) —
+      // ne touche jamais le statut (voir docblock de la classe).
+      if (dto.scheduledAt) {
+        const linkedMatch = await tx.match.findUnique({
+          where: { championshipMatchId: id },
+          select: { eventId: true },
+        });
+        if (linkedMatch) {
+          await tx.event.update({
+            where: { id: linkedMatch.eventId },
+            data: { startAt: dto.scheduledAt },
+          });
+        }
+      }
+
+      return updated;
     });
   }
 
@@ -192,7 +252,96 @@ export class ChampionshipMatchesService {
     id: number,
   ) {
     await this.findMatchOrThrow(clubId, teamId, championshipId, id);
-    await this.prisma.championshipMatch.delete({ where: { id } });
+
+    await this.prisma.$transaction(async (tx) => {
+      // Supprime la fiche match/l'entrée calendrier liée AVANT la rencontre
+      // elle-même (A3) — sans quoi Match.championshipMatchId passerait
+      // silencieusement à NULL (ON DELETE SET NULL) et laisserait une fiche
+      // match CHAMPIONNAT orpheline, sans source de vérité.
+      const linkedMatch = await tx.match.findUnique({
+        where: { championshipMatchId: id },
+        select: { id: true, eventId: true },
+      });
+      if (linkedMatch) {
+        await tx.match.delete({ where: { id: linkedMatch.id } });
+        await tx.event.delete({ where: { id: linkedMatch.eventId } });
+      }
+      await tx.championshipMatch.delete({ where: { id } });
+    });
+  }
+
+  // Crée l'Event+Match lié à un ChampionshipMatch fraîchement créé (A3,
+  // docs/modules/matchs.md), uniquement si l'une des deux équipes
+  // participantes EST l'équipe propriétaire du championnat — jamais pour
+  // une rencontre entre deux adversaires (`internalTeamId` est de toute
+  // façon restreint à l'équipe propriétaire, limite MVP B8, mais la
+  // comparaison explicite reste plus sûre qu'une simple présence de
+  // internalTeamId). `title` = nom de l'adversaire uniquement (pas de texte
+  // en dur type "vs"/"Match contre" — le back ne compose jamais de texte
+  // traduit, voir docs/architecture.md §3) ; l'affichage calendrier (A5)
+  // compose un libellé complet côté frontend via i18n à partir du matchType.
+  private async createLinkedMatchIfOwnTeamInvolved(
+    tx: Prisma.TransactionClient,
+    ownTeamId: number,
+    championshipMatch: {
+      id: number;
+      homeParticipantId: number;
+      awayParticipantId: number;
+      scheduledAt: Date;
+      numberOfPeriods: number | null;
+      periodDurationMinutes: number | null;
+    },
+  ) {
+    const [homeParticipant, awayParticipant] = await Promise.all([
+      tx.championshipParticipant.findUniqueOrThrow({
+        where: { id: championshipMatch.homeParticipantId },
+        include: { internalTeam: true, externalTeam: true },
+      }),
+      tx.championshipParticipant.findUniqueOrThrow({
+        where: { id: championshipMatch.awayParticipantId },
+        include: { internalTeam: true, externalTeam: true },
+      }),
+    ]);
+
+    let homeOrAway: 'HOME' | 'AWAY';
+    let opponentName: string;
+    if (homeParticipant.internalTeamId === ownTeamId) {
+      homeOrAway = 'HOME';
+      opponentName =
+        awayParticipant.externalTeam?.name ??
+        awayParticipant.internalTeam?.name ??
+        '';
+    } else if (awayParticipant.internalTeamId === ownTeamId) {
+      homeOrAway = 'AWAY';
+      opponentName =
+        homeParticipant.externalTeam?.name ??
+        homeParticipant.internalTeam?.name ??
+        '';
+    } else {
+      // Rencontre entre deux adversaires — pas notre équipe, pas de fiche
+      // match/entrée calendrier pour nous.
+      return;
+    }
+
+    const event = await tx.event.create({
+      data: {
+        teamId: ownTeamId,
+        type: 'MATCH',
+        title: opponentName,
+        startAt: championshipMatch.scheduledAt,
+      },
+    });
+
+    await tx.match.create({
+      data: {
+        eventId: event.id,
+        championshipMatchId: championshipMatch.id,
+        matchType: 'CHAMPIONNAT',
+        homeOrAway,
+        numberOfPeriods: championshipMatch.numberOfPeriods,
+        periodDurationMinutes: championshipMatch.periodDurationMinutes,
+      },
+    });
   }
 
   private async findChampionshipOrThrow(

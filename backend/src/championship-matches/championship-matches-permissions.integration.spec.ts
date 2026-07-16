@@ -226,16 +226,37 @@ describe('Module ChampionshipMatch — scénario multi-rôles (ChampionshipMatch
           ].find((p) => p.id === id) ?? null,
         ),
       );
-    matchCreate = jest.fn().mockResolvedValue({ id: 900 });
+    // homeParticipantId/awayParticipantId reflètent les fixtures participants
+    // ci-dessus (ids 1/2, sans internalTeamId) : createLinkedMatchIfOwnTeamInvolved
+    // n'a donc aucun effet ici, testé spécifiquement dans
+    // championship-matches.service.spec.ts §liaison Match/Event (A3).
+    matchCreate = jest.fn().mockResolvedValue({
+      id: 900,
+      homeParticipantId: 1,
+      awayParticipantId: 2,
+      scheduledAt: new Date('2026-09-15'),
+      numberOfPeriods: null,
+      periodDurationMinutes: null,
+    });
     const prismaStub = {
       team: { findFirst: teamFindFirst },
       championship: { findFirst: championshipFindFirst },
-      championshipParticipant: { findFirst: participantFindFirst },
+      championshipParticipant: {
+        findFirst: participantFindFirst,
+        // Participants sans internalTeamId : la liaison Match/Event (A3)
+        // n'a jamais d'effet dans ce fixture générique — testée
+        // spécifiquement dans championship-matches.service.spec.ts.
+        findUniqueOrThrow: participantFindFirst,
+      },
       championshipMatch: {
         findMany: jest.fn().mockResolvedValue([]),
         create: matchCreate,
       },
-      $transaction: jest.fn((operations: unknown[]) => Promise.all(operations)),
+      match: { findUnique: jest.fn().mockResolvedValue(null) },
+      event: { create: jest.fn().mockResolvedValue({ id: 300 }) },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback(prismaStub),
+      ),
     } as unknown as PrismaService;
     service = new ChampionshipMatchesService(prismaStub, permissionsService);
   });

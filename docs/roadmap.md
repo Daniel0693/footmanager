@@ -504,7 +504,7 @@ Décisions actées avant le premier incrément (voir `docs/modules/matchs.md`) :
 | A0 | Prérequis : permissions granulaires par sous-ressource (`match`, `match_lineup`, `match_period`, `match_event`, `match_attendance`, `match_player_rating`) au seed — voir `docs/modules/matchs.md` §Droits par rôle ✅ |
 | A1 | Schéma `Match` (+ `MatchType` 4 valeurs, `CupRound`, `HomeOrAway`, `LiveMatchStatus`), correction `ChampionshipMatch.matchId`, migration ✅ |
 | A2 | Backend `matches` CRUD scopé équipe (`clubs/:clubId/teams/:teamId/matches`) — création directe limitée à Amical/Coupe/Tournoi, crée Event+Match en transaction ✅ |
-| A3 | Backend — auto-création `Event`+`Match` transactionnelle depuis `ChampionshipMatch` (création simple et en masse), uniquement si notre équipe est participante |
+| A3 | Backend — auto-création `Event`+`Match` transactionnelle depuis `ChampionshipMatch` (création simple et en masse), uniquement si notre équipe est participante ✅ |
 | A4 | Frontend — `EventFormDialog` : sous-formulaire match (type, adversaire existant/nouveau, `cupRound` si Coupe) |
 | A5 | Frontend — affichage des matchs de championnat dans le Calendrier |
 | A6 | Tests multi-rôles bout-en-bout Partie A |
