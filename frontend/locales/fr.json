@@ -854,6 +854,7 @@
     "preferredFoot": "Pied fort",
     "footUnspecified": "Non renseigné",
     "jerseyNumber": "Numéro de maillot",
+    "jerseyNumberTakenError": "Numéro déjà pris dans cette équipe",
     "joinDate": "Date d'arrivée dans l'équipe",
     "mainPosition": "Poste principal",
     "secondaryPosition": "Poste secondaire",

@@ -854,6 +854,7 @@
     "preferredFoot": "Preferred foot",
     "footUnspecified": "Unspecified",
     "jerseyNumber": "Jersey number",
+    "jerseyNumberTakenError": "Number already taken in this team",
     "joinDate": "Team join date",
     "mainPosition": "Main position",
     "secondaryPosition": "Secondary position",

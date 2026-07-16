@@ -225,6 +225,15 @@ visible dès le départ, laissant croire à tort que c'est la seule option. Un t
 expliquant le mécanisme — visible uniquement tant qu'aucune recherche automatique n'a encore été
 tentée (`!hasSearched`), le panneau de résultat prenant ensuite le relais pour communiquer l'état.
 
+**Erreur de soumission liée à un champ précis — affichage inline en plus du toast** : jusqu'ici,
+toute erreur de soumission (ex. `PLAYER_TEAMS.JERSEY_NUMBER_TAKEN`) n'était signalée que par un
+toast (`sonner`), peu visible en bas de l'écran (retour utilisateur). Pour le numéro de maillot
+précisément, l'erreur est désormais **aussi** posée sur le champ lui-même via `setError` de
+`react-hook-form` (`aria-invalid` + message dédié sous le champ, même convention visuelle que les
+erreurs de validation zod existantes — prénom/nom requis) — le toast reste affiché en parallèle,
+pas remplacé. Pattern réutilisable pour tout futur code d'erreur rattachable à un champ précis du
+formulaire.
+
 **Cascade de rapprochement, intra-club uniquement pour l'instant** : licence exacte (parmi tous
 les `Member` du club, actifs ou non — voir `docs/schema/joueurs.md` §PlayerProfile), puis repli
 nom+prénom+date de naissance si la licence est absente ou ne matche rien. **L'email est

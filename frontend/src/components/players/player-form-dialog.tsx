@@ -259,6 +259,7 @@ export function PlayerFormDialog({
     handleSubmit,
     reset,
     setValue,
+    setError,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -600,6 +601,12 @@ export function PlayerFormDialog({
     } catch (error) {
       const code = error instanceof Error ? error.message : "AUTH.UNKNOWN";
       toast.error(tErrors(code));
+      // En plus du toast (peu visible, retour utilisateur du 2026-07-16) :
+      // encadre le champ concerné en rouge avec un message dédié, pour les
+      // codes d'erreur qu'on peut rattacher à un champ précis.
+      if (code === "PLAYER_TEAMS.JERSEY_NUMBER_TAKEN") {
+        setError("jerseyNumber", { type: "manual", message: t("jerseyNumberTakenError") });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -911,7 +918,16 @@ export function PlayerFormDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="jerseyNumber">{t("jerseyNumber")}</Label>
-                  <Input id="jerseyNumber" type="number" min={0} {...register("jerseyNumber")} />
+                  <Input
+                    id="jerseyNumber"
+                    type="number"
+                    min={0}
+                    aria-invalid={!!errors.jerseyNumber}
+                    {...register("jerseyNumber")}
+                  />
+                  {errors.jerseyNumber && (
+                    <p className="text-sm text-destructive">{errors.jerseyNumber.message}</p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="joinDate">{t("joinDate")}</Label>
