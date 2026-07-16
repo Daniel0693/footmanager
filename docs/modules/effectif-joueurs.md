@@ -116,11 +116,12 @@
 >   étendu (props `open`/`onOpenChange` optionnelles, `trigger` devenu optionnel) pour
 >   supporter ce mode contrôlé sans trigger visible, en plus de son usage historique
 >   self-managé (inchangé, entièrement rétrocompatible).
-> - **Staff** : ouvre `staff-form-dialog.tsx` (nouveau, édition seulement — aucun bouton de
->   création de membre du staff, hors périmètre du plan). Ne couvre que les champs déjà
+> - **Staff** : ouvre `staff-form-dialog.tsx` (édition seulement — la création passe par un
+>   composant séparé, `add-staff-member-dialog.tsx`, voir §B5.5). Ne couvre que les champs déjà
 >   présents sur `RosterRow` (nom/prénom/téléphone/date de naissance/rôle) : aucun fetch
 >   supplémentaire, contrairement au joueur. `gender` et `TeamStaff.startDate` restent hors
->   de ce formulaire (jamais envoyés dans les PATCH, donc jamais modifiés).
+>   de ce formulaire d'édition (jamais envoyés dans les PATCH, donc jamais modifiés) — à la
+>   différence du formulaire de création (§B5.5), qui les collecte.
 >
 > "Archiver" (`archive-row-dialog.tsx`, confirmation simple) appelle le bon endpoint B2 selon
 > le rôle (`.../players/:id/archive` ou `.../staff/:id/archive`). "Supprimer" (visible
@@ -328,8 +329,8 @@ préremplie à la date du jour plutôt que laissée vide — modifiable libremen
 arrivée future ou rattraper un retard de saisie. Ne s'applique qu'à la création : en édition,
 une date d'arrivée déjà vide n'est jamais réécrite avec la date du jour.
 
-> **B5.5 — création de staff + attribution du rôle Coach (backend implémenté, frontend à venir,
-> branche `feature/effectif-staff-roles-fixes`)** : constat en usage réel (2026-07-16) —
+> **B5.5 — création de staff + attribution du rôle Coach (implémenté, branche
+> `feature/effectif-staff-roles-fixes`)** : constat en usage réel (2026-07-16) —
 > `POST .../teams/:teamId/staff` existait déjà mais ne créait jamais le `MemberRole` Coach
 > correspondant, et aucune interface ne permettait de toute façon d'atteindre cet endpoint
 > (`StaffFormDialog` est édition seulement). Un membre du staff ajouté restait donc sans
@@ -364,9 +365,29 @@ une date d'arrivée déjà vide n'est jamais réécrite avec la date du jour.
 >   édition sans changement de rôle, ex. le Principal modifie ses propres dates — cas déjà permis
 >   par `assertCanModifyPrincipal`).
 >
-> Le frontend (nouveau bouton "Ajouter un membre du staff" sur le tableau Effectif, création
-> d'un nouveau membre uniquement pour cette première version — pas de rapprochement avec un
-> membre existant, à la différence du flux joueur) reste à construire.
+> **`CreateTeamStaffDto` accepte deux formes** (validées dans le service, pas via un schéma
+> class-validator "l'un ou l'autre") : `memberId` (membre déjà existant du club — chemin déjà
+> existant, réservé à un futur rapprochement avec un membre existant, ex. un Parent qui devient
+> aussi Adjoint) OU `firstName`+`lastName` (+ `phone`/`gender`/`birthDate` optionnels) pour une
+> **nouvelle personne** — seul chemin utilisé par le frontend v1. Dans ce second cas, le `Member`
+> est créé dans la **même transaction** que `TeamStaff`/`MemberRole`, jamais en deux appels
+> séparés (`POST /members` puis `POST /staff`) : un échec du second appel aurait autrement laissé
+> un `Member` orphelin, créé mais jamais rattaché à aucune équipe ni aucun rôle.
+>
+> `RosterService.findAllByTeam` expose deux indicateurs miroir de ces règles, dans le même esprit
+> que `canCreate`/`canEdit`/`canDelete` (§B5.1-B5.4) — jamais de logique de permission recalculée
+> côté frontend : `canCreateStaff` (bouton "Ajouter un membre du staff" affiché ou non — vérifie,
+> pour un scope `TEAM`, que l'appelant est bien le Principal de cette équipe) et
+> `canAssignPrincipal` (option "Entraîneur principal" proposée ou non dans le select de rôle —
+> `true` seulement en scope `CLUB`/`ALL`).
+>
+> **Frontend (implémenté)** : nouveau bouton "Ajouter un membre du staff" sur le tableau Effectif
+> (gardé par `canCreateStaff`), ouvrant `add-staff-member-dialog.tsx` — formulaire identité
+> (prénom/nom requis, téléphone/genre/date de naissance optionnels, mêmes champs que la création
+> de joueur) + sélecteur de rôle (`CO_ENTRAINEUR`/`ADJOINT` toujours proposés, `PRINCIPAL`
+> seulement si `canAssignPrincipal`). Un seul appel `POST .../teams/:teamId/staff` avec les champs
+> d'identité (jamais de `memberId` depuis ce formulaire — pas de rapprochement avec un membre
+> existant dans cette première version, à la différence du flux joueur).
 
 ## Import fichier (Excel/CSV) (branche `feature/effectif-import-fichier`)
 

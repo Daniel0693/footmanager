@@ -871,13 +871,20 @@
   },
   "staffForm": {
     "editTitle": "Edit staff member",
+    "createTitle": "Add a staff member",
+    "triggerLabel": "Add a staff member",
     "firstName": "First name",
     "lastName": "Last name",
     "phone": "Phone",
+    "gender": "Gender",
+    "genderUnspecified": "Unspecified",
     "birthDate": "Date of birth",
+    "startDate": "Start date",
     "role": "Role",
     "submitEdit": "Save",
+    "submitCreate": "Add",
     "updated": "Staff member updated successfully",
+    "created": "Staff member added successfully",
     "firstNameRequired": "First name is required",
     "lastNameRequired": "Last name is required"
   },
@@ -1032,6 +1039,7 @@
     "TEAM_STAFF": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
       "MEMBER_NOT_IN_CLUB": "This member does not belong to this club",
+      "MISSING_MEMBER_OR_IDENTITY": "Specify an existing member or the new person's identity (first and last name)",
       "ALREADY_ACTIVE": "This member already has an active staff assignment in this team",
       "CANNOT_MODIFY_PRINCIPAL": "An Assistant or Co-coach cannot modify the Head Coach's record",
       "ONLY_PRINCIPAL_CAN_CREATE": "Only this team's Head Coach can add a staff member",

@@ -25,6 +25,8 @@ const CAPABILITIES = {
   canCreate: true,
   canEdit: true,
   canDelete: true,
+  canCreateStaff: true,
+  canAssignPrincipal: true,
 };
 
 function jsonResponse(body: unknown, ok = true) {
@@ -201,6 +203,27 @@ describe("TeamPlayersPageContent", () => {
 
     await screen.findByText("Aucun membre dans cette équipe");
     expect(screen.queryByRole("button", { name: "Ajouter un joueur" })).not.toBeInTheDocument();
+  });
+
+  it('le bouton "Ajouter un membre du staff" est affiché quand canCreateStaff est vrai (ex. Principal ou AdminClub)', async () => {
+    mockApiFetch.mockResolvedValue(rosterResponse([], 0, { canCreateStaff: true }));
+
+    renderPage();
+
+    expect(
+      await screen.findByRole("button", { name: "Ajouter un membre du staff" }),
+    ).toBeInTheDocument();
+  });
+
+  it('le bouton "Ajouter un membre du staff" est masqué quand canCreateStaff est faux (ex. Adjoint/Co-entraîneur)', async () => {
+    mockApiFetch.mockResolvedValue(rosterResponse([], 0, { canCreateStaff: false }));
+
+    renderPage();
+
+    await screen.findByText("Aucun membre dans cette équipe");
+    expect(
+      screen.queryByRole("button", { name: "Ajouter un membre du staff" }),
+    ).not.toBeInTheDocument();
   });
 
   describe("filtre statut Actif/Archivé/Tout", () => {

@@ -85,6 +85,7 @@ describe('TeamStaffService', () => {
       update: jest.Mock;
       delete: jest.Mock;
     };
+    member: { create: jest.Mock };
     role: { findFirst: jest.Mock };
     memberRole: { create: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
   };
@@ -104,6 +105,7 @@ describe('TeamStaffService', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
+      member: { create: jest.fn() },
       role: { findFirst: jest.fn().mockResolvedValue(coachRole) },
       memberRole: {
         create: jest.fn(),
@@ -221,6 +223,70 @@ describe('TeamStaffService', () => {
         ),
       ).rejects.toMatchObject({ status: HttpStatus.INTERNAL_SERVER_ERROR });
       expect(tx.memberRole.create).not.toHaveBeenCalled();
+    });
+
+    describe('création d’une nouvelle personne (pas de memberId)', () => {
+      it('refuse si ni memberId ni prénom/nom ne sont fournis', async () => {
+        teamFindFirst.mockResolvedValue(team);
+
+        await expect(
+          service.create(1, 5, { staffRole: 'ADJOINT' }, adminRequester),
+        ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+        expect(transaction).not.toHaveBeenCalled();
+        expect(memberFindFirst).not.toHaveBeenCalled();
+      });
+
+      it('crée le Member puis l’affectation et le MemberRole quand prénom/nom sont fournis sans memberId', async () => {
+        teamFindFirst.mockResolvedValue(team);
+        tx.member.create.mockResolvedValue({ id: 55 });
+        tx.teamStaff.findFirst.mockResolvedValue(null);
+        tx.teamStaff.create.mockResolvedValue({
+          ...adjointAssignment,
+          memberId: 55,
+        });
+
+        const result = await service.create(
+          1,
+          5,
+          {
+            firstName: 'Nadia',
+            lastName: 'Roux',
+            phone: '0601020304',
+            staffRole: 'ADJOINT',
+          },
+          adminRequester,
+        );
+
+        expect(memberFindFirst).not.toHaveBeenCalled();
+        expect(tx.member.create).toHaveBeenCalledWith({
+          data: {
+            clubId: 1,
+            firstName: 'Nadia',
+            lastName: 'Roux',
+            phone: '0601020304',
+            gender: undefined,
+            birthDate: undefined,
+          },
+        });
+        expect(tx.teamStaff.create).toHaveBeenCalledWith({
+          data: {
+            memberId: 55,
+            teamId: 5,
+            staffRole: 'ADJOINT',
+            startDate: undefined,
+          },
+        });
+        expect(tx.memberRole.create).toHaveBeenCalledWith({
+          data: {
+            memberId: 55,
+            roleId: 6,
+            clubId: 1,
+            teamId: 5,
+            startDate: undefined,
+          },
+        });
+        expect(result).toMatchObject({ memberId: 55 });
+      });
     });
 
     describe('règle — seul le Principal (ou un scope CLUB/ALL) peut créer une affectation', () => {

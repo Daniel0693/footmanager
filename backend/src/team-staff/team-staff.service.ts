@@ -54,13 +54,40 @@ export class TeamStaffService {
       teamId,
       'TEAM_STAFF.TEAM_NOT_IN_CLUB',
     );
-    await this.assertMemberInClub(clubId, dto.memberId);
+    if (dto.memberId === undefined && (!dto.firstName || !dto.lastName)) {
+      throw new AppException(
+        'TEAM_STAFF.MISSING_MEMBER_OR_IDENTITY',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (dto.memberId !== undefined) {
+      await this.assertMemberInClub(clubId, dto.memberId);
+    }
     await this.assertCanCreateStaff(teamId, requester);
     this.assertCanAssignPrincipal(dto.staffRole, requester);
 
     return this.prisma.$transaction(async (tx) => {
+      // Nouvelle personne (pas de memberId fourni) : le Member est créé ici,
+      // dans la même transaction que TeamStaff/MemberRole — jamais en deux
+      // appels distincts (voir CreateTeamStaffDto), pour ne jamais risquer
+      // un Member créé mais orphelin si la suite de la transaction échouait.
+      const memberId =
+        dto.memberId ??
+        (
+          await tx.member.create({
+            data: {
+              clubId,
+              firstName: dto.firstName as string,
+              lastName: dto.lastName as string,
+              phone: dto.phone,
+              gender: dto.gender,
+              birthDate: dto.birthDate,
+            },
+          })
+        ).id;
+
       const activeAssignment = await tx.teamStaff.findFirst({
-        where: { memberId: dto.memberId, teamId, endDate: null },
+        where: { memberId, teamId, endDate: null },
       });
       if (activeAssignment) {
         throw new AppException(
@@ -71,7 +98,7 @@ export class TeamStaffService {
 
       const assignment = await tx.teamStaff.create({
         data: {
-          memberId: dto.memberId,
+          memberId,
           teamId,
           staffRole: dto.staffRole,
           startDate: dto.startDate,
@@ -81,7 +108,7 @@ export class TeamStaffService {
       const coachRole = await this.findCoachRole(tx);
       await tx.memberRole.create({
         data: {
-          memberId: dto.memberId,
+          memberId,
           roleId: coachRole.id,
           clubId,
           teamId,

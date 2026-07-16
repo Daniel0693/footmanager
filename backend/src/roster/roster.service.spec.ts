@@ -66,6 +66,7 @@ describe('RosterService', () => {
   let teamFindFirst: jest.Mock;
   let ptFindMany: jest.Mock;
   let tsFindMany: jest.Mock;
+  let tsFindFirst: jest.Mock;
   let can: jest.Mock;
   let service: RosterService;
 
@@ -73,12 +74,16 @@ describe('RosterService', () => {
     teamFindFirst = jest.fn().mockResolvedValue(team);
     ptFindMany = jest.fn().mockResolvedValue([]);
     tsFindMany = jest.fn().mockResolvedValue([]);
+    // Par défaut, le demandeur est Principal de cette équipe — neutre
+    // vis-à-vis de canCreateStaff quand le scope résolu est TEAM (voir
+    // describe ci-dessous pour les cas où ce n'est pas le cas).
+    tsFindFirst = jest.fn().mockResolvedValue({ staffRole: 'PRINCIPAL' });
     can = jest.fn().mockResolvedValue('TEAM');
 
     const prismaStub = {
       team: { findFirst: teamFindFirst },
       playerTeam: { findMany: ptFindMany },
-      teamStaff: { findMany: tsFindMany },
+      teamStaff: { findMany: tsFindMany, findFirst: tsFindFirst },
     } as unknown as PrismaService;
     const permissionsStub = { can } as unknown as PermissionsService;
 
@@ -370,6 +375,76 @@ describe('RosterService', () => {
         canEdit: true,
         canCreate: true,
         canDelete: false,
+      });
+    });
+  });
+
+  describe('indicateurs canCreateStaff/canAssignPrincipal (miroir de TeamStaffService)', () => {
+    it('canCreateStaff est false sans team_staff CREATE du tout', async () => {
+      can.mockImplementation(
+        (_memberId: number, action: string, resource: string) =>
+          Promise.resolve(
+            resource === 'team_staff' && action === 'CREATE' ? null : 'TEAM',
+          ),
+      );
+
+      const result = await service.findAllByTeam(requester);
+
+      expect(result).toMatchObject({
+        canCreateStaff: false,
+        canAssignPrincipal: false,
+      });
+      expect(tsFindFirst).not.toHaveBeenCalled();
+    });
+
+    it('un scope CLUB/ALL sur team_staff CREATE donne canCreateStaff ET canAssignPrincipal, sans requête sur sa propre affectation', async () => {
+      can.mockImplementation(
+        (_memberId: number, action: string, resource: string) =>
+          Promise.resolve(
+            resource === 'team_staff' && action === 'CREATE' ? 'CLUB' : 'TEAM',
+          ),
+      );
+
+      const result = await service.findAllByTeam(requester);
+
+      expect(result).toMatchObject({
+        canCreateStaff: true,
+        canAssignPrincipal: true,
+      });
+      expect(tsFindFirst).not.toHaveBeenCalled();
+    });
+
+    it('un scope TEAM qui EST Principal de cette équipe a canCreateStaff mais pas canAssignPrincipal', async () => {
+      can.mockImplementation(
+        (_memberId: number, action: string, resource: string) =>
+          Promise.resolve(
+            resource === 'team_staff' && action === 'CREATE' ? 'TEAM' : 'TEAM',
+          ),
+      );
+      tsFindFirst.mockResolvedValue({ staffRole: 'PRINCIPAL' });
+
+      const result = await service.findAllByTeam(requester);
+
+      expect(result).toMatchObject({
+        canCreateStaff: true,
+        canAssignPrincipal: false,
+      });
+    });
+
+    it("un scope TEAM qui N'EST PAS Principal de cette équipe n'a ni l'un ni l'autre", async () => {
+      can.mockImplementation(
+        (_memberId: number, action: string, resource: string) =>
+          Promise.resolve(
+            resource === 'team_staff' && action === 'CREATE' ? 'TEAM' : 'TEAM',
+          ),
+      );
+      tsFindFirst.mockResolvedValue({ staffRole: 'ADJOINT' });
+
+      const result = await service.findAllByTeam(requester);
+
+      expect(result).toMatchObject({
+        canCreateStaff: false,
+        canAssignPrincipal: false,
       });
     });
   });
