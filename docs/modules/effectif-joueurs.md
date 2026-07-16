@@ -328,6 +328,40 @@ préremplie à la date du jour plutôt que laissée vide — modifiable libremen
 arrivée future ou rattraper un retard de saisie. Ne s'applique qu'à la création : en édition,
 une date d'arrivée déjà vide n'est jamais réécrite avec la date du jour.
 
+## Import fichier (Excel/CSV) — en cours (branche `feature/effectif-import-fichier`)
+
+> **En cours.** Réutilise le service de rapprochement (`RosterMatchingService`, ci-dessus) par
+> ligne plutôt qu'une logique de matching séparée. Découpage en six incréments :
+> 1. Upload + extraction brute des en-têtes/lignes (implémenté).
+> 2. Mapping des colonnes (frontend, à venir).
+> 3. Envoi au backend, rapprochement par ligne (à venir).
+> 4. Tableau de prévisualisation avec décision par ligne (à venir).
+> 5. Validation, transaction tout-ou-rien (à venir).
+> 6. Rechargement du tableau Effectif existant (à venir).
+
+**Étape 1 — `POST /clubs/:clubId/teams/:teamId/roster/import/parse`** (`RosterImportService`,
+module `roster`) : upload multipart (`FileInterceptor`), aucune écriture en base. Un seul format
+de fichier accepté par extension (`.csv` ou `.xlsx`, jamais déduit du mime-type — trop
+inconsistant selon les navigateurs). Limites volontairement basses (bornent la taille de la
+transaction de l'étape 5, un import de club restant de l'ordre de quelques dizaines à quelques
+centaines de lignes) : 2 Mo, 500 lignes de données maximum (hors en-tête). Renvoie les en-têtes et
+les lignes à l'état brut (toutes les valeurs converties en chaîne, dates au format AAAA-MM-JJ en
+date locale) — aucune interprétation métier ici, le mapping colonne → champ étant une décision de
+l'utilisateur (étape 2, frontend). Gardé par `player_team CREATE` (même ressource que
+l'aboutissement de l'import) — exclut donc déjà Player/Parent par construction, contrairement à
+`lookup` qui avait dû ajouter un rejet explicite côté service (voir plus haut).
+
+**Dépendance ajoutée : `exceljs`** (lecture XLSX et CSV avec une seule bibliothèque — CSV via
+`workbook.csv.read()`, une fonctionnalité déjà intégrée, pas une bibliothèque séparée). `uuid`
+(dépendance transitive d'exceljs) forcé à `^11.1.1` via `overrides` dans `package.json` : la
+version historiquement tirée par exceljs a une vulnérabilité modérée corrigible sans changement
+cassant. **Défaut de types connu d'exceljs** : son fichier `index.d.ts` déclare son propre
+`Buffer` ambiant minimal (`declare interface Buffer extends ArrayBuffer {}`), qui se fusionne avec
+le vrai `Buffer` de `@types/node` dès que le paquet est importé et rend tout `Buffer` Node.js réel
+structurellement incompatible avec le paramètre attendu par `.load()` — aucun cast direct ne
+peut satisfaire les deux définitions à la fois. Contourné par un `any` documenté (dernier recours,
+`docs/typescript-conventions.md` §3), isolé à cette seule ligne.
+
 ## Profil joueur — mise en page 2 colonnes
 
 La fiche joueur est structurée en deux colonnes :
