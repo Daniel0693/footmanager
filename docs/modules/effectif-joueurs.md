@@ -179,33 +179,145 @@ actuelles). Deux filtres de poste combinables (en plus du filtre Statut) :
 - **Par poste précis** (15 postes réels, voir `docs/schema/index.md`) — filtre sur
   `mainPosition` uniquement ; les postes secondaires sont affichés mais non filtrables.
 
-### Ajouter un joueur existant du club (A18 — promotions/transferts entre équipes)
+### Rapprochement joueur — détection automatique Nouveau/Modification/Réactivation (révision 2026-07-16, remplace A18)
 
-Depuis la révision A14-A18 (`docs/roadmap.md`), `PlayerFormDialog` propose deux modes,
-sélectionnables par deux boutons en tête de la modale :
-- **Joueur existant du club** (affiché et sélectionné **par défaut** — retour utilisateur
-  explicite, la plupart des ajouts en cours de saison sont des mouvements entre équipes du même
-  club plutôt que de nouvelles recrues) : recherche club-wide débouncée (300 ms) sur `GET
-  /clubs/:clubId/players?search=...` (`PlayersService.findAllByClub`, A16), affichant nom et
-  équipe actuelle de chaque candidat (ou "Actuellement sans équipe"). Une fois un candidat
-  sélectionné, les champs d'identité (déjà existants sur son profil) sont masqués — seuls les
-  champs propres à la nouvelle affectation restent (numéro de maillot, poste, date d'arrivée).
-  La soumission n'envoie **qu'un seul** `POST /clubs/:clubId/teams/:teamId/players` avec le
-  `playerId` trouvé — aucun `Member`/`PlayerProfile` recréé, réutilise l'endpoint déjà conçu
-  pour accepter un `playerId` existant (`PlayerTeamsController.create`, jamais modifié pour
-  cette fonctionnalité).
-- **Nouveau joueur** : flux historique inchangé (création `Member` → `PlayerProfile` →
-  `PlayerTeam`, 3 appels séquentiels).
+**Décisions du 2026-07-16** (`docs/decisions-ouvertes-et-rgpd.md`) : la création manuelle d'un
+joueur (`PlayerFormDialog`) et l'import fichier (à venir) partagent le même service de
+rapprochement backend plutôt que deux logiques distinctes. Remplace l'ancien sélecteur A18 à
+deux boutons ("Joueur existant du club" / "Nouveau joueur") par une détection **automatique** et
+**progressive**, en quatre étapes (retour utilisateur, corrige un flux initial trop permissif —
+voir "Correctif" plus bas) :
+1. Seuls prénom, nom, date de naissance et numéro de licence sont affichés — le reste du
+   formulaire (téléphone, genre, nationalité, pied fort, affectation d'équipe) reste masqué.
+2. Dès que prénom+nom **et** (date de naissance **ou** licence) sont renseignés, le frontend
+   interroge `GET /clubs/:clubId/teams/:teamId/roster/lookup` (`RosterMatchingService.findMatches`,
+   module `roster`), avec un léger débounce.
+3. Une fois la recherche terminée, son résultat s'affiche dans une carte **quel que soit le
+   statut** (traitement symétrique trouvé/non trouvé, retour utilisateur du 2026-07-16) :
+   proposition de réactivation/liste ambiguë si une correspondance existe, ou "Aucune
+   correspondance trouvée pour {Prénom} {Nom}" avec deux choix sinon — "Chercher à nouveau" (vide
+   les quatre champs d'identité et attend une nouvelle recherche) ou "Créer un nouveau joueur"
+   (garde les informations déjà saisies).
+4. Le reste du formulaire (téléphone, genre, nationalité, pied fort, affectation d'équipe) n'est
+   révélé **qu'une fois la décision prise** — jamais automatiquement, y compris pour un statut
+   `NOUVEAU` (corrige une première version qui révélait déjà tout dès `NOUVEAU`, sans étape de
+   confirmation, alors que `RÉACTIVATION`/`AMBIGU` en exigeaient une : traitement désormais
+   symétrique). Si une correspondance est trouvée, les champs pertinents sont préremplis ; sinon
+   ils restent vides. Le bouton "Rechercher un joueur existant" (repli manuel, voir plus bas)
+   suit une règle de visibilité distincte, indépendante de cette décision.
 
-**Aucune fermeture automatique de l'ancienne affectation** : sélectionner un joueur déjà actif
-dans une autre équipe (ex. promotion U15 → U16) ne clôt jamais son ancienne `PlayerTeam` —
-ce serait d'ailleurs impossible à autoriser proprement (le Coach de la nouvelle équipe n'a
-aucun droit d'écriture sur l'ancienne équipe, règle d'or des permissions). Archiver l'ancienne
-affectation reste un geste séparé et volontaire, laissé au Coach de l'équipe quittée (action
-"Archiver" déjà existante, B2). Un joueur peut donc, temporairement ou durablement, avoir
-plusieurs affectations `PlayerTeam` actives simultanément sur des équipes différentes du même
-club — cas non empêché par le backend (`PlayerTeamsService.create` ne bloque qu'un doublon sur
-la **même** équipe), volontairement laissé à l'appréciation des Coachs.
+**Correctif (signalé le 2026-07-16, jour du déploiement)** : la première version révélait tout le
+formulaire dès l'ouverture et lançait la recherche dès prénom+nom seuls renseignés — un joueur
+archivé retrouvé uniquement par nom+date de naissance restait invisible tant que la date de
+naissance n'était pas saisie (ex. "Nina David", archivée en U15, non détectée en tentant de
+l'ajouter en U11 avec prénom+nom seuls). Le backend répondait honnêtement `NOUVEAU` (rien
+d'assez fiable à chercher sans date de naissance ni licence, voir cascade ci-dessous), mais rien
+dans l'interface n'expliquait pourquoi. Corrigé en n'autorisant le déclenchement de la recherche
+que si prénom+nom **et** (date de naissance **ou** licence) sont réunis, et en masquant le reste
+du formulaire tant que ce n'est pas le cas — élimine la possibilité même d'une recherche
+insuffisante plutôt que d'ajouter un message d'avertissement après coup.
+
+**Ambiguïté résiduelle signalée par l'utilisateur** : même après ce correctif, rien n'indiquait
+visuellement qu'au-delà de prénom+nom, continuer à remplir date de naissance/licence déclenche une
+vérification automatique — seul le bouton "Rechercher un joueur existant" (recherche manuelle) est
+visible dès le départ, laissant croire à tort que c'est la seule option. Un texte d'aide discret
+(`text-xs text-muted-foreground`) a été ajouté juste sous les champs date de naissance/licence,
+expliquant le mécanisme — visible uniquement tant qu'aucune recherche automatique n'a encore été
+tentée (`!hasSearched`), le panneau de résultat prenant ensuite le relais pour communiquer l'état.
+
+**Cascade de rapprochement, intra-club uniquement pour l'instant** : licence exacte (parmi tous
+les `Member` du club, actifs ou non — voir `docs/schema/joueurs.md` §PlayerProfile), puis repli
+nom+prénom+date de naissance si la licence est absente ou ne matche rien. **L'email est
+volontairement exclu** de cette cascade : la réactivation inter-club (retrouver un compte `User`
+existant d'un autre club) est un mécanisme séparé, non encore implémenté, voir décision ouverte
+#7. Sans repli fiable, un membre sans compte transférant d'un autre club remonte donc comme
+`NOUVEAU`, jamais comme `RÉACTIVATION` — limite acceptée.
+
+**Quatre statuts possibles** :
+- **`NOUVEAU`** : aucune correspondance — le formulaire complet (identité + affectation) reste
+  affiché normalement.
+- **`MODIFICATION`** : une correspondance a une affectation `PlayerTeam` **déjà active dans
+  cette équipe précise** — simple notice ("Ce joueur est déjà dans cette équipe"), validation
+  bloquée (pas d'action pertinente dans ce flux de création).
+- **`RÉACTIVATION`** : une correspondance existe mais n'est pas active dans cette équipe précise
+  — recouvre deux cas distincts côté backend (jamais différenciés dans l'UI, un seul badge) :
+  retour dans cette même équipe après un départ, ou actif/archivé dans **une autre équipe du
+  club**. Dans les deux cas, le backend renvoie `lastAssignment` — la dernière affectation
+  connue de ce candidat, **toutes équipes confondues** (pas seulement l'équipe ciblée) — utilisée
+  pour **préremplir** numéro de maillot et poste, modifiables avant validation. Correctif du
+  2026-07-16 (signalé par l'utilisateur, cas "Nina David" archivée en U15 puis recherchée pour
+  U11) : la première version ne préremplissait que depuis un retour dans la même équipe, laissant
+  les champs vides dès que la dernière affectation venait d'une équipe différente — un point de
+  départ modifiable (même approximatif) a été jugé préférable à un champ vide. Deux actions :
+  "Réactiver ce joueur" (réutilise le `PlayerProfile` existant, POST unique
+  `/clubs/:clubId/teams/:teamId/players` avec le `playerId` trouvé — aucun `Member`/`PlayerProfile`
+  recréé) ou "Non, créer un nouveau joueur" (ignore la suggestion, force le flux `NOUVEAU`).
+- **`AMBIGU`** : plusieurs candidats trouvés sur le repli nom+date de naissance (cas rare) —
+  liste de candidats à choisir, ou "Aucun ne correspond, créer un nouveau joueur".
+
+**Recherche manuelle de secours — un bouton, pas un lien** (retour utilisateur du 2026-07-16) :
+"Rechercher un joueur existant" rouvre l'ancienne recherche libre par nom (A16, `GET
+/clubs/:clubId/players?search=...`, sans date de naissance ni licence requises), pour les cas où
+la détection automatique ne trouve rien ou se trompe (homonyme mal orthographié, faute de frappe
+sur la licence) — mais aussi et surtout pour le cas où **ni la date de naissance ni le numéro de
+licence ne sont connus au moment de la saisie**, ce qui empêche toute recherche automatique de se
+déclencher (elle exige l'un des deux, voir cascade ci-dessus). Ce bouton n'est donc jamais
+obsolète malgré "Chercher à nouveau" (qui ne fait que réinitialiser la même cascade exacte) :
+c'est le seul chemin qui fonctionne par nom seul. **Visible dès que prénom+nom sont renseignés**,
+indépendamment de l'état de la recherche automatique (en cours, résolue ou jamais déclenchée) —
+initialement asservi à la même recherche automatique (donc inaccessible sans date de
+naissance/licence, exactement le cas où il est le plus utile), corrigé pour être détaché de cette
+condition. Un candidat choisi ici suit exactement le même chemin de soumission qu'une réactivation
+automatique confirmée.
+
+**Faille de permission réelle trouvée et corrigée le 2026-07-16 (signalée par l'utilisateur : "Nina"
+introuvable alors qu'elle existe bel et bien dans le club)** : `GET /clubs/:clubId/players`
+(`PlayersController.findAll`, A16) ne porte aucun `teamId` dans son URL naturelle — exactement le
+premier cas documenté en tête de §"Patterns découverts" (`docs/modules/auth-roles.md`) : un scope
+`TEAM` ne peut jamais matcher une route sans `teamId`. Un Coach (`player_profile READ` scopé
+`TEAM` dans le seed) recevait donc systématiquement un **403**, jamais un tableau vide — confirmé
+en conditions réelles (`curl` avec un compte de dev, `eva.vincent@fc-les-ormes...`, Coach principal
+de l'U11 du club "FC Les Ormes") : 403 sans `?teamId=`, 200 avec. Cette faille existait déjà avant
+la présente révision (héritée telle quelle du sélecteur A18 d'origine, jamais remarquée car les
+tests frontend mockent `apiFetch` et n'exercent jamais le vrai `PermissionsGuard`) — elle rendait
+la recherche manuelle **totalement inutilisable par un Coach**, le rôle qui en a le plus besoin au
+quotidien.
+
+Deux corrections, dans `player-form-dialog.tsx` :
+- La requête transmet désormais `&teamId=${teamId}` (le composant le connaît déjà en prop) —
+  satisfait uniquement la résolution du *scope* du guard, ne restreint jamais les résultats
+  eux-mêmes à cette équipe (`PlayersService.findAllByClub` ne filtre par `teamId` pour aucun scope
+  TEAM/CLUB/ALL) : la recherche reste bien club-wide, toutes équipes confondues.
+- Le bloc `catch` confondait silencieusement **toute** erreur (réseau, permission...) avec "aucun
+  résultat" (`searchResults([])`) — c'est précisément ce qui a caché ce bug. Une erreur affiche
+  désormais un toast (code d'erreur traduit, jamais de texte brut — §6 `typescript-conventions.md`)
+  et laisse `searchResults` à `null` (distinct d'un tableau vide), plutôt que de se faire passer
+  pour un résultat de recherche légitime.
+
+**Faille de permission trouvée et corrigée en construisant `GET .../roster/lookup`** :
+`PermissionsGuard` ne vérifie que "ce membre a-t-il *un* scope quelconque sur `player_profile
+READ` ?" — un Player (scope `OWN`) ou un Parent (scope `PARENT`) en dispose légitimement pour
+d'autres routes, et passerait donc le guard sur cette route (elle porte `teamId` dans son URL,
+contrairement à `GET /players`/`GET /players/:id` qui les rejettent faute de `teamId`). Rejet
+explicite ajouté dans `RosterMatchingService` pour ces deux scopes : cet outil de rapprochement
+est réservé au staff (Coach/AdminClub/SuperAdmin/Proprietaire), un Player/Parent n'a aucun cas
+d'usage légitime pour rechercher un joueur quelconque du club par nom/licence.
+
+**Aucune fermeture automatique de l'ancienne affectation** : réactiver un joueur déjà actif dans
+une autre équipe (ex. promotion U15 → U16) ne clôt jamais son ancienne `PlayerTeam` — ce serait
+d'ailleurs impossible à autoriser proprement (le Coach de la nouvelle équipe n'a aucun droit
+d'écriture sur l'ancienne équipe, règle d'or des permissions). Archiver l'ancienne affectation
+reste un geste séparé et volontaire, laissé au Coach de l'équipe quittée (action "Archiver" déjà
+existante, B2). Un joueur peut donc, temporairement ou durablement, avoir plusieurs affectations
+`PlayerTeam` actives simultanément sur des équipes différentes du même club — cas non empêché par
+le backend (`PlayerTeamsService.create` ne bloque qu'un doublon sur la **même** équipe),
+volontairement laissé à l'appréciation des Coachs.
+
+**Date d'arrivée dans l'équipe — préremplie à aujourd'hui, toujours modifiable** (retour
+utilisateur du 2026-07-16) : en création (nouveau joueur ou réactivation), `joinDate` est
+préremplie à la date du jour plutôt que laissée vide — modifiable librement pour anticiper une
+arrivée future ou rattraper un retard de saisie. Ne s'applique qu'à la création : en édition,
+une date d'arrivée déjà vide n'est jamais réécrite avec la date du jour.
 
 ## Profil joueur — mise en page 2 colonnes
 
