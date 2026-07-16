@@ -230,7 +230,7 @@ describe('RosterMatchingService', () => {
 
     expect(result.status).toBe('REACTIVATION');
     expect(result.candidates[0].activeAssignmentInTeam).toBeNull();
-    expect(result.candidates[0].lastAssignmentInTeam).toMatchObject({
+    expect(result.candidates[0].lastAssignment).toMatchObject({
       id: 201,
       jerseyNumber: 7,
       mainPosition: 'CDM',
@@ -262,13 +262,13 @@ describe('RosterMatchingService', () => {
       licenseNumber: 'CH-1234',
     });
 
-    expect(result.candidates[0].lastAssignmentInTeam).toMatchObject({
+    expect(result.candidates[0].lastAssignment).toMatchObject({
       id: 202,
       jerseyNumber: 11,
     });
   });
 
-  it('RÉACTIVATION : actif dans une autre équipe du même club, jamais dans la ciblée', async () => {
+  it('RÉACTIVATION : actif dans une autre équipe du même club — préremplit quand même depuis cette affectation (retour utilisateur 2026-07-16)', async () => {
     profileFindMany.mockResolvedValue([
       profile({
         playerTeams: [
@@ -284,10 +284,25 @@ describe('RosterMatchingService', () => {
 
     expect(result.status).toBe('REACTIVATION');
     expect(result.candidates[0].activeAssignmentInTeam).toBeNull();
-    expect(result.candidates[0].lastAssignmentInTeam).toBeNull();
+    expect(result.candidates[0].lastAssignment).toMatchObject({
+      id: 300,
+      jerseyNumber: 9,
+    });
     expect(result.candidates[0].activeTeamsElsewhere).toEqual([
       { teamId: otherTeam.id, teamName: otherTeam.name },
     ]);
+  });
+
+  it('RÉACTIVATION : sans aucune affectation passée, lastAssignment reste null', async () => {
+    profileFindMany.mockResolvedValue([profile({ playerTeams: [] })]);
+
+    const result = await findMatches({
+      ...baseIdentity,
+      licenseNumber: 'CH-1234',
+    });
+
+    expect(result.status).toBe('REACTIVATION');
+    expect(result.candidates[0].lastAssignment).toBeNull();
   });
 
   it('AMBIGU : plusieurs candidats sur le repli nom+date de naissance', async () => {

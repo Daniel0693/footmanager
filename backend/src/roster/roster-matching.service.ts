@@ -31,10 +31,13 @@ export interface PlayerMatchCandidate {
   // Affectation active dans l'équipe ciblée (leaveDate null) — présente
   // uniquement pour un statut MODIFICATION.
   activeAssignmentInTeam: PlayerMatchAssignment | null;
-  // Affectation la plus récente (active ou non) dans l'équipe ciblée, même
-  // quand `activeAssignmentInTeam` est absent — sert à préremplir la
-  // réactivation "retour dans la même équipe" (docs/decisions-ouvertes-et-rgpd.md).
-  lastAssignmentInTeam: PlayerMatchAssignment | null;
+  // Affectation la plus récente de ce candidat, toutes équipes du club
+  // confondues (active ou non) — sert à préremplir maillot/poste à la
+  // réactivation, y compris quand elle vient d'une AUTRE équipe (retour
+  // utilisateur du 2026-07-16 : un point de départ modifiable vaut mieux
+  // qu'un champ vide, même si le maillot/poste ne vient pas de cette équipe
+  // précise). `null` seulement si ce candidat n'a jamais eu d'affectation.
+  lastAssignment: PlayerMatchAssignment | null;
   // Équipes du même club où ce candidat a une affectation active AUTRE que
   // l'équipe ciblée — sert à afficher "actuellement dans l'équipe X", même
   // information que le sélecteur "Joueur existant du club" existant (A18).
@@ -152,13 +155,14 @@ export class RosterMatchingService {
     profile: ProfileWithRelations,
     teamId: number,
   ): PlayerMatchCandidate {
-    const inTargetTeam = [...profile.playerTeams]
-      .filter((assignment) => assignment.teamId === teamId)
-      .sort((a, b) => this.compareByRecency(a, b));
-    const active = inTargetTeam.find(
-      (assignment) => assignment.leaveDate === null,
+    const active = profile.playerTeams.find(
+      (assignment) =>
+        assignment.teamId === teamId && assignment.leaveDate === null,
     );
-    const mostRecent = inTargetTeam[0];
+
+    const mostRecentOverall = [...profile.playerTeams].sort((a, b) =>
+      this.compareByRecency(a, b),
+    )[0];
 
     const elsewhere = profile.playerTeams.filter(
       (assignment) =>
@@ -173,7 +177,9 @@ export class RosterMatchingService {
       birthDate: profile.member.birthDate,
       licenseNumber: profile.licenseNumber,
       activeAssignmentInTeam: active ? this.toAssignment(active) : null,
-      lastAssignmentInTeam: mostRecent ? this.toAssignment(mostRecent) : null,
+      lastAssignment: mostRecentOverall
+        ? this.toAssignment(mostRecentOverall)
+        : null,
       activeTeamsElsewhere: elsewhere.map((assignment) => ({
         teamId: assignment.teamId,
         teamName: assignment.team.name,
