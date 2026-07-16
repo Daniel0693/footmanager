@@ -474,19 +474,75 @@ modification frontend).
 
 ---
 
-## Phase 4 — Matchs (notre équipe) ⬜
+## Phase 4 — Matchs (notre équipe) 🚧
 
 _~3 semaines_
 
-- `Match`, `MatchPeriod`, `MatchLineup`, `MatchEvent`, `MatchAttendance`, `MatchPlayerRating`.
-- Préparation de la composition, convocations de match.
-- **Gestion live** : lancement des périodes (timestamps serveur), saisie des événements
-  (buts avec buteur/passeur, cartons, remplacements), clôture du match.
-- Lien `Match.championshipMatchId` → `ChampionshipMatch` : mise à jour automatique du score
-  du championnat à la clôture.
-- Évaluation collective et individuelle post-match.
-- Statistiques match : buts, assists, temps de jeu, cartons (calculés depuis `MatchEvent`).
-- Alimente le futur Dashboard joueur (Phase 6) et potentiellement `PlayerAbsence`.
+Découpage établi le 2026-07-16, sur le modèle des Phases 2/3 (Parties lettrées, une branche
+`feature/` par Partie, mergée dans `develop` seulement une fois entièrement terminée et testée).
+Décisions actées avant le premier incrément (voir `docs/modules/matchs.md`) :
+- `MatchType` à 4 valeurs : `CHAMPIONNAT`/`COUPE`/`AMICAL`/`TOURNOI`.
+- `Coupe` : pas de nouvelle entité de compétition — un simple champ `cupRound` sur `Match`,
+  adversaire via `ExternalTeam` (liste existante ou création à la volée), pas de bracket.
+- Un match de championnat ne se crée **que** depuis le module Championnat (qui alimente le
+  Calendrier automatiquement, en transaction) — le Calendrier ne permet de créer directement que
+  Amical/Coupe/Tournoi.
+- Statistiques : liste de matchs filtrable (type/saison/championnat(s)) + tableau de stats par
+  joueur en Phase 4 ; le Dashboard visuel complet reste Phase 6.
+- Correctif de schéma au passage : `ChampionshipMatch.matchId` (posé sans `@relation` en Phase 3)
+  est retiré comme colonne physique au profit d'une relation inverse Prisma sur
+  `Match.championshipMatchId`, seule FK réelle — évite une double source de vérité pour une
+  relation 1–1 (`docs/schema/index.md` §Zéro duplicata).
+- **Hors scope explicite** : signalement visuel des joueurs blessés en composition (dépend
+  d'`Injury`, Phase 8) ; Dashboard visuel complet (Phase 6) ; notifications de convocation
+  (décision ouverte #2).
+
+### Partie A — Fondations `Match` & liaison Calendrier/Championnat
+
+| Étape | Contenu |
+|---|---|
+| A0 | Prérequis : permissions granulaires par sous-ressource (`match`, `match_lineup`, `match_period`, `match_event`, `match_attendance`, `match_player_rating`) au seed — voir `docs/modules/matchs.md` §Droits par rôle ✅ |
+| A1 | Schéma `Match` (+ `MatchType` 4 valeurs, `CupRound`, `HomeOrAway`, `LiveMatchStatus`), correction `ChampionshipMatch.matchId`, migration |
+| A2 | Backend `matches` CRUD scopé équipe — création directe limitée à Amical/Coupe/Tournoi |
+| A3 | Backend — auto-création `Event`+`Match` transactionnelle depuis `ChampionshipMatch` (création simple et en masse), uniquement si notre équipe est participante |
+| A4 | Frontend — `EventFormDialog` : sous-formulaire match (type, adversaire existant/nouveau, `cupRound` si Coupe) |
+| A5 | Frontend — affichage des matchs de championnat dans le Calendrier |
+| A6 | Tests multi-rôles bout-en-bout Partie A |
+
+### Partie B — Préparation & convocations
+
+| Étape | Contenu |
+|---|---|
+| B0 | Schéma `MatchAttendance`, `MatchLineup` |
+| B1 | Backend convocations : CRUD `MatchAttendance`, réponse self-service Player (`OWN`)/Parent (`PARENT`) |
+| B2 | Backend composition : CRUD `MatchLineup` (Coach/SuperAdmin uniquement) |
+| B3 | Frontend fiche match — onglet Convocations |
+| B4 | Frontend fiche match — onglet Composition |
+| B5 | Tests multi-rôles Partie B |
+
+### Partie C — Live & clôture
+
+| Étape | Contenu |
+|---|---|
+| C0 | Schéma `MatchPeriod`, `MatchEvent` |
+| C1 | Backend gestion des périodes (timestamps serveur) |
+| C2 | Backend `MatchEvent` CRUD (buts/passes, cartons, remplacements, pénos) |
+| C3 | Backend clôture — calcul du score, écriture sur `ChampionshipMatch` ou `Match` selon le type |
+| C4 | Frontend interface live |
+| C5 | Correction post-match (score/événement après clôture) |
+| C6 | Tests multi-rôles Partie C |
+
+### Partie D — Après-match & statistiques
+
+| Étape | Contenu |
+|---|---|
+| D0 | Schéma `MatchPlayerRating` |
+| D1 | Backend présences effectives |
+| D2 | Backend évaluation collective + individuelle |
+| D3 | Frontend onglets Présences effectives + Évaluations |
+| D4 | Backend — filtres statistiques (type de match, saison, championnat(s)) |
+| D5 | Frontend — page "Historique des matchs" filtrable + tableau de stats par joueur |
+| D6 | Tests multi-rôles Partie D + clôture Phase 4 + revue de cohérence doc↔code |
 
 ---
 

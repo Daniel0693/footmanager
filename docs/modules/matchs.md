@@ -144,10 +144,22 @@ Ces statistiques sont filtrables par `Season`, `Championship`, ou toutes périod
 | Voir la fiche match complète | ✅ | ✅ | ✅ | ✅ (résultat + sa note) | ✅ (résultat) |
 | Supprimer un match | ✅ | ✅ | ✅ | ❌ | ❌ |
 
-**Parent** : les droits « son enfant » ci-dessus s'appuieront sur la liaison `ParentChild` et le
-scope `PermissionScope.PARENT`, désormais disponibles (décision ouverte #5, tranchée — voir
-`docs/modules/auth-roles.md` §Rôle Parent). Pas encore câblés ici : ce module (Phase 4) n'est pas
-construit, `MatchAttendance` n'existe pas encore.
+**Parent** : les droits « son enfant » ci-dessus s'appuient désormais sur la liaison `ParentChild`
+et le scope `PermissionScope.PARENT` (décision ouverte #5, tranchée — voir
+`docs/modules/auth-roles.md` §Rôle Parent), câblés dès l'étape A0 de la Phase 4. Un Parent n'a
+droit **qu'au résultat** du match de son enfant (`match READ PARENT`) et à répondre à sa
+convocation (`match_attendance READ`/`UPDATE PARENT`) — pas à la composition, aux événements de
+match ni à l'évaluation individuelle, plus restrictif que le scope `OWN` de l'enfant lui-même
+(Player). Cohérent avec la posture déjà adoptée sur `championship` en Phase 3 (Parent volontairement
+tenu à l'écart des sous-ressources non essentielles).
+
+**Permissions scindées en 6 ressources distinctes** (`match`, `match_lineup`, `match_period`,
+`match_event`, `match_attendance`, `match_player_rating`), pas une seule `match` globale — la
+table de droits ci-dessus mélange des actions qu'un seul rôle générique ne peut pas exprimer :
+AdminClub a un droit complet sur la fiche `match` (créer/modifier/supprimer) mais seulement la
+**lecture** sur toutes les sous-ressources (composition, live, présences, évaluation) —
+contrairement à Coach/SuperAdmin qui ont le CRUD complet sur tout. Voir `backend/prisma/seed.ts`
+pour le détail par rôle (étape A0, Phase 4).
 
 ---
 

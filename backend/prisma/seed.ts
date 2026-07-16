@@ -232,6 +232,40 @@ async function seedRoles() {
         TEAM,
         'Consulter les rencontres et résultats de son équipe',
       ],
+      // Matchs (Phase 4, docs/modules/matchs.md §Droits par rôle) : un
+      // Player voit les matchs de son équipe (résultat, composition,
+      // événements) pour alimenter ses propres statistiques, mais son
+      // évaluation individuelle (match_player_rating) reste scopée OWN — il
+      // ne voit jamais la note/le commentaire d'un coéquipier. Répondre à sa
+      // propre convocation est une UPDATE (le PENDING initial est créé par le
+      // Coach), jamais une CREATE.
+      ['match', READ, TEAM, 'Consulter les matchs de son équipe'],
+      [
+        'match_lineup',
+        READ,
+        TEAM,
+        'Consulter la composition des matchs de son équipe',
+      ],
+      [
+        'match_period',
+        READ,
+        TEAM,
+        'Consulter le déroulé des périodes des matchs de son équipe',
+      ],
+      [
+        'match_event',
+        READ,
+        TEAM,
+        'Consulter les événements (buts, cartons...) des matchs de son équipe',
+      ],
+      ['match_attendance', READ, OWN, 'Consulter sa propre convocation'],
+      ['match_attendance', UPDATE, OWN, 'Répondre à sa propre convocation'],
+      [
+        'match_player_rating',
+        READ,
+        OWN,
+        'Consulter sa propre évaluation individuelle',
+      ],
     ],
     // Liaison Parent↔Joueur tranchée (docs/decisions-ouvertes-et-rgpd.md #5,
     // voir docs/modules/auth-roles.md §Rôle Parent) : scope PARENT, résolu
@@ -290,6 +324,25 @@ async function seedRoles() {
         CREATE,
         PARENT,
         'Déclarer une absence à venir pour son enfant',
+      ],
+      // Matchs (Phase 4, docs/modules/matchs.md §Droits par rôle) : un Parent
+      // n'a droit qu'au résultat des matchs de son enfant (pas la
+      // composition, pas le détail des événements, pas l'évaluation
+      // individuelle — plus restrictif que le scope OWN de l'enfant
+      // lui-même, cohérent avec la posture déjà adoptée sur championship en
+      // Phase 3) et à répondre à sa convocation.
+      ['match', READ, PARENT, 'Consulter le résultat des matchs de son enfant'],
+      [
+        'match_attendance',
+        READ,
+        PARENT,
+        'Consulter la convocation de son enfant',
+      ],
+      [
+        'match_attendance',
+        UPDATE,
+        PARENT,
+        'Répondre à la convocation de son enfant',
       ],
     ],
     Coach: [
@@ -592,6 +645,133 @@ async function seedRoles() {
       ['external_team', CREATE, TEAM, 'Ajouter une équipe adverse au club'],
       ['external_team', UPDATE, TEAM, 'Modifier une équipe adverse du club'],
       ['external_team', DELETE, TEAM, 'Supprimer une équipe adverse du club'],
+      // Matchs (Phase 4, docs/modules/matchs.md §Droits par rôle) : parité
+      // Coach/SuperAdmin sur l'ensemble des sous-ressources (préparation,
+      // live, présences, évaluation) — contrairement à AdminClub, qui ne gère
+      // que la fiche `match` elle-même (voir plus bas).
+      ['match', READ, TEAM, 'Consulter les matchs de ses équipes'],
+      [
+        'match',
+        CREATE,
+        TEAM,
+        'Créer un match amical/coupe/tournoi pour ses équipes',
+      ],
+      ['match', UPDATE, TEAM, 'Modifier un match de ses équipes'],
+      ['match', DELETE, TEAM, 'Supprimer un match de ses équipes'],
+      [
+        'match_lineup',
+        READ,
+        TEAM,
+        'Consulter la composition des matchs de ses équipes',
+      ],
+      [
+        'match_lineup',
+        CREATE,
+        TEAM,
+        'Préparer la composition d’un match de ses équipes',
+      ],
+      [
+        'match_lineup',
+        UPDATE,
+        TEAM,
+        'Modifier la composition d’un match de ses équipes',
+      ],
+      [
+        'match_lineup',
+        DELETE,
+        TEAM,
+        'Retirer un joueur de la composition d’un match de ses équipes',
+      ],
+      [
+        'match_period',
+        READ,
+        TEAM,
+        'Consulter le déroulé des périodes des matchs de ses équipes',
+      ],
+      [
+        'match_period',
+        CREATE,
+        TEAM,
+        'Lancer une période de match pour ses équipes',
+      ],
+      [
+        'match_period',
+        UPDATE,
+        TEAM,
+        'Terminer une période de match pour ses équipes',
+      ],
+      [
+        'match_event',
+        READ,
+        TEAM,
+        'Consulter les événements des matchs de ses équipes',
+      ],
+      [
+        'match_event',
+        CREATE,
+        TEAM,
+        'Saisir un événement (but, carton, remplacement...) pour ses équipes',
+      ],
+      [
+        'match_event',
+        UPDATE,
+        TEAM,
+        'Corriger un événement de match de ses équipes',
+      ],
+      [
+        'match_event',
+        DELETE,
+        TEAM,
+        'Supprimer un événement de match de ses équipes',
+      ],
+      [
+        'match_attendance',
+        READ,
+        TEAM,
+        'Consulter les convocations et présences des matchs de ses équipes',
+      ],
+      [
+        'match_attendance',
+        CREATE,
+        TEAM,
+        'Convoquer un joueur à un match de ses équipes',
+      ],
+      [
+        'match_attendance',
+        UPDATE,
+        TEAM,
+        'Modifier une convocation ou saisir la présence effective',
+      ],
+      [
+        'match_attendance',
+        DELETE,
+        TEAM,
+        'Retirer une convocation d’un match de ses équipes',
+      ],
+      [
+        'match_player_rating',
+        READ,
+        TEAM,
+        'Consulter les évaluations individuelles des matchs de ses équipes',
+      ],
+      [
+        'match_player_rating',
+        CREATE,
+        TEAM,
+        'Évaluer un joueur après un match de ses équipes',
+      ],
+      [
+        'match_player_rating',
+        UPDATE,
+        TEAM,
+        'Modifier une évaluation individuelle de ses équipes',
+      ],
+      [
+        'match_player_rating',
+        DELETE,
+        TEAM,
+        'Supprimer une évaluation individuelle de ses équipes',
+      ],
     ],
     AdminClub: [
       ['club', READ, CLUB, 'Consulter son club'],
@@ -849,6 +1029,40 @@ async function seedRoles() {
       ['external_team', CREATE, CLUB, 'Ajouter une équipe adverse au club'],
       ['external_team', UPDATE, CLUB, 'Modifier une équipe adverse du club'],
       ['external_team', DELETE, CLUB, 'Supprimer une équipe adverse du club'],
+      // Matchs (Phase 4, docs/modules/matchs.md §Droits par rôle) : AdminClub
+      // gère la fiche match elle-même (création/modification/suppression),
+      // mais jamais la préparation ni le live — lecture seule sur les
+      // sous-ressources, cohérente avec "voir la fiche complète" du tableau
+      // de droits.
+      ['match', READ, CLUB, 'Consulter les matchs du club'],
+      ['match', CREATE, CLUB, 'Créer un match pour une équipe du club'],
+      ['match', UPDATE, CLUB, 'Modifier un match du club'],
+      ['match', DELETE, CLUB, 'Supprimer un match du club'],
+      [
+        'match_lineup',
+        READ,
+        CLUB,
+        'Consulter la composition des matchs du club',
+      ],
+      [
+        'match_period',
+        READ,
+        CLUB,
+        'Consulter le déroulé des périodes des matchs du club',
+      ],
+      ['match_event', READ, CLUB, 'Consulter les événements des matchs du club'],
+      [
+        'match_attendance',
+        READ,
+        CLUB,
+        'Consulter les convocations et présences des matchs du club',
+      ],
+      [
+        'match_player_rating',
+        READ,
+        CLUB,
+        'Consulter les évaluations individuelles des matchs du club',
+      ],
     ],
     SuperAdmin: [
       ['club', READ, ALL, 'Consulter tous les clubs'],
@@ -1151,6 +1365,126 @@ async function seedRoles() {
       ['external_team', CREATE, ALL, "Ajouter une équipe adverse à n'importe quel club"],
       ['external_team', UPDATE, ALL, "Modifier n'importe quelle équipe adverse"],
       ['external_team', DELETE, ALL, "Supprimer n'importe quelle équipe adverse"],
+      // Matchs (Phase 4, docs/modules/matchs.md §Droits par rôle) : parité
+      // avec Coach, scope ALL — même liste de sous-ressources.
+      ['match', READ, ALL, "Consulter les matchs de n'importe quel club"],
+      ['match', CREATE, ALL, "Créer un match pour n'importe quelle équipe"],
+      ['match', UPDATE, ALL, "Modifier n'importe quel match"],
+      ['match', DELETE, ALL, "Supprimer n'importe quel match"],
+      [
+        'match_lineup',
+        READ,
+        ALL,
+        "Consulter la composition de n'importe quel match",
+      ],
+      [
+        'match_lineup',
+        CREATE,
+        ALL,
+        "Préparer la composition de n'importe quel match",
+      ],
+      [
+        'match_lineup',
+        UPDATE,
+        ALL,
+        "Modifier la composition de n'importe quel match",
+      ],
+      [
+        'match_lineup',
+        DELETE,
+        ALL,
+        "Retirer un joueur de la composition de n'importe quel match",
+      ],
+      [
+        'match_period',
+        READ,
+        ALL,
+        "Consulter le déroulé des périodes de n'importe quel match",
+      ],
+      [
+        'match_period',
+        CREATE,
+        ALL,
+        "Lancer une période pour n'importe quel match",
+      ],
+      [
+        'match_period',
+        UPDATE,
+        ALL,
+        "Terminer une période pour n'importe quel match",
+      ],
+      [
+        'match_event',
+        READ,
+        ALL,
+        "Consulter les événements de n'importe quel match",
+      ],
+      [
+        'match_event',
+        CREATE,
+        ALL,
+        "Saisir un événement pour n'importe quel match",
+      ],
+      [
+        'match_event',
+        UPDATE,
+        ALL,
+        "Corriger un événement de n'importe quel match",
+      ],
+      [
+        'match_event',
+        DELETE,
+        ALL,
+        "Supprimer un événement de n'importe quel match",
+      ],
+      [
+        'match_attendance',
+        READ,
+        ALL,
+        "Consulter les convocations et présences de n'importe quel match",
+      ],
+      [
+        'match_attendance',
+        CREATE,
+        ALL,
+        "Convoquer un joueur à n'importe quel match",
+      ],
+      [
+        'match_attendance',
+        UPDATE,
+        ALL,
+        "Modifier une convocation ou une présence pour n'importe quel match",
+      ],
+      [
+        'match_attendance',
+        DELETE,
+        ALL,
+        "Retirer une convocation de n'importe quel match",
+      ],
+      [
+        'match_player_rating',
+        READ,
+        ALL,
+        "Consulter les évaluations individuelles de n'importe quel match",
+      ],
+      [
+        'match_player_rating',
+        CREATE,
+        ALL,
+        "Évaluer un joueur pour n'importe quel match",
+      ],
+      [
+        'match_player_rating',
+        UPDATE,
+        ALL,
+        "Modifier une évaluation individuelle de n'importe quel match",
+      ],
+      [
+        'match_player_rating',
+        DELETE,
+        ALL,
+        "Supprimer une évaluation individuelle de n'importe quel match",
+      ],
     ],
     // Le mécanisme de transfert sécurisé du rôle Proprietaire est une
     // décision ouverte (docs/decisions-ouvertes-et-rgpd.md) — en attendant,
