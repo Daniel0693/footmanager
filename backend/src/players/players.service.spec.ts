@@ -132,6 +132,51 @@ describe('PlayersService', () => {
         },
       });
     });
+
+    it("n'interroge pas l'unicité de licence quand aucune n'est fournie", async () => {
+      memberFindUnique.mockResolvedValue(marcMember);
+      profileFindUnique.mockResolvedValue(null);
+      profileCreate.mockResolvedValue(marcProfile);
+
+      await service.create(1, { memberId: 42 });
+
+      expect(profileFindFirst).not.toHaveBeenCalled();
+    });
+
+    it('refuse si le numéro de licence est déjà utilisé par un autre membre du club', async () => {
+      memberFindUnique.mockResolvedValue(marcMember);
+      profileFindUnique.mockResolvedValue(null);
+      profileFindFirst.mockResolvedValue({ ...marcProfile, id: 999 });
+
+      await expect(
+        service.create(1, { memberId: 42, licenseNumber: 'CH-1234' }),
+      ).rejects.toMatchObject({ status: HttpStatus.CONFLICT });
+      expect(profileCreate).not.toHaveBeenCalled();
+      expect(profileFindFirst).toHaveBeenCalledWith({
+        where: { licenseNumber: 'CH-1234', member: { clubId: 1 } },
+      });
+    });
+
+    it('crée le profil si le numéro de licence est libre dans le club', async () => {
+      memberFindUnique.mockResolvedValue(marcMember);
+      profileFindUnique.mockResolvedValue(null);
+      profileFindFirst.mockResolvedValue(null);
+      profileCreate.mockResolvedValue({
+        ...marcProfile,
+        licenseNumber: 'CH-1234',
+      });
+
+      await service.create(1, { memberId: 42, licenseNumber: 'CH-1234' });
+
+      expect(profileCreate).toHaveBeenCalledWith({
+        data: {
+          memberId: 42,
+          licenseNumber: 'CH-1234',
+          nationality: undefined,
+          preferredFoot: undefined,
+        },
+      });
+    });
   });
 
   describe('findMe', () => {
@@ -383,6 +428,48 @@ describe('PlayersService', () => {
         ),
       ).rejects.toBeInstanceOf(AppException);
       expect(profileUpdate).not.toHaveBeenCalled();
+    });
+
+    it('refuse si le nouveau numéro de licence est déjà utilisé par un autre membre du club', async () => {
+      profileFindFirst
+        .mockResolvedValueOnce(marcProfile) // recherche du profil ciblé
+        .mockResolvedValueOnce({ ...marcProfile, id: 999 }); // conflit de licence
+
+      await expect(
+        service.update(
+          1,
+          100,
+          { licenseNumber: 'CH-1234' },
+          { memberId: 99, scope: 'CLUB' },
+        ),
+      ).rejects.toMatchObject({ status: HttpStatus.CONFLICT });
+      expect(profileUpdate).not.toHaveBeenCalled();
+    });
+
+    it('exclut le profil ciblé lui-même de la vérification (numéro inchangé)', async () => {
+      profileFindFirst
+        .mockResolvedValueOnce(marcProfile)
+        .mockResolvedValueOnce(null);
+      profileUpdate.mockResolvedValue({
+        ...marcProfile,
+        licenseNumber: 'CH-1234',
+      });
+
+      await service.update(
+        1,
+        100,
+        { licenseNumber: 'CH-1234' },
+        { memberId: 99, scope: 'CLUB' },
+      );
+
+      expect(profileFindFirst).toHaveBeenNthCalledWith(2, {
+        where: {
+          licenseNumber: 'CH-1234',
+          member: { clubId: 1 },
+          id: { not: 100 },
+        },
+      });
+      expect(profileUpdate).toHaveBeenCalled();
     });
   });
 
