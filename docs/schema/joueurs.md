@@ -14,12 +14,37 @@ Relation **1–1** avec `Member`. Isole les données propres au rôle Player.
 |---|---|---|
 | `id` | PK | |
 | `memberId` | FK → Member, **unique** | garantit la relation 1–1 |
-| `licenseNumber` | String, unique, nullable | numéro de licence fédérale |
+| `licenseNumber` | String, nullable | numéro de licence fédérale — **pas d'unicité au niveau SQL** (voir ci-dessous) |
 | `nationality` | String, nullable | |
 | `preferredFoot` | enum `Foot`, nullable | `LEFT` \| `RIGHT` \| `BOTH` — non renseigné par défaut |
 
 **`birthDate`** : déplacé sur `Member` le 2026-07-08 (voir `docs/schema/fondations.md`) — commun à
 tous les rôles, pas seulement au Player.
+
+**`licenseNumber` — unicité scopée au club, jamais globale (décision du 2026-07-16)** : une
+licence est délivrée par une fédération nationale (numérotation propre à chaque pays/fédération,
+pas mondiale) — une contrainte SQL `unique` globale bloquerait à tort deux joueurs réels de deux
+clubs de pays différents qui partageraient la même valeur par pure coïncidence. Plus fondamentalement,
+FootManager n'est pas la source de vérité fédérale et n'a pas à arbitrer une correspondance entre
+deux clubs différents (transfert, doublon, ou simple coïncidence — on ne peut pas distinguer les
+trois depuis nos données). La contrainte SQL `unique` a donc été retirée.
+
+Une vérification **applicative**, scopée au club (via `Member.clubId`), la remplace : aucun autre
+`PlayerProfile` du même club ne doit porter la même valeur non nulle — même pattern que
+`PlayerTeam.jerseyNumber` ci-dessous (pas de contrainte SQL composite possible, `clubId` vivant sur
+`Member` et non sur `PlayerProfile` ; le dupliquer violerait le principe "zéro duplicata"
+d'`docs/architecture.md` §2). Cette vérification :
+- Porte sur **tous** les `Member` du club, actifs ou non (pas seulement ceux ayant une affectation
+  `PlayerTeam` active) — un membre qui quitte le club puis y revient plus tard doit être rapproché
+  de son historique existant, pas bloqué par lui. `Member.isActive` existe dans le schéma mais
+  n'est branché nulle part dans la logique actuelle (uniquement présent dans des fixtures de
+  test) ; il ne sert donc pas de filtre ici.
+- Exclut toujours les valeurs `null` de la comparaison (sémantique SQL `NULL ≠ NULL`, déjà
+  observée sur `@@unique([userId, clubId])` de `Member`) — un jeune joueur sans licence encore
+  attribuée peut être créé librement, y compris plusieurs fois dans le même club.
+- Ne sert **jamais** de signal de rapprochement entre deux clubs différents (voir
+  `docs/decisions-ouvertes-et-rgpd.md`) — seul l'email d'un compte `User` existant pourra, une fois
+  ce mécanisme conçu, jouer ce rôle inter-club.
 
 ---
 

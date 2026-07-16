@@ -47,6 +47,8 @@
 | Visibilité par champ sur `PlayerInterview` | `staffAssessment` (ressenti/évaluation interne de l'encadrant) n'est **jamais** transmis à un appelant en scope `OWN` (Player) — même tension RGPD Article 15 que les notes `PRIVE`. Un Player ne voit en plus que les entretiens déjà passés, jamais ceux à venir. `staffFeedback`/`staffAssessment`/`playerFeedback` sont tous optionnels : un entretien peut être planifié à l'avance (date/sujet/résumé seuls) puis complété après coup. Voir `docs/modules/effectif-joueurs.md` §Entretien. |
 | Correctif — vérification équipe pour un scope `TEAM` | Faille trouvée en concevant A7.3 : `PlayersService`, `PlayerMeasurementsService` et `PlayerInterviewsService` ne vérifiaient que l'appartenance au club, jamais à l'équipe précise transmise en `?teamId=` — un Coach pouvait agir sur n'importe quel joueur du club en transmettant sa propre équipe. Corrigé via `assertPlayerInTeam` (`src/common/player-team-membership.ts`), à réutiliser pour toute nouvelle ressource scopée équipe. Voir `docs/modules/auth-roles.md` §Patterns découverts. |
 | Liaison Parent ↔ Joueur | Nouvelle table `ParentChild` + scope `PermissionScope.PARENT`, créée/supprimée uniquement par le staff. Droits du Parent sur son enfant lié : consultation (mêmes ressources que le scope `OWN` de l'enfant, sauf notes/objectifs limités à `PUBLIC`), modification des informations personnelles (`member`, jamais `player_profile`/`player_team`), déclaration d'absence à venir (`isExcused` forcé à `null`, comme pour l'enfant lui-même). Voir `docs/modules/auth-roles.md` §Rôle Parent. |
+| Unicité de `PlayerProfile.licenseNumber` (2026-07-16) | Retirée en tant que contrainte SQL globale — une licence est numérotée par fédération nationale, pas mondialement, et FootManager n'a pas à arbitrer une correspondance entre deux clubs différents (transfert, doublon ou coïncidence indistinguables depuis nos données). Remplacée par une vérification applicative scopée au club (via `Member.clubId`), portant sur tous les `Member` du club (actifs ou non — un membre qui repart puis revient doit être rapproché de son historique, pas bloqué par lui), `null` toujours exclu. Voir `docs/schema/joueurs.md` §PlayerProfile. |
+| Modèle de rapprochement joueur (2026-07-16) | Toute création (import fichier ou création manuelle) passe par un service de rapprochement partagé, scopé intra-club pour l'instant (licence exacte puis nom+prénom+date de naissance en repli — l'email est volontairement exclu, voir décision ouverte ci-dessous). Trois statuts : **Nouveau** (aucune correspondance), **Modification** (correspondance déjà active dans l'équipe précise visée), **Réactivation** (correspondance trouvée mais pas active dans cette équipe — retour dans la même équipe après un départ, ou déjà actif dans une autre équipe du même club, flux déjà existant depuis A18). Une correspondance ambiguë (plusieurs candidats sur le repli nom+date de naissance) affiche la liste des candidats, avec la possibilité de forcer une création si aucun ne convient. Refuser une réactivation proposée crée un nouveau membre plutôt que de forcer un rapprochement. Voir `docs/modules/effectif-joueurs.md` (à venir avec l'implémentation). |
 
 ---
 
@@ -126,6 +128,32 @@ modification du cœur du moteur RBAC partagé par **tous** les modules déjà li
 Effectif, donc à traiter avec une revue de non-régression multi-rôles complète (règle d'or de
 CLAUDE.md), pas en correctif ponctuel. À trancher avant d'exposer un nouveau client qui
 consommerait ces endpoints sans passer par la fiche joueur classique.
+
+### 7. Réactivation inter-club et liaison de compte via email
+
+Discuté le 2026-07-16 en concevant le modèle de rapprochement joueur (import fichier +
+création manuelle, voir table des décisions tranchées ci-dessus) : un membre qui change de club
+ne peut techniquement jamais être "le même" `Member`/`PlayerProfile` que dans son ancien club
+(`Member` est scopé à un club, `docs/schema/fondations.md`) — un transfert inter-club est donc
+toujours une création dans le nouveau club. Ce qui peut néanmoins être réutilisé, c'est le compte
+`User` existant (identité de connexion, non scopée à un club — un même `User` peut déjà être
+`Member` de plusieurs clubs), pour éviter un doublon de compte.
+
+**Volontairement hors scope de l'implémentation actuelle du rapprochement** (import + création
+manuelle, intra-club uniquement pour l'instant) : le seul signal fiable pour reconnaître qu'un
+compte existe déjà à travers deux clubs différents est l'email — jamais le numéro de licence
+(voir décision tranchée ci-dessus) ni le nom/date de naissance à l'échelle globale (trop de faux
+positifs, et une question de confidentialité : un club n'a pas à pouvoir sonder l'identité des
+membres d'un autre club).
+
+**Mécanisme envisagé, à concevoir en détail le moment venu** : détecter la correspondance par
+email déclenche une notification (applicative et/ou email) adressée au titulaire du compte trouvé,
+lui demandant explicitement soit de lier son compte existant au nouveau club/équipe, soit — si
+c'est sa toute première authentification — d'en créer un nouveau. Jamais une liaison silencieuse
+décidée unilatéralement par le staff du club receveur (contrairement à la création d'un `Member`
+sans compte, qui reste, elle, une action purement staff). Dépend directement du système de
+notifications (décision ouverte #2, non spécifié) — à concevoir ensemble, après les autres
+modules plutôt qu'en prérequis de l'import/de la création manuelle.
 
 ## Contraintes RGPD
 
