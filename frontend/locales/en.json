@@ -1087,6 +1087,14 @@
       "PARTICIPANT_NOT_FOUND": "This participant does not belong to this championship",
       "SAME_PARTICIPANT": "The two teams in a match must be different",
       "FINISHED_REQUIRES_SCORE": "A full score is required to finish a match"
+    },
+    "MATCHES": {
+      "NOT_FOUND": "Match not found",
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "CHAMPIONNAT_NOT_DIRECT": "A championship match can only be created from the Championship module",
+      "CUP_ROUND_NOT_ALLOWED": "The cup round can only be set for a cup match",
+      "EXTERNAL_TEAM_NOT_FOUND": "This external team does not belong to this club",
+      "OPPONENT_NOT_EDITABLE": "The opponent, round, and home/away side of a championship match are derived from the championship and cannot be edited here"
     }
   },
   "stepperExample": {

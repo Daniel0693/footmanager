@@ -43,7 +43,12 @@ Exemples :
   le Calendrier — date, heure, lieu, type, domicile/extérieur, et adversaire choisi dans la liste
   `ExternalTeam` du club (existante ou créée à la volée, même composant que le module
   Championnat). Si `COUPE`, la phase de la compétition (`cupRound` — 64e/32e/16e de finale,
-  quart, demi, finale) est également saisie.
+  quart, demi, finale) est également saisie. Backend : `POST clubs/:clubId/teams/:teamId/matches`
+  (`MatchesService.create`, A2) — crée l'`Event`+`Match` en une seule transaction, rejette
+  explicitement `matchType = CHAMPIONNAT` (code `MATCHES.CHAMPIONNAT_NOT_DIRECT`). Même route pour
+  lire/modifier/supprimer n'importe quel `matchType` (championnat inclus) une fois créé ;
+  l'adversaire/la phase/le domicile-extérieur d'un match `CHAMPIONNAT` restent en lecture seule
+  (`MATCHES.OPPONENT_NOT_EDITABLE`), dérivés du `ChampionshipMatch`.
 - `CHAMPIONNAT` : **jamais créé directement depuis le Calendrier**. Naît de la création d'un
   `ChampionshipMatch` dans le module Championnat (existant depuis la Phase 3) — celui-ci crée
   automatiquement l'`Event`+`Match` liés en une transaction, uniquement si l'une de nos équipes
