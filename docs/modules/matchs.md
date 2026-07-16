@@ -37,12 +37,24 @@ Exemples :
 
 ### 1. Création / préparation (avant le match)
 
-L'entraîneur crée un événement de type `MATCH` dans le calendrier. Informations à saisir :
-date, heure, lieu, type (`OFFICIEL`, `AMICAL`, `TOURNOI`), adversaire, domicile/extérieur.
+**Deux chemins de création selon `matchType`** (décision actée le 2026-07-16, voir
+`docs/roadmap.md` Phase 4 et `docs/schema/evenements.md` §Match) :
+- `COUPE`/`AMICAL`/`TOURNOI` : l'entraîneur crée directement un événement de type `MATCH` depuis
+  le Calendrier — date, heure, lieu, type, domicile/extérieur, et adversaire choisi dans la liste
+  `ExternalTeam` du club (existante ou créée à la volée, même composant que le module
+  Championnat). Si `COUPE`, la phase de la compétition (`cupRound` — 64e/32e/16e de finale,
+  quart, demi, finale) est également saisie.
+- `CHAMPIONNAT` : **jamais créé directement depuis le Calendrier**. Naît de la création d'un
+  `ChampionshipMatch` dans le module Championnat (existant depuis la Phase 3) — celui-ci crée
+  automatiquement l'`Event`+`Match` liés en une transaction, uniquement si l'une de nos équipes
+  participe à la rencontre (une rencontre entre deux adversaires n'a pas de fiche match pour
+  nous). Le Calendrier affiche ensuite ce match, sans permettre de le recréer.
 
 **Convocations** : sélection des joueurs convoqués depuis l'effectif (statut `PENDING` dans
-`MatchAttendance`). Les joueurs/parents répondent (`ACCEPTED`/`DECLINED`). Les joueurs avec
-une `Injury.status = EN_COURS` sont signalés visuellement.
+`MatchAttendance`). Les joueurs/parents répondent (`ACCEPTED`/`DECLINED`). Le signalement visuel
+des joueurs blessés (`Injury.status = EN_COURS`) est **hors scope de la Phase 4** — `Injury`
+n'existe pas avant la Phase 8, ce point y est reporté explicitement (confirmé avec l'utilisateur
+le 2026-07-16).
 
 **Composition** (`MatchLineup`) : onze de départ, remplaçants, non-convoqués.
 

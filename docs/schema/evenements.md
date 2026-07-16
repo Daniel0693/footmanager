@@ -105,16 +105,18 @@ Extension **1–1** d'un `Event` de type `TRAINING`.
 
 ## Match — Fiche de match de notre équipe
 
-Extension **1–1** d'un `Event` de type `MATCH`.
+Extension **1–1** d'un `Event` de type `MATCH`. Schéma implémenté en Phase 4 (A1, 2026-07-16) —
+décisions actées avant l'implémentation, voir `docs/modules/matchs.md` et `docs/roadmap.md`.
 
 | Champ | Type | Notes |
 |---|---|---|
 | `id` | PK | |
 | `eventId` | FK → Event, **unique** | |
-| `championshipMatchId` | FK → ChampionshipMatch, nullable | lien vers le championnat |
-| `matchType` | enum `MatchType` | |
-| `opponentName` | String | |
-| `homeOrAway` | enum `HomeOrAway` | |
+| `championshipMatchId` | FK → ChampionshipMatch, nullable, **unique** | non-null seulement si `matchType = CHAMPIONNAT` — seule FK réelle de cette relation 1–1, voir `ChampionshipMatch` ci-dessous |
+| `matchType` | enum `MatchType` (4 valeurs) | |
+| `opponentExternalTeamId` | FK → ExternalTeam, nullable | **remplace le `opponentName: String` initialement envisagé** — non-null seulement si `matchType != CHAMPIONNAT` (adversaire choisi dans la liste `ExternalTeam` du club, existante ou créée à la volée). Pour `CHAMPIONNAT`, l'adversaire est dérivé du `ChampionshipParticipant` opposé dans `ChampionshipMatch`, jamais stocké ici |
+| `cupRound` | enum `CupRound`, nullable | non-null seulement si `matchType = COUPE` — phase de la compétition (voir enum ci-dessous), pas de bracket/entité de compétition dédiée (décision MVP) |
+| `homeOrAway` | enum `HomeOrAway` | pour `CHAMPIONNAT`, dérivé à la création depuis la position de notre équipe dans `ChampionshipMatch` ; pour les 3 autres types, choisi par le Coach |
 | `status` | enum `LiveMatchStatus` | |
 | `numberOfPeriods` | Int, nullable | écrase le défaut du Championship si renseigné |
 | `periodDurationMinutes` | Int, nullable | idem |
@@ -124,7 +126,29 @@ Extension **1–1** d'un `Event` de type `MATCH`.
 | `globalComment` | Text, nullable | compte-rendu post-match |
 
 **Règle de score** : si `championshipMatchId` est non-null, le score de référence est sur
-`ChampionshipMatch`. `Match.scoreHome/Away` restent null. Enforced au niveau applicatif.
+`ChampionshipMatch`. `Match.scoreHome/Away` restent null. Enforced au niveau applicatif
+(`MatchesService`), même approche que les autres contraintes "exactement l'un des deux" du
+projet (ex. `ChampionshipParticipant`).
+
+**`CupRound`** — comptée en nombre d'équipes encore en lice (convention anglaise standard), pas en
+nombre de matchs restants (convention française) :
+
+```prisma
+enum CupRound {
+  ROUND_OF_64    // 64 équipes — "64e de finale"
+  ROUND_OF_32    // 32 équipes — "32e de finale"
+  ROUND_OF_16    // 16 équipes — "8e de finale" (huitièmes)
+  QUARTER_FINAL  // 8 équipes — "quart de finale"
+  SEMI_FINAL     // 4 équipes — "demi-finale"
+  FINAL          // 2 équipes — "finale"
+}
+```
+
+**Sens de création selon `matchType`** (docs/modules/matchs.md) :
+- `CHAMPIONNAT` : jamais créé directement — naît d'un `ChampionshipMatch` (module Championnat),
+  qui crée l'`Event`+`Match` en transaction, uniquement si l'une de nos équipes y participe.
+- `COUPE`/`AMICAL`/`TOURNOI` : créé directement depuis le Calendrier, adversaire choisi via
+  `ExternalTeam` (liste existante ou création à la volée).
 
 ---
 
@@ -234,7 +258,8 @@ enum EventType {
 }
 
 enum MatchType {
-  OFFICIEL
+  CHAMPIONNAT
+  COUPE
   AMICAL
   TOURNOI
 }

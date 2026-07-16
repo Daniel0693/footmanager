@@ -112,7 +112,7 @@ Couvre **toutes** les rencontres du championnat : les nôtres et les matchs entr
 | `scoreHome` | Int, nullable | source de vérité du score pour le classement |
 | `scoreAway` | Int, nullable | |
 | `status` | enum `ChampionshipMatchStatus` | |
-| `matchId` | Int, nullable | **pas une FK** en Phase 3 — `Match` n'existe pas encore (Phase 4). Champ nu sans `@relation`, dérogation assumée et documentée dans `schema.prisma` ; la relation complète sera ajoutée à la migration Phase 4 |
+| `match` | Relation inverse → `Match`, nullable | **pas de colonne physique ici** (corrigé en Phase 4 A1) — la seule FK réelle de cette relation 1–1 est `Match.championshipMatchId` (`@unique`), pour éviter une double source de vérité (`docs/schema/index.md` §Zéro duplicata). Un `ChampionshipMatch` n'obtient de `Match` lié que si l'une de nos équipes y participe (voir `docs/modules/matchs.md`) |
 | `round` | Int, nullable | journée / tour numéroté |
 | `numberOfPeriods` | Int, nullable | écrase le défaut du Championship pour ce match |
 | `periodDurationMinutes` | Int, nullable | idem |

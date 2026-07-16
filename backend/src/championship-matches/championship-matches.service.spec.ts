@@ -42,7 +42,6 @@ const match: ChampionshipMatch = {
   scoreHome: null,
   scoreAway: null,
   status: 'SCHEDULED',
-  matchId: null,
   round: 1,
   numberOfPeriods: null,
   periodDurationMinutes: null,

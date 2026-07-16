@@ -89,12 +89,12 @@ model Team {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberRoles              MemberRole[]
-  playerTeams              PlayerTeam[]
-  teamStaffs               TeamStaff[]
-  playerEvaluations        PlayerEvaluation[]
-  events                   Event[]
-  championships            Championship[]
+  memberRoles                MemberRole[]
+  playerTeams                PlayerTeam[]
+  teamStaffs                 TeamStaff[]
+  playerEvaluations          PlayerEvaluation[]
+  events                     Event[]
+  championships              Championship[]
   // Équipe engagée comme participante d'un championnat (le sien ou celui
   // d'une autre équipe du club) — distinct de `championships` ci-dessus
   // (les championnats que CETTE équipe organise).
@@ -585,8 +585,111 @@ model Event {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  match Match? // extension 1-1 pour type = MATCH (Phase 4)
+
   @@index([teamId, startAt])
   @@index([recurringGroupId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Match (Phase 4) — docs/modules/matchs.md, docs/schema/evenements.md
+// Extension 1-1 d'un Event de type MATCH. Décisions actées le 2026-07-16
+// avant le premier incrément (voir docs/roadmap.md Phase 4) :
+// - MatchType à 4 valeurs (CHAMPIONNAT/COUPE/AMICAL/TOURNOI).
+// - Un match CHAMPIONNAT n'est jamais créé directement ici : il naît d'un
+//   ChampionshipMatch (module Championnat) qui crée l'Event+Match en
+//   transaction (MatchesService, A3) — championshipMatchId non-null,
+//   opponentExternalTeamId/cupRound restent null (adversaire dérivé du
+//   ChampionshipParticipant).
+// - Un match COUPE/AMICAL/TOURNOI se crée directement depuis le Calendrier :
+//   opponentExternalTeamId non-null (liste ExternalTeam existante ou
+//   création à la volée), championshipMatchId reste null.
+// - cupRound n'est renseigné que si matchType = COUPE — pas de bracket, pas
+//   d'entité de compétition dédiée (décision MVP, voir docs/roadmap.md).
+// Contraintes ci-dessus vérifiées en applicatif (MatchesService), pas par
+// une CHECK constraint SQL — même approche que ChampionshipParticipant.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum MatchType {
+  CHAMPIONNAT
+  COUPE
+  AMICAL
+  TOURNOI
+}
+
+// Phase de coupe à élimination directe — comptée en nombre d'équipes encore
+// en lice (convention anglaise standard), PAS en nombre de matchs restants
+// (convention française : "8e de finale" = 16 équipes = ROUND_OF_16, pas
+// ROUND_OF_8 — piège à ne pas reproduire côté i18n/UI).
+enum CupRound {
+  ROUND_OF_64 // 64 équipes — "64e de finale"
+  ROUND_OF_32 // 32 équipes — "32e de finale"
+  ROUND_OF_16 // 16 équipes — "8e de finale" (huitièmes)
+  QUARTER_FINAL // 8 équipes — "quart de finale"
+  SEMI_FINAL // 4 équipes — "demi-finale"
+  FINAL // 2 équipes — "finale"
+}
+
+enum HomeOrAway {
+  HOME
+  AWAY
+}
+
+enum LiveMatchStatus {
+  SCHEDULED
+  LIVE
+  HALFTIME
+  FINISHED
+  CANCELLED
+  POSTPONED
+}
+
+model Match {
+  id      Int   @id @default(autoincrement())
+  eventId Int   @unique
+  event   Event @relation(fields: [eventId], references: [id])
+
+  // Non-null seulement pour matchType = CHAMPIONNAT — seule FK réelle de la
+  // relation 1-1 avec ChampionshipMatch (celui-ci n'a pas de colonne matchId
+  // physique, voir ChampionshipMatch ci-dessous : évite une double source de
+  // vérité pour la même relation, docs/schema/index.md §Zéro duplicata).
+  championshipMatchId Int?               @unique
+  championshipMatch   ChampionshipMatch? @relation(fields: [championshipMatchId], references: [id])
+
+  matchType MatchType
+
+  // Non-null seulement pour matchType != CHAMPIONNAT (adversaire choisi
+  // depuis la liste ExternalTeam du club, existante ou créée à la volée).
+  opponentExternalTeamId Int?
+  opponentExternalTeam   ExternalTeam? @relation(fields: [opponentExternalTeamId], references: [id])
+
+  // Non-null seulement pour matchType = COUPE.
+  cupRound CupRound?
+
+  // Pour CHAMPIONNAT, dérivé à la création depuis la position de notre
+  // équipe dans le ChampionshipMatch (home/awayParticipant). Pour les 3
+  // autres types, choisi directement par le Coach à la création.
+  homeOrAway HomeOrAway
+
+  status LiveMatchStatus @default(SCHEDULED)
+
+  // Écrase le défaut hérité du Championship (matchs CHAMPIONNAT) ou le
+  // standard 2x45 (autres types) si renseigné.
+  numberOfPeriods       Int?
+  periodDurationMinutes Int?
+
+  // Null si championshipMatchId est non-null — score de référence alors sur
+  // ChampionshipMatch (docs/schema/championnats.md §ChampionshipMatch).
+  scoreHome Int?
+  scoreAway Int?
+
+  globalRating  Decimal? @db.Decimal(4, 1) // sur 10, voir docs/schema/index.md
+  globalComment String?  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([opponentExternalTeamId])
 }
 
 model EvaluationCategory {
@@ -747,7 +850,8 @@ model ExternalTeam {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  participations ChampionshipParticipant[]
+  participations  ChampionshipParticipant[]
+  opponentMatches Match[] // matchs Coupe/Amical/Tournoi joués contre cette équipe (Phase 4)
 
   @@index([clubId])
 }
@@ -826,31 +930,36 @@ enum ChampionshipMatchStatus {
 // Rencontre dans un championnat (docs/schema/championnats.md
 // §ChampionshipMatch) — couvre toutes les rencontres, les nôtres et celles
 // entre adversaires. Règle de score — source de vérité unique : un match
-// AMICAL (championshipMatchId null sur Match, Phase 4) stocke son score sur
-// Match.scoreHome/Away ; un match de CHAMPIONNAT le stocke ici
+// AMICAL/COUPE/TOURNOI (championshipMatchId null sur Match, Phase 4) stocke
+// son score sur Match.scoreHome/Away ; un match de CHAMPIONNAT le stocke ici
 // (scoreHome/Away), Match.scoreHome/Away reste NULL.
 //
-// `matchId` : Int? nu, **sans** `@relation` — dérogation assumée, `Match`
-// (Phase 4, gestion live) n'existe pas encore. La relation complète sera
-// ajoutée dans la migration Phase 4 qui introduira le modèle `Match`.
+// Pas de colonne `matchId` ici (contrairement à la Phase 3, où elle existait
+// sans `@relation` en dérogation assumée, faute de modèle Match) : la seule
+// FK réelle de cette relation 1-1 est désormais Match.championshipMatchId
+// (@unique) — `match` ci-dessous est la relation Prisma inverse, sans
+// colonne physique, pour éviter une double source de vérité
+// (docs/schema/index.md §Zéro duplicata). Un ChampionshipMatch n'obtient un
+// Match lié que si l'une de nos équipes y participe (MatchesService, A3) —
+// une rencontre entre deux adversaires n'a jamais de Match/Event associé.
 model ChampionshipMatch {
-  id                    Int                      @id @default(autoincrement())
+  id                    Int                     @id @default(autoincrement())
   championshipId        Int
-  championship          Championship             @relation(fields: [championshipId], references: [id])
+  championship          Championship            @relation(fields: [championshipId], references: [id])
   homeParticipantId     Int
-  homeParticipant       ChampionshipParticipant  @relation("HomeMatches", fields: [homeParticipantId], references: [id])
+  homeParticipant       ChampionshipParticipant @relation("HomeMatches", fields: [homeParticipantId], references: [id])
   awayParticipantId     Int
-  awayParticipant       ChampionshipParticipant  @relation("AwayMatches", fields: [awayParticipantId], references: [id])
+  awayParticipant       ChampionshipParticipant @relation("AwayMatches", fields: [awayParticipantId], references: [id])
   scheduledAt           DateTime
   scoreHome             Int?
   scoreAway             Int?
-  status                ChampionshipMatchStatus  @default(SCHEDULED)
-  matchId               Int?
+  status                ChampionshipMatchStatus @default(SCHEDULED)
+  match                 Match?
   round                 Int?
   numberOfPeriods       Int?
   periodDurationMinutes Int?
-  createdAt             DateTime                 @default(now())
-  updatedAt             DateTime                 @updatedAt
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
 
   @@index([championshipId])
 }
