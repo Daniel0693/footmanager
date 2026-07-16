@@ -9,14 +9,17 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { Member } from '@prisma/client';
+import type { Member, PermissionScope } from '@prisma/client';
 import { CurrentMember } from '../auth/decorators/current-member.decorator';
+import { CurrentPermissionScope } from '../auth/decorators/current-permission-scope.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { BulkCreateRosterDto } from './dto/bulk-create-roster.dto';
 import { BulkUpdateRosterDto } from './dto/bulk-update-roster.dto';
+import { FindPlayerMatchQueryDto } from './dto/find-player-match-query.dto';
 import { FindRosterQueryDto } from './dto/find-roster-query.dto';
+import { RosterMatchingService } from './roster-matching.service';
 import { RosterService } from './roster.service';
 
 // Gardé par player_team READ (ressource principale du tableau unifié) : le
@@ -27,7 +30,10 @@ import { RosterService } from './roster.service';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('clubs/:clubId/teams/:teamId/roster')
 export class RosterController {
-  constructor(private readonly rosterService: RosterService) {}
+  constructor(
+    private readonly rosterService: RosterService,
+    private readonly rosterMatchingService: RosterMatchingService,
+  ) {}
 
   @RequirePermission('player_team', 'READ')
   @Get()
@@ -40,6 +46,31 @@ export class RosterController {
     return this.rosterService.findAllByTeam(
       { memberId: member.id, clubId, teamId },
       query,
+    );
+  }
+
+  // Rapprochement joueur (import fichier + création manuelle, voir
+  // docs/decisions-ouvertes-et-rgpd.md) — lecture seule, aucune écriture.
+  // Même permission que la recherche club-wide existante (A16,
+  // player_profile READ) ; scopée TEAM ici via le teamId de l'URL.
+  @RequirePermission('player_profile', 'READ')
+  @Get('lookup')
+  lookup(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @CurrentPermissionScope() scope: PermissionScope,
+    @Query() query: FindPlayerMatchQueryDto,
+  ) {
+    return this.rosterMatchingService.findMatches(
+      clubId,
+      teamId,
+      {
+        firstName: query.firstName,
+        lastName: query.lastName,
+        birthDate: query.birthDate ? new Date(query.birthDate) : null,
+        licenseNumber: query.licenseNumber ?? null,
+      },
+      scope,
     );
   }
 
