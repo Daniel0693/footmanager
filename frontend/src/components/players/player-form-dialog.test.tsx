@@ -12,10 +12,11 @@ jest.mock("@/lib/auth/auth-context", () => ({
 }));
 
 const mockApiFetch = jest.fn();
+const mockParseErrorCode = jest.fn().mockResolvedValue("AUTH.UNKNOWN");
 jest.mock("@/lib/api", () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
   authHeaders: (token: string | null) => ({ Authorization: `Bearer ${token}` }),
-  parseErrorCode: jest.fn().mockResolvedValue("AUTH.UNKNOWN"),
+  parseErrorCode: (...args: unknown[]) => mockParseErrorCode(...args),
 }));
 
 function jsonResponse(body: unknown, ok = true) {
@@ -147,6 +148,56 @@ describe("PlayerFormDialog", () => {
     expect(JSON.parse((teamCall![1] as RequestInit).body as string)).toMatchObject({
       playerId: 100,
     });
+  });
+
+  it("numéro de maillot déjà pris : encadre le champ en rouge avec un message dédié, en plus du toast (retour utilisateur)", async () => {
+    mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
+      if (url.includes("/roster/lookup")) {
+        return Promise.resolve(jsonResponse(newMatch));
+      }
+      if (url.includes("/members?teamId=") && options?.method === "POST") {
+        return Promise.resolve(jsonResponse({ id: 42 }));
+      }
+      if (url.includes("/players?teamId=") && options?.method === "POST") {
+        return Promise.resolve(jsonResponse({ id: 100 }));
+      }
+      if (url.includes("/teams/") && url.includes("/players") && options?.method === "POST") {
+        return Promise.resolve(
+          jsonResponse({ code: "PLAYER_TEAMS.JERSEY_NUMBER_TAKEN" }, false),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+    // mockResolvedValueOnce (pas mockResolvedValue) : ne consomme qu'un seul
+    // appel, pour ne pas polluer le comportement par défaut ("AUTH.UNKNOWN")
+    // des autres tests — jest.clearAllMocks() (beforeEach) ne réinitialise
+    // que l'historique des appels, jamais les implémentations mockées.
+    mockParseErrorCode.mockResolvedValueOnce("PLAYER_TEAMS.JERSEY_NUMBER_TAKEN");
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <PlayerFormDialog
+        clubId="1"
+        teamId="5"
+        onSuccess={jest.fn()}
+        trigger={<Button>Ajouter un joueur</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ajouter un joueur" }));
+    await user.type(await screen.findByLabelText("Prénom"), "Nouveau");
+    await user.type(screen.getByLabelText("Nom"), "Joueur");
+    await user.type(screen.getByLabelText("Date de naissance"), "2015-01-01");
+    await user.click(
+      await screen.findByRole("button", { name: "Créer un nouveau joueur" }),
+    );
+    await user.type(await screen.findByLabelText("Numéro de maillot"), "3");
+
+    await user.click(screen.getByRole("button", { name: "Ajouter" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(await screen.findByText("Numéro déjà pris dans cette équipe")).toBeInTheDocument();
+    expect(screen.getByLabelText("Numéro de maillot")).toHaveAttribute("aria-invalid", "true");
   });
 
   it("le prénom et le nom sont requis (aucun appel réseau tant qu'ils sont vides)", async () => {
