@@ -1,7 +1,16 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import type { PermissionScope } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { Readable } from 'stream';
 import { AppException } from '../common/exceptions/app.exception';
+import { assertTeamInClub } from '../common/team-club-membership';
+import { PrismaService } from '../prisma/prisma.service';
+import type { ImportRowInputDto } from './dto/import-row-input.dto';
+import {
+  PlayerMatchCandidate,
+  PlayerMatchStatus,
+  RosterMatchingService,
+} from './roster-matching.service';
 
 // Bornes volontairement basses (docs/modules/effectif-joueurs.md §Import) :
 // bornent la taille de la transaction de validation (C5, à venir) et évitent
@@ -13,6 +22,15 @@ export const MAX_IMPORT_ROWS = 500;
 export interface ParsedImportFile {
   headers: string[];
   rows: string[][];
+}
+
+export interface ImportRowPreview {
+  // Position de la ligne dans le tableau soumis — permet au frontend de
+  // rattacher chaque résultat à sa ligne d'origine sans dépendre d'un id
+  // stable (les lignes n'existent encore nulle part en base à cette étape).
+  index: number;
+  status: PlayerMatchStatus;
+  candidates: PlayerMatchCandidate[];
 }
 
 function dateToIsoDate(value: Date): string {
@@ -64,6 +82,11 @@ function cellToString(value: ExcelJS.CellValue): string {
  */
 @Injectable()
 export class RosterImportService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rosterMatchingService: RosterMatchingService,
+  ) {}
+
   async parseFile(file: {
     originalname: string;
     buffer: Buffer;
@@ -117,5 +140,55 @@ export class RosterImportService {
     }
 
     return { headers, rows };
+  }
+
+  /**
+   * Rapprochement joueur (import fichier) — étape 3/6 : reçoit les lignes
+   * déjà mappées par l'utilisateur (colonne détectée → champ, décision
+   * frontend), applique RosterMatchingService ligne par ligne. Lecture
+   * seule, aucune écriture — le tableau de prévisualisation (étape 4)
+   * affiche ces résultats, la validation (étape 5) reste une action
+   * séparée et volontaire.
+   *
+   * Vérifie le scope de l'appelant et l'appartenance de l'équipe au club
+   * une seule fois ici (`findMatchesForRow` ne le refait pas par ligne) —
+   * jusqu'à MAX_IMPORT_ROWS requêtes de rapprochement, mais une seule
+   * vérification de permission/équipe, pas une par ligne.
+   */
+  async previewImport(
+    clubId: number,
+    teamId: number,
+    rows: ImportRowInputDto[],
+    requesterScope: PermissionScope,
+  ): Promise<ImportRowPreview[]> {
+    if (requesterScope === 'OWN' || requesterScope === 'PARENT') {
+      throw new AppException('AUTH.FORBIDDEN', HttpStatus.FORBIDDEN);
+    }
+    await assertTeamInClub(
+      this.prisma,
+      clubId,
+      teamId,
+      'ROSTER.TEAM_NOT_IN_CLUB',
+    );
+
+    const results: ImportRowPreview[] = [];
+    for (const [index, row] of rows.entries()) {
+      const match = await this.rosterMatchingService.findMatchesForRow(
+        clubId,
+        teamId,
+        {
+          firstName: row.firstName,
+          lastName: row.lastName,
+          birthDate: row.birthDate ?? null,
+          licenseNumber: row.licenseNumber ?? null,
+        },
+      );
+      results.push({
+        index,
+        status: match.status,
+        candidates: match.candidates,
+      });
+    }
+    return results;
   }
 }

@@ -24,6 +24,7 @@ import { BulkCreateRosterDto } from './dto/bulk-create-roster.dto';
 import { BulkUpdateRosterDto } from './dto/bulk-update-roster.dto';
 import { FindPlayerMatchQueryDto } from './dto/find-player-match-query.dto';
 import { FindRosterQueryDto } from './dto/find-roster-query.dto';
+import { PreviewImportDto } from './dto/preview-import.dto';
 import {
   MAX_IMPORT_FILE_SIZE_BYTES,
   RosterImportService,
@@ -128,5 +129,26 @@ export class RosterController {
       );
     }
     return this.rosterImportService.parseFile(file);
+  }
+
+  // Import fichier (étape 3/6) : rapprochement ligne par ligne, lecture
+  // seule. Le scope OWN/PARENT est rejeté dans RosterImportService (comme
+  // pour `lookup`, dont cet endpoint réutilise la même cascade via
+  // RosterMatchingService) — défense de cohérence plutôt que réellement
+  // atteignable avec player_team CREATE dans le seed actuel.
+  @RequirePermission('player_team', 'CREATE')
+  @Post('import/preview')
+  previewImport(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @CurrentPermissionScope() scope: PermissionScope,
+    @Body() dto: PreviewImportDto,
+  ) {
+    return this.rosterImportService.previewImport(
+      clubId,
+      teamId,
+      dto.rows,
+      scope,
+    );
   }
 }
