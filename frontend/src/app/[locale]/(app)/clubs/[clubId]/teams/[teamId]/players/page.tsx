@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { BulkCreatePlayersDialog } from "@/components/players/bulk-create-players-dialog";
 import { BulkEditPlayersDialog } from "@/components/players/bulk-edit-players-dialog";
+import { ImportPlayersDialog } from "@/components/players/import-players-dialog";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { RosterRowActions } from "@/components/players/roster-row-actions";
 import { Link } from "@/i18n/navigation";
@@ -116,6 +117,7 @@ export function TeamPlayersPageContent({
 }) {
   const t = useTranslations("players");
   const tBulk = useTranslations("bulkPlayers");
+  const tImport = useTranslations("importPlayers");
   const tRoles = useTranslations("rosterRoles");
   const tPositions = useTranslations("positions");
   const tPositionLines = useTranslations("positionLines");
@@ -346,6 +348,16 @@ export function TeamPlayersPageContent({
               rows={playerRows}
               onSuccess={loadRoster}
               trigger={<Button variant="outline">{tBulk("editTitle")}</Button>}
+            />
+          )}
+          {capabilities.canCreate && (
+            <ImportPlayersDialog
+              clubId={clubId}
+              teamId={teamId}
+              onSuccess={loadRoster}
+              trigger={
+                <Button variant="outline">{tImport("triggerLabel")}</Button>
+              }
             />
           )}
           {capabilities.canCreate && (

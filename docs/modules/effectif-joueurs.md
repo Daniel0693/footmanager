@@ -328,16 +328,16 @@ préremplie à la date du jour plutôt que laissée vide — modifiable libremen
 arrivée future ou rattraper un retard de saisie. Ne s'applique qu'à la création : en édition,
 une date d'arrivée déjà vide n'est jamais réécrite avec la date du jour.
 
-## Import fichier (Excel/CSV) — en cours (branche `feature/effectif-import-fichier`)
+## Import fichier (Excel/CSV) (branche `feature/effectif-import-fichier`)
 
-> **En cours.** Réutilise le service de rapprochement (`RosterMatchingService`, ci-dessus) par
-> ligne plutôt qu'une logique de matching séparée. Découpage en six incréments :
-> 1. Upload + extraction brute des en-têtes/lignes (implémenté).
-> 2. Mapping des colonnes (frontend, à venir).
-> 3. Envoi au backend, rapprochement par ligne (implémenté).
-> 4. Tableau de prévisualisation avec décision par ligne (frontend, à venir).
-> 5. Validation, transaction tout-ou-rien (implémenté, backend complet).
-> 6. Rechargement du tableau Effectif existant (à venir).
+> Réutilise le service de rapprochement (`RosterMatchingService`, ci-dessus) par ligne plutôt
+> qu'une logique de matching séparée. Découpage en six incréments, tous implémentés :
+> 1. Upload + extraction brute des en-têtes/lignes.
+> 2. Mapping des colonnes (frontend).
+> 3. Envoi au backend, rapprochement par ligne.
+> 4. Tableau de prévisualisation avec décision par ligne (frontend).
+> 5. Validation, transaction tout-ou-rien.
+> 6. Rechargement du tableau Effectif existant (frontend).
 
 **Étape 1 — `POST /clubs/:clubId/teams/:teamId/roster/import/parse`** (`RosterImportService`,
 module `roster`) : upload multipart (`FileInterceptor`), aucune écriture en base. Un seul format
@@ -390,6 +390,37 @@ unicité du maillot parmi les affectations actives (`ROSTER.JERSEY_NUMBER_TAKEN`
 licence scopée au club (`PLAYERS.LICENSE_NUMBER_ALREADY_USED_IN_CLUB`, décision du 2026-07-16), et
 `PLAYER_TEAMS.ALREADY_ACTIVE` pour `REACTIVATE` si une affectation active existe déjà (garde-fou,
 ne devrait pas arriver si le statut `MODIFICATION` a été correctement résolu à l'étape 3).
+
+**Étapes 2/4/6 — `ImportPlayersDialog`** (frontend, `components/players/import-players-dialog.tsx`) :
+assistant en trois étapes (upload → mapping → prévisualisation), déclenché depuis le tableau
+Effectif (bouton "Importer un fichier", gardé par `capabilities.canCreate` — même convention que
+les autres actions d'écriture du tableau).
+- **Mapping (étape 2)** : un `<Select>` par colonne détectée, associant à un champ cible ou
+  "Ignorer cette colonne". Pré-remplissage heuristique best-effort (alias de noms de colonnes
+  courants, FR/EN, jamais affiché à l'utilisateur — seulement une aide au clic, jamais bloquant) ;
+  l'utilisateur confirme ou corrige toujours manuellement. Un champ ne peut être associé qu'à une
+  seule colonne à la fois : en choisir un déjà pris ailleurs remet l'ancienne colonne à "Ignorer"
+  plutôt que de bloquer avec une erreur de validation. Prénom/nom doivent être mappés pour
+  continuer.
+- **Conversion valeur brute → champ typé** : les enums (genre, poste, pied fort) sont reconnus à la
+  fois sous leur code brut (ex. `CB`) et sous leur libellé traduit (ex. "Défenseur central") — la
+  correspondance est construite dynamiquement à partir des traductions déjà existantes
+  (`gender`/`positions`/`foot`), sans dupliquer de dictionnaire d'alias par langue. Une valeur non
+  reconnue est simplement ignorée (champ laissé vide) plutôt que de faire échouer toute la ligne.
+  Les dates acceptent le format ISO (`AAAA-MM-JJ`, déjà produit par l'étape 1 pour les cellules
+  Excel) et le format `JJ/MM/AAAA`. Les lignes entièrement vides sont ignorées silencieusement (avec
+  un décompte affiché) ; une ligne sans prénom ou nom après mapping est ignorée avec un avertissement
+  distinct — ni l'une ni l'autre ne bloque l'import des lignes valides.
+- **Prévisualisation (étape 4)** : une ligne par résultat de `RosterMatchingService`, avec une
+  case "Inclure" (cochée par défaut) et une décision selon le statut — `NOUVEAU` s'inclut tel quel,
+  `MODIFICATION` affiche une notice (mise à jour automatique, pas de choix), `RÉACTIVATION` propose
+  une case à cocher (réactiver par défaut, décocher = créer un nouveau joueur à la place), `AMBIGU`
+  impose un choix explicite parmi les candidats (ou "aucun ne correspond") — le bouton de
+  validation reste désactivé tant qu'une ligne `AMBIGU` incluse n'a pas de choix résolu.
+- **Validation (étape 6)** : construit un `ImportRowDecisionDto[]` à partir des décisions
+  résolues (lignes exclues omises), `POST .../roster/import/commit`, puis referme la modale et
+  recharge le tableau Effectif (`onSuccess`/`loadRoster`, même convention que les autres modales
+  d'écriture du tableau).
 
 ## Profil joueur — mise en page 2 colonnes
 
