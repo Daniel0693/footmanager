@@ -135,14 +135,20 @@ nombre de matchs restants (convention française) :
 
 ```prisma
 enum CupRound {
-  ROUND_OF_64    // 64 équipes — "64e de finale"
-  ROUND_OF_32    // 32 équipes — "32e de finale"
+  ROUND_OF_128   // 128 équipes — "64e de finale"
+  ROUND_OF_64    // 64 équipes — "32e de finale"
+  ROUND_OF_32    // 32 équipes — "16e de finale"
   ROUND_OF_16    // 16 équipes — "8e de finale" (huitièmes)
   QUARTER_FINAL  // 8 équipes — "quart de finale"
   SEMI_FINAL     // 4 équipes — "demi-finale"
   FINAL          // 2 équipes — "finale"
 }
 ```
+
+Corrigé le 2026-07-16 (retour utilisateur, A4) : la version initiale avait décalé les libellés
+d'un cran (`ROUND_OF_64` étiqueté "64e de finale" au lieu de "32e de finale"), ce qui faisait
+disparaître la "16e de finale" de la liste. `ROUND_OF_128` ajouté pour couvrir le premier tour
+standard sans perdre la "64e de finale".
 
 **Sens de création selon `matchType`** (docs/modules/matchs.md) :
 - `CHAMPIONNAT` : jamais créé directement — naît d'un `ChampionshipMatch` (module Championnat),

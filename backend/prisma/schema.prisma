@@ -622,8 +622,9 @@ enum MatchType {
 // (convention française : "8e de finale" = 16 équipes = ROUND_OF_16, pas
 // ROUND_OF_8 — piège à ne pas reproduire côté i18n/UI).
 enum CupRound {
-  ROUND_OF_64 // 64 équipes — "64e de finale"
-  ROUND_OF_32 // 32 équipes — "32e de finale"
+  ROUND_OF_128 // 128 équipes — "64e de finale"
+  ROUND_OF_64 // 64 équipes — "32e de finale"
+  ROUND_OF_32 // 32 équipes — "16e de finale"
   ROUND_OF_16 // 16 équipes — "8e de finale" (huitièmes)
   QUARTER_FINAL // 8 équipes — "quart de finale"
   SEMI_FINAL // 4 équipes — "demi-finale"

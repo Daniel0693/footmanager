@@ -49,6 +49,19 @@ Exemples :
   lire/modifier/supprimer n'importe quel `matchType` (championnat inclus) une fois créé ;
   l'adversaire/la phase/le domicile-extérieur d'un match `CHAMPIONNAT` restent en lecture seule
   (`MATCHES.OPPONENT_NOT_EDITABLE`), dérivés du `ChampionshipMatch`.
+
+  **Frontend (A4)** : `EventFormDialog` (composant partagé du Calendrier) affiche un sous-
+  formulaire dédié (`MatchEventFields`) dès que le type `MATCH` est choisi, **en création
+  uniquement** — sélecteur de type (Coupe/Amical/Tournoi, jamais Championnat), domicile/
+  extérieur, adversaire (même flux liste-existante/création-à-la-volée que
+  `AddParticipantDialog` du module Championnat, réutilise `ExternalTeamFormDialog`), et phase de
+  coupe si `matchType = COUPE`. La case "Événement récurrent" est masquée pour ce type (un match
+  ne se crée jamais en série). Le titre de l'événement est auto-rempli avec le nom de
+  l'adversaire choisi (si encore vide), modifiable ensuite. **L'édition d'un match existant via ce
+  dialogue générique n'est pas prise en charge** — `MATCH` est retiré du sélecteur de type en
+  mode édition (une fiche match dédiée arrivera avec les Parties B-D) ; un événement déjà de type
+  `MATCH` reste néanmoins éditable pour ses champs génériques (titre/date/lieu/description) via
+  la route `Event` existante, sans toucher aux champs `Match`.
 - `CHAMPIONNAT` : **jamais créé directement depuis le Calendrier**. Naît de la création d'un
   `ChampionshipMatch` dans le module Championnat (existant depuis la Phase 3) — celui-ci crée
   automatiquement l'`Event`+`Match` liés en une transaction, uniquement si l'une de nos équipes

@@ -416,6 +416,153 @@ describe("EventFormDialog", () => {
     expect(toast.success).toHaveBeenCalled();
   });
 
+  it("sélection du type Match : affiche le sous-formulaire, masque la récurrence", async () => {
+    mockApiFetch.mockResolvedValue(jsonResponse({ data: [{ id: 20, name: "FC Rivals" }] }));
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <EventFormDialog
+        clubId="1"
+        teams={[teams[0]]}
+        onSuccess={jest.fn()}
+        trigger={<Button>Ajouter un événement</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ajouter un événement" }));
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "Match" }));
+
+    expect(screen.queryByRole("checkbox", { name: "Événement récurrent" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Type de match")).toBeInTheDocument();
+    expect(screen.getByText("Domicile / Extérieur")).toBeInTheDocument();
+    expect(screen.getByText("Adversaire")).toBeInTheDocument();
+    // Coupe pas sélectionné par défaut (Amical) : pas de champ phase.
+    expect(screen.queryByText("Phase de la coupe")).not.toBeInTheDocument();
+  });
+
+  it("création d'un match Coupe : POST vers /matches, titre auto-rempli depuis l'adversaire, cupRound inclus", async () => {
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("external-teams")) {
+        return Promise.resolve(jsonResponse({ data: [{ id: 20, name: "FC Rivals" }] }));
+      }
+      return Promise.resolve(jsonResponse({ id: 900 }));
+    });
+    const onSuccess = jest.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <EventFormDialog
+        clubId="1"
+        teams={[teams[0]]}
+        onSuccess={onSuccess}
+        trigger={<Button>Ajouter un événement</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ajouter un événement" }));
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "Match" }));
+    await user.type(screen.getByLabelText("Début"), "2026-10-01T18:00");
+
+    // Comboboxes une fois le sous-formulaire affiché (matchType par défaut
+    // AMICAL, pas de Phase de la coupe) : [Type, matchType, homeOrAway, adversaire].
+    let comboboxes = await screen.findAllByRole("combobox");
+    expect(comboboxes).toHaveLength(4);
+    await user.click(comboboxes[1]); // Type de match
+    await user.click(await screen.findByRole("option", { name: "Coupe" }));
+
+    // Phase de la coupe apparaît en 4e position (COUPE sélectionné) :
+    // [Type, matchType, homeOrAway, cupRound, adversaire].
+    comboboxes = await screen.findAllByRole("combobox");
+    expect(comboboxes).toHaveLength(5);
+    await user.click(comboboxes[3]);
+    await user.click(await screen.findByRole("option", { name: "8e de finale" }));
+
+    comboboxes = await screen.findAllByRole("combobox");
+    await user.click(comboboxes[4]); // Adversaire
+    await user.click(await screen.findByRole("option", { name: "FC Rivals" }));
+
+    // Titre auto-rempli depuis l'adversaire choisi (jamais tapé manuellement).
+    expect(screen.getByLabelText<HTMLInputElement>("Titre")).toHaveValue("FC Rivals");
+
+    await user.click(screen.getByRole("button", { name: "Ajouter" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const matchCall = mockApiFetch.mock.calls.find(([url]) => (url as string).endsWith("/matches"));
+    expect(matchCall).toBeDefined();
+    const [url, options] = matchCall!;
+    expect(url).toBe("/clubs/1/teams/5/matches");
+    const body = JSON.parse((options as RequestInit).body as string);
+    expect(body).toMatchObject({
+      title: "FC Rivals",
+      matchType: "COUPE",
+      opponentExternalTeamId: 20,
+      cupRound: "ROUND_OF_16",
+      homeOrAway: "HOME",
+    });
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it("création d'un match Amical : cupRound absent du corps envoyé", async () => {
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("external-teams")) {
+        return Promise.resolve(jsonResponse({ data: [{ id: 20, name: "FC Rivals" }] }));
+      }
+      return Promise.resolve(jsonResponse({ id: 900 }));
+    });
+    const onSuccess = jest.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <EventFormDialog
+        clubId="1"
+        teams={[teams[0]]}
+        onSuccess={onSuccess}
+        trigger={<Button>Ajouter un événement</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ajouter un événement" }));
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "Match" }));
+    await user.type(screen.getByLabelText("Titre"), "Amical vs FC Rivals");
+    await user.type(screen.getByLabelText("Début"), "2026-10-01T18:00");
+
+    // [Type, matchType, homeOrAway, adversaire] — Amical par défaut, pas de
+    // champ Phase de la coupe.
+    const comboboxes = await screen.findAllByRole("combobox");
+    expect(comboboxes).toHaveLength(4);
+    await user.click(comboboxes[3]);
+    await user.click(await screen.findByRole("option", { name: "FC Rivals" }));
+
+    await user.click(screen.getByRole("button", { name: "Ajouter" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const matchCall = mockApiFetch.mock.calls.find(([url]) => (url as string).endsWith("/matches"));
+    const [, options] = matchCall!;
+    const body = JSON.parse((options as RequestInit).body as string);
+    expect(body).toMatchObject({ matchType: "AMICAL", opponentExternalTeamId: 20 });
+    expect(body.cupRound).toBeUndefined();
+  });
+
+  it("mode édition : Match n'est plus proposé comme type sélectionnable", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(
+      <EventFormDialog
+        clubId="1"
+        teams={teams}
+        event={existingEvent}
+        onSuccess={jest.fn()}
+        trigger={<Button>Modifier</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    await user.click(screen.getByRole("combobox"));
+    expect(screen.queryByRole("option", { name: "Match" })).not.toBeInTheDocument();
+  });
+
   it("récurrence hebdomadaire sans jour sélectionné : erreur de validation, aucun appel réseau", async () => {
     const user = userEvent.setup();
     renderWithIntl(

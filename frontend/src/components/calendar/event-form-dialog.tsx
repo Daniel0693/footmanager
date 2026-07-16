@@ -2,8 +2,14 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useMemo, useState, type ReactElement } from "react";
-import { Controller, useForm, useWatch, type Control } from "react-hook-form";
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
+import {
+  Controller,
+  useForm,
+  useWatch,
+  type Control,
+  type FieldErrors,
+} from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
@@ -26,6 +32,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ExternalTeamFormDialog } from "@/components/championships/external-team-form-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -69,6 +76,20 @@ export interface ExistingEvent {
 
 const RECURRENCE_TYPES = ["weekly", "monthly", "yearly"] as const;
 
+// Match CHAMPIONNAT exclu (docs/modules/matchs.md) : jamais créé directement
+// depuis le Calendrier, seulement via le module Championnat (auto-création
+// Event+Match, A3).
+export const CREATABLE_MATCH_TYPES = ["COUPE", "AMICAL", "TOURNOI"] as const;
+export const CUP_ROUNDS = [
+  "ROUND_OF_128",
+  "ROUND_OF_64",
+  "ROUND_OF_32",
+  "ROUND_OF_16",
+  "QUARTER_FINAL",
+  "SEMI_FINAL",
+  "FINAL",
+] as const;
+
 const formSchema = z
   .object({
     teamId: z.string().min(1),
@@ -79,6 +100,15 @@ const formSchema = z
     location: z.string().optional(),
     description: z.string().optional(),
     isRecurring: z.boolean(),
+    // Champ interne, jamais affiché ni envoyé à l'API : distingue création/
+    // édition dans superRefine ci-dessous (les champs match ne sont exigés
+    // qu'en création — MATCH est aussi une valeur historique de `type` pour
+    // des événements édités sans fiche Match, voir ExistingEvent).
+    isCreateMode: z.boolean(),
+    matchType: z.string().optional(),
+    opponentExternalTeamId: z.string().optional(),
+    cupRound: z.string().optional(),
+    homeOrAway: z.string().optional(),
     recurrenceType: z.enum(RECURRENCE_TYPES),
     recurrenceWeekdays: z.array(z.string()),
     recurrenceMonthlyMode: z.enum(["dayOfMonth", "weekdayOrdinal"]),
@@ -97,6 +127,28 @@ const formSchema = z
     if (!data.isRecurring) {
       if (!data.startAt) {
         ctx.addIssue({ code: "custom", path: ["startAt"], message: "required" });
+      }
+      // Un match ne se crée jamais en récurrence (docs/modules/matchs.md) —
+      // case masquée à l'écran, validé ici en défense supplémentaire. Ne
+      // s'applique qu'en création : MATCH est aussi une valeur historique de
+      // `type` pour des événements édités sans fiche Match associée.
+      if (data.isCreateMode && data.type === "MATCH") {
+        if (!data.matchType) {
+          ctx.addIssue({ code: "custom", path: ["matchType"], message: "required" });
+        }
+        if (!data.opponentExternalTeamId) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["opponentExternalTeamId"],
+            message: "required",
+          });
+        }
+        if (!data.homeOrAway) {
+          ctx.addIssue({ code: "custom", path: ["homeOrAway"], message: "required" });
+        }
+        if (data.matchType === "COUPE" && !data.cupRound) {
+          ctx.addIssue({ code: "custom", path: ["cupRound"], message: "required" });
+        }
       }
       return;
     }
@@ -214,6 +266,11 @@ function defaultValues(
         : "",
     location: event?.location ?? "",
     description: event?.description ?? "",
+    isCreateMode: !event,
+    matchType: "AMICAL",
+    opponentExternalTeamId: "",
+    cupRound: undefined,
+    homeOrAway: "HOME",
     isRecurring: false,
     recurrenceType: "weekly",
     recurrenceWeekdays: [],
@@ -323,6 +380,8 @@ export function EventFormDialog({
     register,
     handleSubmit,
     reset,
+    getValues,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -462,6 +521,42 @@ export function EventFormDialog({
       return;
     }
 
+    // Match (COUPE/AMICAL/TOURNOI, création uniquement — docs/modules/matchs.md) :
+    // route dédiée, crée l'Event+Match en une transaction backend. Un match
+    // CHAMPIONNAT n'est jamais créable ici (case exclue du sélecteur), et
+    // l'édition d'un match existant n'est pas encore prise en charge par ce
+    // dialogue générique (arrivera avec la fiche match, Parties B-D).
+    if (mode === "create" && values.type === "MATCH") {
+      const matchBody = JSON.stringify({
+        title: values.title,
+        startAt: toIso(values.startAt!),
+        endAt: values.endAt ? toIso(values.endAt) : undefined,
+        location: toOptionalText(values.location),
+        description: toOptionalText(values.description),
+        matchType: values.matchType,
+        opponentExternalTeamId: Number(values.opponentExternalTeamId),
+        cupRound: values.matchType === "COUPE" ? values.cupRound : undefined,
+        homeOrAway: values.homeOrAway,
+      });
+      try {
+        const response = await apiFetch(`/clubs/${clubId}/teams/${values.teamId}/matches`, {
+          method: "POST",
+          headers,
+          body: matchBody,
+        });
+        if (!response.ok) throw new Error(await parseErrorCode(response));
+        toast.success(t("matchCreated"));
+        setOpen(false);
+        onSuccess();
+      } catch (error) {
+        const code = error instanceof Error ? error.message : "AUTH.UNKNOWN";
+        toast.error(tErrors(code));
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     const body = JSON.stringify({
       type: values.type,
       title: values.title,
@@ -500,6 +595,11 @@ export function EventFormDialog({
   const recurrenceType = watched.recurrenceType ?? "weekly";
   const recurrenceMonthlyMode = watched.recurrenceMonthlyMode ?? "dayOfMonth";
   const recurrenceYearlyMode = watched.recurrenceYearlyMode ?? "fixedDate";
+  const isMatchType = watched.type === "MATCH";
+  // L'édition d'un match existant n'est pas prise en charge par ce dialogue
+  // générique (voir performSubmit) — MATCH n'est donc sélectionnable qu'en
+  // création.
+  const selectableEventTypes = mode === "create" ? EVENT_TYPES : EVENT_TYPES.filter((type) => type !== "MATCH");
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -557,7 +657,7 @@ export function EventFormDialog({
                       <SelectValue>{(v: string | null) => (v ? t(`type${v}`) : "")}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {EVENT_TYPES.map((type) => (
+                      {selectableEventTypes.map((type) => (
                         <SelectItem key={type} value={type}>
                           {t(`type${type}`)}
                         </SelectItem>
@@ -575,7 +675,7 @@ export function EventFormDialog({
             {errors.title && <p className="text-sm text-destructive">{t("titleRequired")}</p>}
           </div>
 
-          {mode === "create" && (
+          {mode === "create" && !isMatchType && (
             <label className="flex items-center gap-2 text-sm">
               <Controller
                 control={control}
@@ -605,7 +705,22 @@ export function EventFormDialog({
                 <Input id="event-end-at" type="datetime-local" {...register("endAt")} />
               </div>
             </div>
-          ) : (
+          ) : null}
+
+          {mode === "create" && isMatchType && (
+            <MatchEventFields
+              clubId={clubId}
+              teamId={watched.teamId ?? ""}
+              control={control}
+              errors={errors}
+              matchType={watched.matchType}
+              onOpponentSelected={(name) => {
+                if (!getValues("title")) setValue("title", name);
+              }}
+            />
+          )}
+
+          {!isMatchType && isRecurring && mode === "create" ? (
             <div className="flex flex-col gap-3 rounded-md border p-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
@@ -824,7 +939,7 @@ export function EventFormDialog({
                   : t("recurrenceOccurrenceCount", { count: occurrenceDates.length })}
               </p>
             </div>
-          )}
+          ) : null}
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="event-location">{t("location")}</Label>
@@ -993,6 +1108,178 @@ function MonthSelectField({
           </Select>
         )}
       />
+    </div>
+  );
+}
+
+interface MatchOpponentOption {
+  id: number;
+  name: string;
+}
+
+// Sous-formulaire affiché quand type = MATCH, en création uniquement
+// (docs/modules/matchs.md) : un match CHAMPIONNAT ne se crée jamais depuis
+// le Calendrier (CREATABLE_MATCH_TYPES l'exclut), seulement via le module
+// Championnat (auto-création Event+Match, A3). Adversaire choisi dans la
+// liste ExternalTeam du club (existante ou créée à la volée) — même
+// flux/composant que AddParticipantDialog (module Championnat, Partie B).
+function MatchEventFields({
+  clubId,
+  teamId,
+  control,
+  errors,
+  matchType,
+  onOpponentSelected,
+}: {
+  clubId: string;
+  teamId: string;
+  control: Control<FormValues>;
+  errors: FieldErrors<FormValues>;
+  matchType?: string;
+  onOpponentSelected: (name: string) => void;
+}) {
+  const t = useTranslations("matches");
+  const tExternal = useTranslations("externalTeams");
+  const { accessToken } = useAuth();
+  const [externalTeams, setExternalTeams] = useState<MatchOpponentOption[] | null>(null);
+
+  const loadExternalTeams = useCallback(async () => {
+    try {
+      const response = await apiFetch(`/clubs/${clubId}/external-teams?teamId=${teamId}`, {
+        headers: authHeaders(accessToken),
+      });
+      if (!response.ok) throw new Error();
+      const body = (await response.json()) as { data: MatchOpponentOption[] };
+      setExternalTeams(body.data);
+    } catch {
+      toast.error(tExternal("loadFailed"));
+    }
+  }, [clubId, teamId, accessToken, tExternal]);
+
+  useEffect(() => {
+    if (teamId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void loadExternalTeams();
+    }
+  }, [teamId, loadExternalTeams]);
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border p-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1.5">
+          <Label>{t("type")}</Label>
+          <Controller
+            control={control}
+            name="matchType"
+            render={({ field }) => (
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue>{(v: string | null) => (v ? t(`type${v}`) : "")}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {CREATABLE_MATCH_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {t(`type${type}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>{t("homeOrAway")}</Label>
+          <Controller
+            control={control}
+            name="homeOrAway"
+            render={({ field }) => (
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue>{(v: string | null) => (v ? t(`homeOrAway${v}`) : "")}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="HOME">{t("homeOrAwayHOME")}</SelectItem>
+                  <SelectItem value="AWAY">{t("homeOrAwayAWAY")}</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+      </div>
+
+      {matchType === "COUPE" && (
+        <div className="flex flex-col gap-1.5">
+          <Label>{t("cupRound")}</Label>
+          <Controller
+            control={control}
+            name="cupRound"
+            render={({ field }) => (
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(v: string | null) => (v ? t(`cupRound${v}`) : t("selectCupRound"))}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {CUP_ROUNDS.map((round) => (
+                    <SelectItem key={round} value={round}>
+                      {t(`cupRound${round}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {errors.cupRound && <p className="text-sm text-destructive">{t("cupRoundRequired")}</p>}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <Label>{t("opponent")}</Label>
+        <Controller
+          control={control}
+          name="opponentExternalTeamId"
+          render={({ field }) => (
+            <Select
+              value={field.value ?? ""}
+              onValueChange={(value) => {
+                field.onChange(value);
+                const opponent = externalTeams?.find((team) => String(team.id) === value);
+                if (opponent) onOpponentSelected(opponent.name);
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {(v: string | null) =>
+                    externalTeams?.find((team) => String(team.id) === v)?.name ??
+                    t("selectOpponent")
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {(externalTeams ?? []).map((team) => (
+                  <SelectItem key={team.id} value={String(team.id)}>
+                    {team.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+        {errors.opponentExternalTeamId && (
+          <p className="text-sm text-destructive">{t("opponentRequired")}</p>
+        )}
+        <ExternalTeamFormDialog
+          clubId={clubId}
+          teamId={teamId}
+          onSuccess={loadExternalTeams}
+          trigger={
+            <Button type="button" variant="ghost" size="sm" className="w-fit">
+              {tExternal("addButton")}
+            </Button>
+          }
+        />
+      </div>
     </div>
   );
 }

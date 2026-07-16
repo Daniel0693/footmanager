@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "CupRound" ADD VALUE 'ROUND_OF_128';
