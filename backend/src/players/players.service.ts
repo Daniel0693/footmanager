@@ -58,6 +58,37 @@ export class PlayersService {
     return profile;
   }
 
+  /**
+   * Pas de contrainte SQL sur `licenseNumber` (voir docs/schema/joueurs.md) :
+   * FootManager n'est pas source de vérité fédérale et ne doit jamais
+   * arbitrer une correspondance entre deux clubs différents. Unicité
+   * vérifiée ici, scopée au club, parmi TOUS les Member (actifs ou non — un
+   * membre qui repart puis revient doit être rapproché de son historique,
+   * pas bloqué par lui). Les valeurs absentes ne sont jamais comparées.
+   */
+  private async assertLicenseNumberAvailable(
+    clubId: number,
+    licenseNumber: string | undefined,
+    excludeId?: number,
+  ) {
+    if (!licenseNumber) {
+      return;
+    }
+    const conflict = await this.prisma.playerProfile.findFirst({
+      where: {
+        licenseNumber,
+        member: { clubId },
+        ...(excludeId !== undefined ? { id: { not: excludeId } } : {}),
+      },
+    });
+    if (conflict) {
+      throw new AppException(
+        'PLAYERS.LICENSE_NUMBER_ALREADY_USED_IN_CLUB',
+        HttpStatus.CONFLICT,
+      );
+    }
+  }
+
   async create(clubId: number, dto: CreatePlayerProfileDto) {
     const member = await this.prisma.member.findUnique({
       where: { id: dto.memberId },
@@ -78,6 +109,8 @@ export class PlayersService {
         HttpStatus.CONFLICT,
       );
     }
+
+    await this.assertLicenseNumberAvailable(clubId, dto.licenseNumber);
 
     return this.prisma.playerProfile.create({
       data: {
@@ -202,6 +235,8 @@ export class PlayersService {
     if (requester.scope === 'TEAM') {
       await assertPlayerInTeam(this.prisma, id, requester.teamId);
     }
+
+    await this.assertLicenseNumberAvailable(clubId, dto.licenseNumber, id);
 
     return this.prisma.playerProfile.update({
       where: { id },

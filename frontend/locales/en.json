@@ -915,6 +915,7 @@
     "PLAYERS": {
       "MEMBER_NOT_IN_CLUB": "This member does not belong to this club",
       "PROFILE_ALREADY_EXISTS": "This member already has a player profile",
+      "LICENSE_NUMBER_ALREADY_USED_IN_CLUB": "This license number is already used by another member of this club",
       "NOT_FOUND": "Player profile not found"
     },
     "PLAYER_TEAMS": {

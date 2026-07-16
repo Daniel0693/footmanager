@@ -314,7 +314,12 @@ model PlayerProfile {
   id            Int      @id @default(autoincrement())
   memberId      Int      @unique
   member        Member   @relation(fields: [memberId], references: [id])
-  licenseNumber String?  @unique
+  // Pas d'unicité SQL globale : une licence est numérotée par fédération
+  // nationale, pas mondialement, et FootManager n'a pas à arbitrer une
+  // correspondance entre deux clubs différents. Vérifiée au niveau
+  // applicatif, scopée au club (voir docs/schema/joueurs.md et
+  // PlayersService.assertLicenseNumberAvailable).
+  licenseNumber String?
   nationality   String?
   preferredFoot Foot?
   createdAt     DateTime @default(now())
