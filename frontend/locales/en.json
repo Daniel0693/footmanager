@@ -610,11 +610,12 @@
     "statusCANCELLED": "Cancelled",
     "statusPOSTPONED": "Postponed",
     "tabs": {
-      "convocations": "Convocations",
-      "composition": "Lineup",
+      "avantMatch": "Pre-match",
       "live": "Live",
       "postMatch": "Post-match"
     },
+    "convocationsHeading": "Convocations",
+    "compositionHeading": "Lineup",
     "comingSoon": "This section will arrive in a future phase."
   },
   "matchConvocations": {
@@ -642,27 +643,14 @@
     "cancel": "Cancel"
   },
   "matchComposition": {
-    "addButton": "Add players",
-    "selectPlayersTitle": "Add to the lineup",
-    "noAvailablePlayers": "No player who accepted their convocation is available.",
-    "add": "Add",
-    "added": "Players added to the lineup",
-    "attendancesLoadFailed": "Unable to load convocations",
     "loadFailed": "Unable to load the lineup",
-    "empty": "No player in the lineup yet",
-    "statusTITULAIRE": "Starting",
-    "statusREMPLACANT": "Substitute",
-    "statusNON_CONVOQUE": "Not called up",
-    "lineupStatusLabel": "Lineup status",
-    "positionLabel": "Position",
-    "positionUnspecified": "Position not set",
+    "pitchLabel": "Pitch",
+    "benchEmpty": "No player available",
+    "spotOccupied": "This spot is already taken by {player}.",
+    "titularsHeading": "Starting lineup",
     "shirtNumberLabel": "Shirt number",
-    "remove": "Remove",
-    "removeDialogTitle": "Remove this player from the lineup?",
-    "removeDialogDescription": "This action is irreversible.",
-    "removeConfirm": "Remove permanently",
-    "removeFailed": "Failed to remove",
-    "cancel": "Cancel"
+    "unplace": "Remove from pitch",
+    "removeFailed": "Failed to remove"
   },
   "championshipForm": {
     "createTitle": "New championship",

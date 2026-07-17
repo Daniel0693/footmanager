@@ -610,11 +610,12 @@
     "statusCANCELLED": "Annulé",
     "statusPOSTPONED": "Reporté",
     "tabs": {
-      "convocations": "Convocations",
-      "composition": "Composition",
+      "avantMatch": "Avant-match",
       "live": "Direct",
       "postMatch": "Après-match"
     },
+    "convocationsHeading": "Convocations",
+    "compositionHeading": "Composition",
     "comingSoon": "Cette section arrivera dans une prochaine phase."
   },
   "matchConvocations": {
@@ -642,27 +643,14 @@
     "cancel": "Annuler"
   },
   "matchComposition": {
-    "addButton": "Ajouter des joueurs",
-    "selectPlayersTitle": "Ajouter à la composition",
-    "noAvailablePlayers": "Aucun joueur ayant accepté sa convocation n'est disponible.",
-    "add": "Ajouter",
-    "added": "Joueurs ajoutés à la composition",
-    "attendancesLoadFailed": "Impossible de charger les convocations",
     "loadFailed": "Impossible de charger la composition",
-    "empty": "Aucun joueur dans la composition pour l'instant",
-    "statusTITULAIRE": "Titulaire",
-    "statusREMPLACANT": "Remplaçant",
-    "statusNON_CONVOQUE": "Non convoqué",
-    "lineupStatusLabel": "Statut dans la composition",
-    "positionLabel": "Poste",
-    "positionUnspecified": "Poste non défini",
+    "pitchLabel": "Terrain",
+    "benchEmpty": "Aucun joueur disponible",
+    "spotOccupied": "Ce poste est déjà occupé par {player}.",
+    "titularsHeading": "Titulaires",
     "shirtNumberLabel": "Numéro de maillot",
-    "remove": "Retirer",
-    "removeDialogTitle": "Retirer ce joueur de la composition ?",
-    "removeDialogDescription": "Cette action est irréversible.",
-    "removeConfirm": "Retirer définitivement",
-    "removeFailed": "Échec du retrait",
-    "cancel": "Annuler"
+    "unplace": "Retirer du terrain",
+    "removeFailed": "Échec du retrait"
   },
   "championshipForm": {
     "createTitle": "Nouveau championnat",

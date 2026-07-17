@@ -59,6 +59,7 @@ describe('MatchLineupsService', () => {
             playerId: 10,
             lineupStatus: 'TITULAIRE',
             position: 'ST',
+            pitchSpotId: 'st',
             shirtNumber: 9,
           },
           { playerId: 11, lineupStatus: 'REMPLACANT' },
@@ -74,9 +75,15 @@ describe('MatchLineupsService', () => {
           playerId: 10,
           lineupStatus: 'TITULAIRE',
           position: 'ST',
+          pitchSpotId: 'st',
           shirtNumber: 9,
         },
-        update: { lineupStatus: 'TITULAIRE', position: 'ST', shirtNumber: 9 },
+        update: {
+          lineupStatus: 'TITULAIRE',
+          position: 'ST',
+          pitchSpotId: 'st',
+          shirtNumber: 9,
+        },
       });
       expect(lineupUpsert).toHaveBeenCalledWith({
         where: { matchId_playerId: { matchId: 900, playerId: 11 } },

@@ -6,8 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CompositionTab } from "@/components/matches/composition-tab";
-import { ConvocationsTab } from "@/components/matches/convocations-tab";
+import { PreMatchTab } from "@/components/matches/pre-match-tab";
 import { Link } from "@/i18n/navigation";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -38,7 +37,7 @@ interface MatchDetail {
   };
 }
 
-const DETAIL_TABS = ["convocations", "composition", "live", "postMatch"] as const;
+const DETAIL_TABS = ["avantMatch", "live", "postMatch"] as const;
 
 // Composant nommé séparé du default export : voir la même note dans
 // players/[playerId]/page.tsx — `use(params)` ne se résout pas de façon
@@ -158,7 +157,7 @@ export function MatchDetailPageContent({
         </div>
       </div>
 
-      <Tabs defaultValue="convocations">
+      <Tabs defaultValue="avantMatch">
         <TabsList className="flex-wrap">
           {DETAIL_TABS.map((tab) => (
             <TabsTrigger key={tab} value={tab}>
@@ -166,13 +165,10 @@ export function MatchDetailPageContent({
             </TabsTrigger>
           ))}
         </TabsList>
-        <TabsContent value="convocations">
-          <ConvocationsTab clubId={clubId} teamId={teamId} matchId={matchId} />
+        <TabsContent value="avantMatch">
+          <PreMatchTab clubId={clubId} teamId={teamId} matchId={matchId} />
         </TabsContent>
-        <TabsContent value="composition">
-          <CompositionTab clubId={clubId} teamId={teamId} matchId={matchId} />
-        </TabsContent>
-        {DETAIL_TABS.filter((tab) => tab !== "convocations" && tab !== "composition").map((tab) => (
+        {DETAIL_TABS.filter((tab) => tab !== "avantMatch").map((tab) => (
           <TabsContent key={tab} value={tab}>
             <Card>
               <CardContent className="py-6 text-sm text-muted-foreground">

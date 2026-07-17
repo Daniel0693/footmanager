@@ -126,42 +126,15 @@ attendances`) :
   convocation (ou celle de leur enfant), jamais un retour à `PENDING`.
 - `DELETE .../attendances/:id` — retire une convocation, Coach/AdminClub/SuperAdmin uniquement.
 
-**Frontend (B3)** : première fiche match (`clubs/:clubId/teams/:teamId/matches/:matchId`) — en-tête
-(adversaire = `event.title`, date/heure, type, domicile/extérieur, lieu, score une fois joué,
-statut) + onglets, sur le modèle de la fiche joueur (`DETAIL_TABS` + placeholder "bientôt
-disponible" pour Composition/Direct/Après-match, pas encore construits). Onglet **Convocations**
-implémenté : liste sous forme de lignes compactes (avatar + nom, pas un `Table` — seulement 2-3
-informations par joueur, une vraie grille avec en-têtes de colonnes était disproportionnée),
-filtrée par `canManage` (renvoyé par `match_attendance`, pas `match` — voir note plus haut) —
-Coach/AdminClub/SuperAdmin gèrent la liste complète : bouton "Convoquer des joueurs" (sélecteur
-multiple depuis l'effectif via `ConvenePlayersDialog`, réutilise le composant `Checkbox`),
-statut de convocation modifiable directement en un clic (groupe de 3 boutons icône
-En attente/Confirmé/Décliné, `lib/convocation-status.ts` pour le code couleur gris/vert/rouge —
-le backend autorise déjà le Coach à modifier librement `convocationStatus`, y compris un retour à
-`PENDING`, contrairement à Player/Parent), retrait avec confirmation. Un Player/Parent ne reçoit
-du backend QUE sa propre convocation (ou celle de son enfant, déjà filtrée côté service, A0/B1) et
-répond directement via deux boutons Accepter/Décliner, sans jamais avoir à déterminer côté
-frontend "est-ce la mienne ?".
-
-**Présence effective hors de cet onglet (décision du 2026-07-17)** : une première version de B3
-exposait aussi ici un sélecteur d'`AttendanceStatus` (présent/absent excusé/absent non-excusé) à
-côté de la convocation. Retiré : avant que le match ait eu lieu, `AttendanceStatus` n'a aucune
-information à apporter en plus de `ConvocationStatus` (les deux racontent la même chose — "est-ce
-que ce joueur vient ?"), donc les deux colonnes faisaient doublon. `AttendanceStatus` reste
-correctement scopé sur la **Partie D — Après-match** (§3 ci-dessous), où il aura un vrai sens : le
-constat réel de présence peut diverger de la réponse donnée avant match (accepté puis absent,
-décliné puis présent en dernière minute). Le endpoint `PATCH .../attendances/:id` accepte déjà
-`attendanceStatus` côté backend (implémenté en B1) — seule l'UI d'édition est différée, pas la
-permission ni la route.
-
-**Composition** (`MatchLineup`) : onze de départ, remplaçants, non-convoqués.
+**Composition** (`MatchLineup`) : onze de départ, remplaçants (le statut `NON_CONVOQUE` reste
+disponible dans l'enum mais n'est plus piloté depuis l'UI actuelle — voir B6 ci-dessous).
 
 Implémenté en B2 (`MatchLineupsService`, `clubs/:clubId/teams/:teamId/matches/:matchId/lineups`) :
 - `POST .../lineups/bulk` — la composition est **resoumise en une fois** à chaque édition (pas un
   ajout incrémental comme les convocations) : chaque ligne `{playerId, lineupStatus, position?,
-  shirtNumber?}` est upsert sur `(matchId, playerId)`, crée si le joueur n'a pas encore de ligne,
-  met à jour sinon (changement de statut/poste/numéro en cours de préparation). `position`/
-  `shirtNumber` sont propres à ce match, jamais lus depuis `PlayerTeam`.
+  pitchSpotId?, shirtNumber?}` est upsert sur `(matchId, playerId)`, crée si le joueur n'a pas
+  encore de ligne, met à jour sinon. `position`/`shirtNumber` sont propres à ce match, jamais lus
+  depuis `PlayerTeam`. `pitchSpotId` ajouté en B6, voir plus bas.
 - `GET .../lineups` — pas de scope OWN/PARENT ici (contrairement aux convocations) : Coach/
   AdminClub/SuperAdmin voient la composition, Player la voit également **en entier** (`match_lineup
   READ TEAM`, pas de filtrage à sa propre ligne), Parent n'y a aucun accès.
@@ -169,19 +142,91 @@ Implémenté en B2 (`MatchLineupsService`, `clubs/:clubId/teams/:teamId/matches/
   (AdminClub reste en lecture seule, cohérent avec "Préparer la composition ❌" du tableau de
   droits).
 
-**Frontend (B4)** : onglet **Composition**, même style de lignes compactes (avatar + nom) que
-Convocations, groupées sous 3 en-têtes (Titulaire/Remplaçant/Non convoqué, section masquée si
-vide). Coach/SuperAdmin : bouton "Ajouter des joueurs" (`AddToLineupDialog`, candidats limités aux
-joueurs ayant `ConvocationStatus = ACCEPTED` — le backend n'impose que l'appartenance à l'équipe,
-mais proposer tout l'effectif n'aurait pas de sens ; ajoutés en `REMPLACANT` par défaut), sélecteur
-de poste (`lib/positions.ts`, réutilisé tel quel), champ numéro de maillot, groupe de 3 boutons
-pour changer de statut en un clic, retrait avec confirmation. Pas de `PATCH` ligne par ligne côté
-backend (seulement `POST .../lineups/bulk`) : chaque changement inline renvoie un bulk d'une seule
-entrée — `lineupStatus` toujours inclus (requis par le DTO), `position`/`shirtNumber` omis quand
-non concernés par le changement (`undefined` → Prisma ignore le champ à l'update, contrairement à
-`null` qui l'efface explicitement). AdminClub/Player : lecture seule (badges poste/numéro, pas de
-contrôles) ; Parent n'a aucun accès à `match_lineup` — le fetch échoue et l'onglet affiche l'état
-d'erreur générique, comme n'importe quel échec de chargement.
+**Historique** : une première version (B3/B4) donnait à Convocations et Composition deux onglets
+séparés, Composition affichée comme une liste de lignes avec sélecteurs poste/statut (et un
+`AddToLineupDialog` pour ajouter un joueur, aujourd'hui supprimé). Retravaillée en B6 suite au
+retour utilisateur du 2026-07-17 : la liste de Composition manquait de lisibilité visuelle et
+faisait doublon avec les Convocations (deux écrans distincts pour préparer un seul et même
+avant-match).
+
+**Frontend (B6) — première fiche match** (`clubs/:clubId/teams/:teamId/matches/:matchId`) —
+en-tête (adversaire = `event.title`, date/heure, type, domicile/extérieur, lieu, score une fois
+joué, statut) + onglets, sur le modèle de la fiche joueur (`DETAIL_TABS` + placeholder "bientôt
+disponible" pour Direct/Après-match, pas encore construits). Onglet unique **"Avant-match"** :
+fusionne Convocations et Composition en une seule vue à deux colonnes (`PreMatchTab`), plutôt que
+deux onglets séparés — les deux se complètent (composer nécessite de savoir qui a accepté) et se
+consultent ensemble en pratique.
+
+- **Colonne Convocations** (`ConvocationsTab`) : liste sous forme de lignes compactes (avatar +
+  nom, pas un `Table` — seulement 2-3 informations par joueur, une vraie grille avec en-têtes de
+  colonnes était disproportionnée), filtrée par `canManage` (renvoyé par `match_attendance`, pas
+  `match` — voir note plus haut). Coach/AdminClub/SuperAdmin gèrent la liste complète : bouton
+  "Convoquer des joueurs" (sélecteur multiple depuis l'effectif via `ConvenePlayersDialog`,
+  réutilise le composant `Checkbox`), statut de convocation modifiable directement en un clic
+  (groupe de 3 boutons icône En attente/Confirmé/Décliné, `lib/convocation-status.ts` pour le code
+  couleur gris/vert/rouge — le backend autorise déjà le Coach à modifier librement
+  `convocationStatus`, y compris un retour à `PENDING`, contrairement à Player/Parent), retrait
+  avec confirmation. Un Player/Parent ne reçoit du backend QUE sa propre convocation (ou celle de
+  son enfant, déjà filtrée côté service, A0/B1) et répond directement via deux boutons
+  Accepter/Décliner, sans jamais avoir à déterminer côté frontend "est-ce la mienne ?". Gagne en B6
+  un prop `onChange`, appelé après chaque rechargement réussi, pour prévenir le parent (`PreMatchTab`)
+  qu'une convocation a changé — voir §Synchronisation ci-dessous.
+- **Présence effective hors de cette colonne (décision du 2026-07-17)** : une première version
+  (B3) exposait aussi ici un sélecteur d'`AttendanceStatus` (présent/absent excusé/absent
+  non-excusé) à côté de la convocation. Retiré : avant que le match ait eu lieu,
+  `AttendanceStatus` n'a aucune information à apporter en plus de `ConvocationStatus` (les deux
+  racontent la même chose — "est-ce que ce joueur vient ?"), donc les deux se faisaient doublon.
+  `AttendanceStatus` reste correctement scopé sur la **Partie D — Après-match** (§3 plus bas), où
+  il aura un vrai sens : le constat réel de présence peut diverger de la réponse donnée avant match
+  (accepté puis absent, décliné puis présent en dernière minute). Le endpoint
+  `PATCH .../attendances/:id` accepte déjà `attendanceStatus` côté backend (implémenté en B1) —
+  seule l'UI d'édition est différée, pas la permission ni la route.
+- **Colonne Composition** (`CompositionColumn`) : terrain SVG interactif (`LineupPitch`) au lieu
+  d'une liste — réutilise le même terrain stylisé que le sélecteur de poste de la fiche joueur
+  (`components/players/position-pitch.tsx`, `POSITION_PITCH_SPOTS` dans `lib/positions.ts`),
+  aucune coordonnée dupliquée. Le **banc** (joueurs disponibles pour la composition) n'est **pas**
+  un statut persisté : c'est simplement "convocation acceptée, pas encore placé sur le terrain"
+  (`ConvocationStatus.ACCEPTED` moins les lignes `MatchLineup` avec `pitchSpotId` non nul),
+  recalculé à chaque rendu — c'est la "population automatique" demandée : accepter une convocation
+  suffit à rendre un joueur disponible pour la composition, sans étape d'ajout manuelle
+  supplémentaire (l'ancien `AddToLineupDialog` de B4 a été supprimé). Une ligne `MatchLineup`
+  n'existe désormais que pour un joueur **effectivement placé** sur le terrain — le retirer
+  supprime la ligne plutôt que de la repasser en `REMPLACANT` (rien à y stocker une fois hors du
+  terrain), ce qui explique pourquoi `NON_CONVOQUE`/`REMPLACANT` restent dans l'enum sans être
+  pilotables depuis cette UI (voir note sous le tableau `MatchLineup`).
+- **Synchronisation entre les deux colonnes** : chaque colonne reste un composant indépendant qui
+  fait son propre fetch (convention du projet, cohérente avec le reste de la fiche match) — pas
+  d'état partagé. `PreMatchTab` maintient un simple compteur `refreshKey`, incrémenté via le
+  `onChange` de `ConvocationsTab` à chaque rechargement réussi des convocations ; `CompositionColumn`
+  refait sa propre requête `.../attendances` quand `refreshKey` change, pour garder le banc à jour
+  sans dupliquer l'état des convocations.
+- **Glisser-déposer fait maison** (`LineupPitch`), Pointer Events, **aucune dépendance ajoutée**
+  (décision du 2026-07-17, confirmée avec l'utilisateur — alternative envisagée : `@dnd-kit`) :
+  presser un joueur (banc ou déjà placé) puis le faire glisser sur un point du terrain le place à
+  ce poste ; le faire glisser vers le banc le retire du terrain. **Repli clic** systématique en
+  complément du glisser (sélectionner un joueur d'un clic puis cliquer sa destination) — nécessaire
+  pour le clavier/l'accessibilité, et c'est aussi la voie empruntée par les tests (jsdom
+  n'implémente pas `elementFromPoint`, utilisé uniquement pour le hit-testing du drag réel ; les
+  deux chemins — `endDrag` après un vrai glisser, gestionnaires `onClick` sinon — sont mutuellement
+  exclusifs via un drapeau `suppressClickRef` pour éviter un double traitement du même geste).
+- **Deux joueurs au même poste** (ex. 2 `CB`) : `pitchSpotId` (nouveau champ `MatchLineup`, B6,
+  ex. `"cb-left"`/`"cb-right"`) épingle chaque joueur à un point précis et distinct du terrain,
+  indépendamment de `position` (le poste "métier", qui peut être identique pour les deux) — décision
+  du 2026-07-17, alternative envisagée et écartée : recalculer gauche/droite à l'affichage sans
+  champ dédié (plus simple mais moins stable, pas de garantie qu'un même joueur reste toujours au
+  même point). Contrainte `@@unique([matchId, pitchSpotId])` : impossible que deux joueurs occupent
+  le même point sur un même match (les lignes `pitchSpotId = null`, c'est-à-dire tous les joueurs
+  non placés, ne sont jamais en conflit entre elles — PostgreSQL traite plusieurs `NULL` comme
+  distincts dans une contrainte unique). Le frontend bloque aussi côté client (toast d'erreur) une
+  tentative de dépôt sur un point déjà occupé par un *autre* joueur, pour ne jamais déclencher
+  cette contrainte côté serveur.
+- **Numéro de maillot** : conservé comme un champ texte éditable, affiché dans une liste
+  "Titulaires" sous le terrain (un joueur placé = une ligne avec poste + numéro + bouton retirer),
+  complément lisible/accessible au terrain visuel.
+- **Droits** : Coach/SuperAdmin composent (glisser-déposer, numéro, retrait) ; AdminClub/Player
+  voient le terrain et la liste des titulaires en lecture seule (pas de banc affiché, inutile sans
+  interaction possible) ; Parent n'a aucun accès à `match_lineup` — le fetch échoue et la colonne
+  affiche l'état d'erreur générique.
 
 ---
 

@@ -58,11 +58,13 @@ export class MatchLineupsService {
             playerId: entry.playerId,
             lineupStatus: entry.lineupStatus,
             position: entry.position,
+            pitchSpotId: entry.pitchSpotId,
             shirtNumber: entry.shirtNumber,
           },
           update: {
             lineupStatus: entry.lineupStatus,
             position: entry.position,
+            pitchSpotId: entry.pitchSpotId,
             shirtNumber: entry.shirtNumber,
           },
         }),

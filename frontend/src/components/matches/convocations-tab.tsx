@@ -49,10 +49,17 @@ export function ConvocationsTab({
   clubId,
   teamId,
   matchId,
+  onChange,
 }: {
   clubId: string;
   teamId: string;
   matchId: string;
+  // Appelé après chaque (re)chargement réussi — permet à un parent
+  // (PreMatchTab, B6) de garder la colonne Composition synchronisée sans
+  // dupliquer l'état ici : la Composition refait sa propre requête
+  // `.../attendances` quand ce callback se déclenche, plutôt que de
+  // partager l'état des convocations entre les deux colonnes.
+  onChange?: () => void;
 }) {
   const t = useTranslations("matchConvocations");
   const tErrors = useTranslations("errors");
@@ -76,11 +83,12 @@ export function ConvocationsTab({
       setAttendances(body.data);
       setCanManage(body.canManage);
       setHasError(false);
+      onChange?.();
     } catch {
       setHasError(true);
       toast.error(t("loadFailed"));
     }
-  }, [fetchAttendances, t]);
+  }, [fetchAttendances, t, onChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +99,7 @@ export function ConvocationsTab({
           setAttendances(body.data);
           setCanManage(body.canManage);
           setHasError(false);
+          onChange?.();
         }
       } catch {
         if (!cancelled) {
@@ -102,6 +111,7 @@ export function ConvocationsTab({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchAttendances, t]);
 
   const handleRespond = async (id: number, convocationStatus: ConvocationStatus) => {

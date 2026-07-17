@@ -42,9 +42,9 @@ function matchDetail(overrides: Record<string, unknown> = {}) {
   };
 }
 
-// L'onglet Convocations (rendu par défaut) et l'onglet Composition font
-// chacun leur propre appel GET (.../attendances, .../lineups) en plus du GET
-// du match — router par URL.
+// L'onglet Avant-match (rendu par défaut) contient les deux colonnes
+// Convocations et Composition, qui font chacune leur propre appel GET
+// (.../attendances, .../lineups) en plus du GET du match — router par URL.
 function mockApiFetchDefault(matchBody: unknown, matchOk = true) {
   mockApiFetch.mockImplementation((url: string) => {
     if (url.includes("/attendances")) return Promise.resolve(jsonResponse({ data: [], canManage: true }));
@@ -82,22 +82,22 @@ describe("MatchDetailPageContent", () => {
     expect(screen.getByText("Terminé")).toBeInTheDocument();
   });
 
-  it("affiche les 4 onglets, Convocations actif par défaut, Composition fonctionnelle, les autres en 'bientôt disponible'", async () => {
+  it("affiche les 3 onglets, Avant-match actif par défaut (Convocations + Composition), les autres en 'bientôt disponible'", async () => {
     mockApiFetchDefault(matchDetail());
     const user = userEvent.setup();
 
     renderWithIntl(<MatchDetailPageContent clubId="1" teamId="5" matchId="900" />);
     await screen.findByRole("heading", { name: "FC Rivaux" });
 
-    expect(screen.getByRole("tab", { name: "Convocations" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Composition" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Avant-match" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Direct" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Après-match" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: "Composition" }));
     expect(
-      await screen.findByText("Aucun joueur dans la composition pour l'instant"),
+      await screen.findByRole("heading", { name: "Convocations" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Composition" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Terrain" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Direct" }));
     expect(

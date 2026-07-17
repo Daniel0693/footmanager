@@ -756,12 +756,20 @@ model MatchLineup {
 
   lineupStatus LineupStatus
   position     Position?
-  shirtNumber  Int?
+  // Identifiant du point sur le terrain SVG (ex. "cb-left", voir
+  // frontend/src/lib/positions.ts POSITION_PITCH_SPOTS) — distinct de
+  // `position` : deux joueurs peuvent partager le même `position` (2 CB) mais
+  // occupent chacun un point différent du terrain. Champ purement visuel,
+  // pas de table de correspondance côté backend (source de vérité = le
+  // frontend), donc une simple chaîne plutôt qu'un enum Prisma à resynchroniser.
+  pitchSpotId String?
+  shirtNumber Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([matchId, playerId])
+  @@unique([matchId, pitchSpotId])
   @@index([matchId])
 }
 

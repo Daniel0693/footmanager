@@ -535,8 +535,11 @@ un match bloquées côté frontend et backend). Tests à la fin de la Partie A :
 | B1 | Backend convocations : CRUD `MatchAttendance` (`clubs/:clubId/teams/:teamId/matches/:matchId/attendances`), convocation en masse idempotente, réponse Player (`OWN`)/Parent (`PARENT`) restreinte à `convocationStatus` ✅ |
 | B2 | Backend composition : CRUD `MatchLineup` (`clubs/:clubId/teams/:teamId/matches/:matchId/lineups`), upsert en masse (Coach/SuperAdmin ; AdminClub/Player lecture seule, Parent aucun accès) ✅ |
 | B3 | Frontend fiche match (nouvelle route `.../matches/:matchId`, en-tête + onglets) — onglet Convocations ✅ |
-| B4 | Frontend fiche match — onglet Composition ✅ |
-| B5 | Tests multi-rôles Partie B |
+| B4 | Frontend fiche match — onglet Composition (liste ; remplacé en B6) ✅ |
+| B5 | Tests multi-rôles Partie B (`matchs-convocations-composition-multi-role.integration.spec.ts`, persona Marc — Coach équipe 5/Player équipe 8/Parent équipe 12) ✅ |
+| B6 | Retour utilisateur (2026-07-17) : fusion Convocations+Composition en un onglet unique "Avant-match" à deux colonnes (`PreMatchTab`), terrain SVG glisser-déposer fait maison pour la composition (`LineupPitch`, réutilise `POSITION_PITCH_SPOTS` de la fiche joueur) plutôt qu'une liste avec sélecteurs, banc auto-peuplé depuis les convocations acceptées (`AddToLineupDialog` supprimé). Schéma : `MatchLineup.pitchSpotId` (+ contrainte `@@unique([matchId, pitchSpotId])`) pour épingler chaque joueur à un point précis du terrain, distinct de `position` ✅ |
+
+Tests à la fin de la Partie B : 735 tests backend + 581 tests frontend.
 
 ### Partie C — Live & clôture
 

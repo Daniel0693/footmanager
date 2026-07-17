@@ -191,10 +191,13 @@ Schéma implémenté en Phase 4 (Partie B, B0, 2026-07-17).
 | `playerId` | FK → PlayerProfile | |
 | `lineupStatus` | enum `LineupStatus` | |
 | `position` | enum `Position`, nullable | poste joué pour ce match — peut différer de `PlayerTeam.mainPosition` (ex. dépannage), jamais lu depuis `PlayerTeam` |
+| `pitchSpotId` | String, nullable | point précis sur le terrain SVG (ex. `"cb-left"`, décision du 2026-07-17) — référence `frontend/src/lib/positions.ts` `POSITION_PITCH_SPOTS`, jamais dupliqué côté backend (pure préoccupation d'affichage) ; distinct de `position` car deux joueurs peuvent partager le même poste (2 `CB`) tout en occupant chacun un point différent |
 | `shirtNumber` | Int, nullable | idem, peut différer de `PlayerTeam.jerseyNumber` |
 
-**Contrainte** : unicité sur `(matchId, playerId)` — une seule ligne de composition par joueur et
-par match.
+**Contraintes** : unicité sur `(matchId, playerId)` — une seule ligne de composition par joueur et
+par match ; unicité sur `(matchId, pitchSpotId)` — deux joueurs ne peuvent jamais occuper le même
+point du terrain sur un même match (les remplaçants, `pitchSpotId = null`, ne sont jamais en
+conflit entre eux : PostgreSQL traite plusieurs `NULL` comme distincts dans une contrainte unique).
 
 ---
 
