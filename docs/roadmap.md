@@ -532,7 +532,7 @@ un match bloquées côté frontend et backend). Tests à la fin de la Partie A :
 | Étape | Contenu |
 |---|---|
 | B0 | Schéma `MatchAttendance`, `MatchLineup` (+ enums `ConvocationStatus`, `AttendanceStatus`, `LineupStatus`) ✅ |
-| B1 | Backend convocations : CRUD `MatchAttendance`, réponse self-service Player (`OWN`)/Parent (`PARENT`) |
+| B1 | Backend convocations : CRUD `MatchAttendance` (`clubs/:clubId/teams/:teamId/matches/:matchId/attendances`), convocation en masse idempotente, réponse Player (`OWN`)/Parent (`PARENT`) restreinte à `convocationStatus` ✅ |
 | B2 | Backend composition : CRUD `MatchLineup` (Coach/SuperAdmin uniquement) |
 | B3 | Frontend fiche match — onglet Convocations |
 | B4 | Frontend fiche match — onglet Composition |

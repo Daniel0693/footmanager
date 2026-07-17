@@ -106,6 +106,21 @@ des joueurs blessés (`Injury.status = EN_COURS`) est **hors scope de la Phase 4
 n'existe pas avant la Phase 8, ce point y est reporté explicitement (confirmé avec l'utilisateur
 le 2026-07-16).
 
+Implémenté en B1 (`MatchAttendancesService`, `clubs/:clubId/teams/:teamId/matches/:matchId/
+attendances`) :
+- `POST .../attendances/bulk` — le Coach convoque plusieurs joueurs en une seule action (sélection
+  depuis l'effectif), **idempotent** : un joueur déjà convoqué n'est jamais dupliqué ni
+  réinitialisé, pour permettre d'ajouter des joueurs plus tard sans perdre les réponses déjà
+  données. Vérifie l'appartenance de chaque joueur à l'équipe (`assertPlayerInTeam`).
+- `GET .../attendances` — liste filtrée selon le scope de l'appelant : TEAM/CLUB/ALL (Coach/
+  AdminClub/SuperAdmin) voient toutes les convocations ; OWN (Player) ne voit que la sienne ;
+  PARENT (Parent) ne voit que celle de son enfant lié (`ParentChild`).
+- `PATCH .../attendances/:id` — Coach/AdminClub/SuperAdmin modifient librement
+  `convocationStatus`/`attendanceStatus` ; Player/Parent ne peuvent modifier que
+  `convocationStatus` (jamais `attendanceStatus`, réservé au Coach) sur **leur propre**
+  convocation (ou celle de leur enfant), jamais un retour à `PENDING`.
+- `DELETE .../attendances/:id` — retire une convocation, Coach/AdminClub/SuperAdmin uniquement.
+
 **Composition** (`MatchLineup`) : onze de départ, remplaçants, non-convoqués.
 
 ---

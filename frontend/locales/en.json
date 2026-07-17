@@ -1119,6 +1119,13 @@
       "CUP_ROUND_NOT_ALLOWED": "The cup round can only be set for a cup match",
       "EXTERNAL_TEAM_NOT_FOUND": "This external team does not belong to this club",
       "OPPONENT_NOT_EDITABLE": "The opponent, round, and home/away side of a championship match are derived from the championship and cannot be edited here"
+    },
+    "MATCH_ATTENDANCES": {
+      "NOT_FOUND": "Attendance not found",
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "MATCH_NOT_FOUND": "This match does not belong to this team",
+      "ATTENDANCE_STATUS_NOT_EDITABLE": "Only the coach can record actual attendance",
+      "INVALID_RESPONSE": "Choose whether you are present or absent"
     }
   },
   "stepperExample": {
