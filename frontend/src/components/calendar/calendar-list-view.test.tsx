@@ -25,10 +25,14 @@ function jsonResponse(body: unknown, ok = true) {
 const teams = [{ id: 5, name: "U15 A" }];
 const allTypesFilters = { types: new Set(EVENT_TYPES), teamIds: new Set([5]), showBirthdays: false };
 
+// TRAINING par défaut (pas MATCH) : un match n'a plus les actions
+// Modifier/Supprimer génériques depuis A5 (docs/modules/matchs.md) — les
+// quelques tests qui exercent spécifiquement le badge/la couleur "Match"
+// passent { type: "MATCH" } explicitement.
 function eventItem(overrides: Record<string, unknown> = {}) {
   return {
     id: 1,
-    type: "MATCH",
+    type: "TRAINING",
     title: "Match amical",
     startAt: "2026-07-10T18:00:00.000Z",
     endAt: null,
@@ -94,7 +98,7 @@ describe("CalendarListView", () => {
   });
 
   it('colorMode="type" : le badge de type reprend la couleur des filtres, le badge d\'équipe reste neutre', async () => {
-    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
+    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem({ type: "MATCH" })]));
     renderWithIntl(
       <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
     );
@@ -106,7 +110,7 @@ describe("CalendarListView", () => {
   });
 
   it('colorMode="team" : le badge d\'équipe reprend la couleur, le badge de type reste neutre', async () => {
-    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem()]));
+    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem({ type: "MATCH" })]));
     renderWithIntl(
       <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="team" />,
     );
@@ -416,6 +420,17 @@ describe("CalendarListView", () => {
     expect(mockApiFetch).toHaveBeenCalledTimes(11);
 
     expect(screen.queryByText("Événement lointain")).not.toBeInTheDocument();
+  });
+
+  it("un événement Match n'a ni bouton Modifier ni bouton Supprimer (A5, docs/modules/matchs.md)", async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse([eventItem({ type: "MATCH" })]));
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
+    );
+    await screen.findByText("Match amical");
+
+    expect(screen.queryByRole("button", { name: "Modifier" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Supprimer" })).not.toBeInTheDocument();
   });
 
   it("supprime un événement de la liste sans recharger toute la fenêtre", async () => {

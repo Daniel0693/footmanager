@@ -67,6 +67,7 @@ describe('EventsService', () => {
   let eventUpdate: jest.Mock;
   let eventDelete: jest.Mock;
   let eventDeleteMany: jest.Mock;
+  let matchCount: jest.Mock;
   let transaction: jest.Mock;
   let resolveOrProvisionMember: jest.Mock;
   let canEffective: jest.Mock;
@@ -88,6 +89,7 @@ describe('EventsService', () => {
       Promise.all(operations),
     );
 
+    matchCount = jest.fn().mockResolvedValue(0);
     const prismaStub = {
       team: { findFirst: teamFindFirst },
       event: {
@@ -99,6 +101,7 @@ describe('EventsService', () => {
         delete: eventDelete,
         deleteMany: eventDeleteMany,
       },
+      match: { count: matchCount },
       $transaction: transaction,
     } as unknown as PrismaService;
 
@@ -492,6 +495,20 @@ describe('EventsService', () => {
       await service.remove(1, 5, 300);
 
       expect(eventDelete).toHaveBeenCalledWith({ where: { id: 300 } });
+    });
+
+    // Phase 4 (A5) : Match.eventId est ON DELETE RESTRICT — un événement
+    // lié à un match ne doit jamais atteindre Postgres pour cette
+    // suppression, vérifié explicitement en amont (même approche que
+    // TeamsService.remove pour CANNOT_DELETE_NOT_EMPTY).
+    it('refuse la suppression si l’événement est lié à un match', async () => {
+      eventFindFirst.mockResolvedValue(trainingEvent);
+      matchCount.mockResolvedValue(1);
+
+      await expect(service.remove(1, 5, 300)).rejects.toMatchObject({
+        status: HttpStatus.CONFLICT,
+      });
+      expect(eventDelete).not.toHaveBeenCalled();
     });
 
     describe('scope future', () => {

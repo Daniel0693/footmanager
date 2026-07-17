@@ -1076,7 +1076,8 @@
     },
     "EVENTS": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
-      "NOT_FOUND": "Event not found"
+      "NOT_FOUND": "Event not found",
+      "CANNOT_DELETE_LINKED_TO_MATCH": "This event is linked to a match — delete the match instead of the event"
     },
     "SEASONS": {
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",

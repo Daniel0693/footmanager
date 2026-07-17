@@ -617,28 +617,35 @@ export function CalendarListView({
                           <Badge variant="outline">{t("todayBadge")}</Badge>
                         )}
                       </div>
-                      <div className="flex gap-1">
-                        <EventFormDialog
-                          clubId={clubId}
-                          teams={teams}
-                          event={item.event}
-                          onSuccess={() => void reloadCurrentWindow()}
-                          trigger={
-                            <Button variant="ghost" size="icon" aria-label={t("edit")}>
-                              <Pencil />
-                            </Button>
-                          }
-                        />
-                        <DeleteEventDialog
-                          event={item.event}
-                          onConfirm={(scope) => void handleDelete(item.event, scope)}
-                          trigger={
-                            <Button variant="ghost" size="icon" aria-label={t("delete")}>
-                              <Trash2 className="text-destructive" />
-                            </Button>
-                          }
-                        />
-                      </div>
+                      {/* Un match (docs/modules/matchs.md) ne s'édite/supprime pas via ce
+                          dialogue générique — Match.eventId est ON DELETE RESTRICT côté
+                          backend, et une édition directe du titre/de la date désynchroniserait
+                          un match de championnat de son ChampionshipMatch. Une vraie fiche
+                          match (Parties B-D) remplacera ces actions. */}
+                      {item.event.type !== "MATCH" && (
+                        <div className="flex gap-1">
+                          <EventFormDialog
+                            clubId={clubId}
+                            teams={teams}
+                            event={item.event}
+                            onSuccess={() => void reloadCurrentWindow()}
+                            trigger={
+                              <Button variant="ghost" size="icon" aria-label={t("edit")}>
+                                <Pencil />
+                              </Button>
+                            }
+                          />
+                          <DeleteEventDialog
+                            event={item.event}
+                            onConfirm={(scope) => void handleDelete(item.event, scope)}
+                            trigger={
+                              <Button variant="ghost" size="icon" aria-label={t("delete")}>
+                                <Trash2 className="text-destructive" />
+                              </Button>
+                            }
+                          />
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span>

@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { EventType } from '@prisma/client';
+import type { EventType, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertTeamInClub } from '../common/team-club-membership';
@@ -241,17 +241,37 @@ export class EventsService {
     const anchor = await this.findEventOrThrow(clubId, teamId, id);
 
     if (scope === 'future' && anchor.recurringGroupId) {
-      await this.prisma.event.deleteMany({
-        where: {
-          teamId,
-          recurringGroupId: anchor.recurringGroupId,
-          startAt: { gte: anchor.startAt },
-        },
-      });
+      const where: Prisma.EventWhereInput = {
+        teamId,
+        recurringGroupId: anchor.recurringGroupId,
+        startAt: { gte: anchor.startAt },
+      };
+      await this.assertNoLinkedMatch(where);
+      await this.prisma.event.deleteMany({ where });
       return;
     }
 
+    await this.assertNoLinkedMatch({ id });
     await this.prisma.event.delete({ where: { id } });
+  }
+
+  // Un Event lié à un Match (Phase 4) ne peut pas être supprimé via cette
+  // route — Match.eventId est ON DELETE RESTRICT (docs/schema/evenements.md),
+  // pour ne jamais laisser une fiche match orpheline. Vérifié explicitement
+  // plutôt que de laisser Postgres renvoyer une erreur de contrainte brute
+  // (même approche que TeamsService.remove). La suppression d'un match passe
+  // par MatchesService/ChampionshipMatchesService, qui suppriment le Match
+  // avant l'Event.
+  private async assertNoLinkedMatch(eventWhere: Prisma.EventWhereInput) {
+    const count = await this.prisma.match.count({
+      where: { event: eventWhere },
+    });
+    if (count > 0) {
+      throw new AppException(
+        'EVENTS.CANNOT_DELETE_LINKED_TO_MATCH',
+        HttpStatus.CONFLICT,
+      );
+    }
   }
 
   private async findEventOrThrow(clubId: number, teamId: number, id: number) {

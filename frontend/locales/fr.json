@@ -1076,7 +1076,8 @@
     },
     "EVENTS": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
-      "NOT_FOUND": "Événement introuvable"
+      "NOT_FOUND": "Événement introuvable",
+      "CANNOT_DELETE_LINKED_TO_MATCH": "Cet événement est lié à un match — supprimez le match plutôt que l'événement"
     },
     "SEASONS": {
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",

@@ -506,7 +506,7 @@ Décisions actées avant le premier incrément (voir `docs/modules/matchs.md`) :
 | A2 | Backend `matches` CRUD scopé équipe (`clubs/:clubId/teams/:teamId/matches`) — création directe limitée à Amical/Coupe/Tournoi, crée Event+Match en transaction ✅ |
 | A3 | Backend — auto-création `Event`+`Match` transactionnelle depuis `ChampionshipMatch` (création simple et en masse), uniquement si notre équipe est participante ✅ |
 | A4 | Frontend — `EventFormDialog` : sous-formulaire match (type, adversaire existant/nouveau, `cupRound` si Coupe) ✅ |
-| A5 | Frontend — affichage des matchs de championnat dans le Calendrier |
+| A5 | Frontend — affichage des matchs de championnat dans le Calendrier ✅ |
 | A6 | Tests multi-rôles bout-en-bout Partie A |
 
 ### Partie B — Préparation & convocations

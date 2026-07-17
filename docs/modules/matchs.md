@@ -62,6 +62,27 @@ Exemples :
   mode édition (une fiche match dédiée arrivera avec les Parties B-D) ; un événement déjà de type
   `MATCH` reste néanmoins éditable pour ses champs génériques (titre/date/lieu/description) via
   la route `Event` existante, sans toucher aux champs `Match`.
+
+**Affichage dans le Calendrier (A5)** : un match (créé directement ou via le module Championnat,
+A3) apparaît automatiquement dans les 3 vues (Liste/Mois/Semaine) comme n'importe quel `Event` —
+aucun changement de rendu nécessaire, le code couleur/badge par type s'applique déjà tel quel.
+**Garde-fous ajoutés** : ni la vue Liste (boutons Modifier/Supprimer) ni le clic sur la grille
+Mois/Semaine n'ouvrent plus le dialogue générique d'édition/suppression pour un événement de type
+`MATCH` — deux risques identifiés en implémentant A3/A4 :
+- Éditer directement `Event.startAt`/`title` d'un match `CHAMPIONNAT` via ce dialogue
+  désynchroniserait le calendrier du `ChampionshipMatch` (la propagation de date construite en A3
+  ne va que dans le sens `ChampionshipMatch` → `Event`, jamais l'inverse).
+- Supprimer directement l'`Event` échouerait de toute façon en base : `Match.eventId` est
+  `ON DELETE RESTRICT` (docs/schema/evenements.md). Un garde-fou backend explicite a été ajouté au
+  passage (`EventsService.assertNoLinkedMatch`, code `EVENTS.CANNOT_DELETE_LINKED_TO_MATCH`, 409)
+  pour ne jamais renvoyer l'erreur de contrainte Postgres brute — même principe que
+  `TeamsService.remove`/`TEAMS.CANNOT_DELETE_NOT_EMPTY`.
+
+Ce masquage est provisoire : une vraie fiche match (Parties B-D) remplacera ces actions par une
+vraie page de gestion. **Point reporté** : badge visuel enrichi dans le calendrier (type de match,
+score une fois joué) — nécessiterait d'enrichir `GET events`/`events/mine` avec les données
+`Match` associées, non fait ici pour rester dans le périmètre de la Partie A ; à reprendre si
+signalé comme un besoin réel, ou naturellement à la construction de la fiche match.
 - `CHAMPIONNAT` : **jamais créé directement depuis le Calendrier**. Naît de la création d'un
   `ChampionshipMatch` dans le module Championnat (existant depuis la Phase 3) — celui-ci crée
   automatiquement l'`Event`+`Match` liés en une transaction, uniquement si l'une de nos équipes

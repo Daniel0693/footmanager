@@ -188,7 +188,11 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
     });
   };
 
+  // Un match ne s'édite pas via ce dialogue générique (voir CalendarListView
+  // pour la même règle en vue Liste) — clic ignoré tant que la fiche match
+  // dédiée n'existe pas (Parties B-D, docs/modules/matchs.md).
   const handleEditFromGrid = (event: CalendarEvent) => {
+    if (event.type === "MATCH") return;
     setGridDialog({ open: true, mode: "edit", event });
   };
 

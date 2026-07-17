@@ -257,6 +257,7 @@ describe('B9 — scénario multi-rôles (EventsController)', () => {
         update: eventUpdate,
         delete: eventDelete,
       },
+      match: { count: jest.fn().mockResolvedValue(0) },
     } as unknown as PrismaService;
     // membersService/permissionsService ne sont utilisés que par
     // findMineInClub (voir describe "agrégations mine" plus bas) — stubs

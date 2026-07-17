@@ -35,10 +35,14 @@ const twoTeams = [
   { id: 8, name: "Seniors" },
 ];
 
+// TRAINING (pas MATCH) : un match n'ouvre plus le dialogue d'édition
+// générique depuis A5 (docs/modules/matchs.md) — ce fixture sert de simple
+// événement générique pour la plupart des tests de ce fichier, "Match
+// amical" n'étant que son titre.
 const oneEvent = [
   {
     id: 1,
-    type: "MATCH",
+    type: "TRAINING",
     title: "Match amical",
     startAt: "2026-07-10T18:00:00.000Z",
     endAt: "2026-07-10T19:30:00.000Z",
@@ -265,6 +269,19 @@ describe("CalendarPageContent", () => {
     await user.click(await screen.findByText("Match amical"));
 
     expect(await screen.findByText("Modifier l'événement")).toBeInTheDocument();
+  });
+
+  it("clic sur un match en vue Mois n'ouvre pas le dialogue d'édition générique (A5)", async () => {
+    mockRoutes(twoTeams, [{ ...oneEvent[0], type: "MATCH" }]);
+    const user = userEvent.setup();
+
+    renderWithIntl(<CalendarPageContent clubId="1" />);
+    await screen.findByText("Match amical");
+    await user.click(screen.getByRole("tab", { name: "Mois" }));
+
+    await user.click(await screen.findByText("Match amical"));
+
+    expect(screen.queryByText("Modifier l'événement")).not.toBeInTheDocument();
   });
 
   it("bascule vers la vue Semaine", async () => {
