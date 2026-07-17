@@ -123,6 +123,19 @@ attendances`) :
 
 **Composition** (`MatchLineup`) : onze de départ, remplaçants, non-convoqués.
 
+Implémenté en B2 (`MatchLineupsService`, `clubs/:clubId/teams/:teamId/matches/:matchId/lineups`) :
+- `POST .../lineups/bulk` — la composition est **resoumise en une fois** à chaque édition (pas un
+  ajout incrémental comme les convocations) : chaque ligne `{playerId, lineupStatus, position?,
+  shirtNumber?}` est upsert sur `(matchId, playerId)`, crée si le joueur n'a pas encore de ligne,
+  met à jour sinon (changement de statut/poste/numéro en cours de préparation). `position`/
+  `shirtNumber` sont propres à ce match, jamais lus depuis `PlayerTeam`.
+- `GET .../lineups` — pas de scope OWN/PARENT ici (contrairement aux convocations) : Coach/
+  AdminClub/SuperAdmin voient la composition, Player la voit également **en entier** (`match_lineup
+  READ TEAM`, pas de filtrage à sa propre ligne), Parent n'y a aucun accès.
+- `DELETE .../lineups/:id` — retire un joueur de la composition, Coach/SuperAdmin uniquement
+  (AdminClub reste en lecture seule, cohérent avec "Préparer la composition ❌" du tableau de
+  droits).
+
 ---
 
 ### 2. Match en live

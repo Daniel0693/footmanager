@@ -1126,6 +1126,11 @@
       "MATCH_NOT_FOUND": "This match does not belong to this team",
       "ATTENDANCE_STATUS_NOT_EDITABLE": "Only the coach can record actual attendance",
       "INVALID_RESPONSE": "Choose whether you are present or absent"
+    },
+    "MATCH_LINEUPS": {
+      "NOT_FOUND": "Lineup entry not found",
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "MATCH_NOT_FOUND": "This match does not belong to this team"
     }
   },
   "stepperExample": {

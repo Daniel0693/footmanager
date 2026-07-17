@@ -9,6 +9,7 @@ import { EvaluationConfigModule } from './evaluation-config/evaluation-config.mo
 import { EventsModule } from './events/events.module';
 import { ExternalTeamsModule } from './external-teams/external-teams.module';
 import { MatchAttendancesModule } from './match-attendances/match-attendances.module';
+import { MatchLineupsModule } from './match-lineups/match-lineups.module';
 import { MatchesModule } from './matches/matches.module';
 import { MembersModule } from './members/members.module';
 import { ParentChildModule } from './parent-child/parent-child.module';
@@ -58,6 +59,7 @@ import { UsersModule } from './users/users.module';
     ChampionshipMatchesModule,
     MatchesModule,
     MatchAttendancesModule,
+    MatchLineupsModule,
   ],
 })
 export class AppModule {}

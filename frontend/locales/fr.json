@@ -1126,6 +1126,11 @@
       "MATCH_NOT_FOUND": "Ce match n'appartient pas à cette équipe",
       "ATTENDANCE_STATUS_NOT_EDITABLE": "Seul l'entraîneur peut saisir la présence effective",
       "INVALID_RESPONSE": "Choisissez si vous êtes présent ou absent"
+    },
+    "MATCH_LINEUPS": {
+      "NOT_FOUND": "Ligne de composition introuvable",
+      "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
+      "MATCH_NOT_FOUND": "Ce match n'appartient pas à cette équipe"
     }
   },
   "stepperExample": {
