@@ -42,11 +42,13 @@ function matchDetail(overrides: Record<string, unknown> = {}) {
   };
 }
 
-// L'onglet Convocations (rendu par défaut) fait son propre appel
-// GET .../attendances en plus du GET du match — router par URL.
+// L'onglet Convocations (rendu par défaut) et l'onglet Composition font
+// chacun leur propre appel GET (.../attendances, .../lineups) en plus du GET
+// du match — router par URL.
 function mockApiFetchDefault(matchBody: unknown, matchOk = true) {
   mockApiFetch.mockImplementation((url: string) => {
     if (url.includes("/attendances")) return Promise.resolve(jsonResponse({ data: [], canManage: true }));
+    if (url.includes("/lineups")) return Promise.resolve(jsonResponse({ data: [], canManage: true }));
     return Promise.resolve(jsonResponse(matchBody, matchOk));
   });
 }
@@ -80,7 +82,7 @@ describe("MatchDetailPageContent", () => {
     expect(screen.getByText("Terminé")).toBeInTheDocument();
   });
 
-  it("affiche les 4 onglets, Convocations actif par défaut, les autres en 'bientôt disponible'", async () => {
+  it("affiche les 4 onglets, Convocations actif par défaut, Composition fonctionnelle, les autres en 'bientôt disponible'", async () => {
     mockApiFetchDefault(matchDetail());
     const user = userEvent.setup();
 
@@ -93,6 +95,11 @@ describe("MatchDetailPageContent", () => {
     expect(screen.getByRole("tab", { name: "Après-match" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Composition" }));
+    expect(
+      await screen.findByText("Aucun joueur dans la composition pour l'instant"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Direct" }));
     expect(
       screen.getByText("Cette section arrivera dans une prochaine phase."),
     ).toBeInTheDocument();

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CompositionTab } from "@/components/matches/composition-tab";
 import { ConvocationsTab } from "@/components/matches/convocations-tab";
 import { Link } from "@/i18n/navigation";
 import { apiFetch, authHeaders } from "@/lib/api";
@@ -168,7 +169,10 @@ export function MatchDetailPageContent({
         <TabsContent value="convocations">
           <ConvocationsTab clubId={clubId} teamId={teamId} matchId={matchId} />
         </TabsContent>
-        {DETAIL_TABS.filter((tab) => tab !== "convocations").map((tab) => (
+        <TabsContent value="composition">
+          <CompositionTab clubId={clubId} teamId={teamId} matchId={matchId} />
+        </TabsContent>
+        {DETAIL_TABS.filter((tab) => tab !== "convocations" && tab !== "composition").map((tab) => (
           <TabsContent key={tab} value={tab}>
             <Card>
               <CardContent className="py-6 text-sm text-muted-foreground">

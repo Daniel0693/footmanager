@@ -169,6 +169,20 @@ Implémenté en B2 (`MatchLineupsService`, `clubs/:clubId/teams/:teamId/matches/
   (AdminClub reste en lecture seule, cohérent avec "Préparer la composition ❌" du tableau de
   droits).
 
+**Frontend (B4)** : onglet **Composition**, même style de lignes compactes (avatar + nom) que
+Convocations, groupées sous 3 en-têtes (Titulaire/Remplaçant/Non convoqué, section masquée si
+vide). Coach/SuperAdmin : bouton "Ajouter des joueurs" (`AddToLineupDialog`, candidats limités aux
+joueurs ayant `ConvocationStatus = ACCEPTED` — le backend n'impose que l'appartenance à l'équipe,
+mais proposer tout l'effectif n'aurait pas de sens ; ajoutés en `REMPLACANT` par défaut), sélecteur
+de poste (`lib/positions.ts`, réutilisé tel quel), champ numéro de maillot, groupe de 3 boutons
+pour changer de statut en un clic, retrait avec confirmation. Pas de `PATCH` ligne par ligne côté
+backend (seulement `POST .../lineups/bulk`) : chaque changement inline renvoie un bulk d'une seule
+entrée — `lineupStatus` toujours inclus (requis par le DTO), `position`/`shirtNumber` omis quand
+non concernés par le changement (`undefined` → Prisma ignore le champ à l'update, contrairement à
+`null` qui l'efface explicitement). AdminClub/Player : lecture seule (badges poste/numéro, pas de
+contrôles) ; Parent n'a aucun accès à `match_lineup` — le fetch échoue et l'onglet affiche l'état
+d'erreur générique, comme n'importe quel échec de chargement.
+
 ---
 
 ### 2. Match en live

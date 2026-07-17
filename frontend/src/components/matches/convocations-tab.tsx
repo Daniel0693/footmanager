@@ -20,6 +20,7 @@ import { ConvenePlayersDialog } from "@/components/matches/convene-players-dialo
 import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { convocationStatusColorClassName } from "@/lib/convocation-status";
 import { useAuth } from "@/lib/auth/auth-context";
+import { playerInitials } from "@/lib/player-initials";
 
 type ConvocationStatus = "PENDING" | "ACCEPTED" | "DECLINED";
 const CONVOCATION_STATUSES: ConvocationStatus[] = ["PENDING", "ACCEPTED", "DECLINED"];
@@ -28,10 +29,6 @@ const CONVOCATION_STATUS_ICONS: Record<ConvocationStatus, typeof Check> = {
   ACCEPTED: Check,
   DECLINED: X,
 };
-
-function playerInitials(firstName: string, lastName: string): string {
-  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-}
 
 interface AttendanceRow {
   id: number;
