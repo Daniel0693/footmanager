@@ -553,7 +553,7 @@ Tests à la fin de la Partie B : 742 tests backend + 588 tests frontend.
 |---|---|
 | C0 | Schéma `MatchPeriod`, `MatchEvent` + `ExternalPlayer` (avancée de la Phase 7, nécessaire pour `MatchEvent.externalPlayerId` — reste nullable même pour un événement adverse, retour utilisateur du 2026-07-18 : pas de joueur imposé, l'événement peut rester global au niveau de l'équipe adverse) ✅ |
 | C1 | Backend gestion des périodes (`MatchPeriodsService`, timestamps serveur) — démarrer/terminer une période fait passer `Match.status` LIVE/HALFTIME ; terminer la DERNIÈRE période ne passe PAS automatiquement à `FINISHED` (geste explicite et distinct, "Clore le match", C3) ; pas de plafond serveur sur le nombre de périodes (`numberOfPeriods` non résolu, jamais exposé côté frontend pour un match direct) ✅ |
-| C2 | Backend `MatchEvent` CRUD (buts/passes, cartons, remplacements, pénos) |
+| C2 | Backend `MatchEvent` CRUD (`MatchEventsService`, buts/passes, cartons, remplacements, pénos) — validation des références joueur selon `type`/`teamSide` (notre équipe vs adversaire, comparé à `Match.homeOrAway`) : `OWN_GOAL`/`SUBSTITUTION`/`PENALTY_SCORED`/`PENALTY_MISSED` réservés à notre équipe, `externalPlayerId` toujours optionnel côté adversaire (retour utilisateur du 2026-07-18). Aucune restriction basée sur `Match.status` : correction possible à tout moment, y compris après clôture (C5 = interface frontend dédiée, le CRUD est déjà celui-ci) ✅ |
 | C3 | Backend clôture — calcul du score, écriture sur `ChampionshipMatch` ou `Match` selon le type |
 | C4 | Frontend interface live |
 | C5 | Correction post-match (score/événement après clôture) |

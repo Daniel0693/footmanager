@@ -1222,6 +1222,18 @@
       "MATCH_NOT_ACTIVE": "This match is finished, cancelled, or postponed",
       "ALREADY_OPEN": "A period is already in progress",
       "ALREADY_ENDED": "This period has already ended"
+    },
+    "MATCH_EVENTS": {
+      "NOT_FOUND": "Event not found",
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "MATCH_NOT_FOUND": "This match does not belong to this team",
+      "TYPE_REQUIRES_OWN_TEAM": "This event type is only available for our team",
+      "PLAYER_NOT_ALLOWED_FOR_OPPONENT": "An opponent event cannot reference one of our players",
+      "EXTERNAL_PLAYER_NOT_ALLOWED_FOR_OWN_TEAM": "An event for our team cannot reference an opponent player",
+      "EXTERNAL_PLAYER_NOT_FOUND": "This opponent player does not belong to this club",
+      "PLAYER_REQUIRED": "The player involved is required",
+      "RELATED_PLAYER_NOT_ALLOWED": "This field is only available for a goal (assist)",
+      "SUBSTITUTION_REQUIRES_BOTH_PLAYERS": "A substitution requires both the player coming in and going out"
     }
   },
   "stepperExample": {

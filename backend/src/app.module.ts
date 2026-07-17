@@ -9,6 +9,7 @@ import { EvaluationConfigModule } from './evaluation-config/evaluation-config.mo
 import { EventsModule } from './events/events.module';
 import { ExternalTeamsModule } from './external-teams/external-teams.module';
 import { MatchAttendancesModule } from './match-attendances/match-attendances.module';
+import { MatchEventsModule } from './match-events/match-events.module';
 import { MatchLineupsModule } from './match-lineups/match-lineups.module';
 import { MatchPeriodsModule } from './match-periods/match-periods.module';
 import { MatchesModule } from './matches/matches.module';
@@ -62,6 +63,7 @@ import { UsersModule } from './users/users.module';
     MatchAttendancesModule,
     MatchLineupsModule,
     MatchPeriodsModule,
+    MatchEventsModule,
   ],
 })
 export class AppModule {}

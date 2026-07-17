@@ -1222,6 +1222,18 @@
       "MATCH_NOT_ACTIVE": "Ce match est terminé, annulé ou reporté",
       "ALREADY_OPEN": "Une période est déjà en cours",
       "ALREADY_ENDED": "Cette période est déjà terminée"
+    },
+    "MATCH_EVENTS": {
+      "NOT_FOUND": "Événement introuvable",
+      "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
+      "MATCH_NOT_FOUND": "Ce match n'appartient pas à cette équipe",
+      "TYPE_REQUIRES_OWN_TEAM": "Ce type d'événement n'est disponible que pour notre équipe",
+      "PLAYER_NOT_ALLOWED_FOR_OPPONENT": "Un événement adverse ne peut pas référencer un joueur de notre équipe",
+      "EXTERNAL_PLAYER_NOT_ALLOWED_FOR_OWN_TEAM": "Un événement de notre équipe ne peut pas référencer un joueur adverse",
+      "EXTERNAL_PLAYER_NOT_FOUND": "Ce joueur adverse n'appartient pas à ce club",
+      "PLAYER_REQUIRED": "Le joueur concerné est requis",
+      "RELATED_PLAYER_NOT_ALLOWED": "Ce champ n'est disponible que pour un but (passeur décisif)",
+      "SUBSTITUTION_REQUIRES_BOTH_PLAYERS": "Le remplacement nécessite le joueur entrant et le joueur sortant"
     }
   },
   "stepperExample": {

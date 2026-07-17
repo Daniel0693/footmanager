@@ -387,7 +387,32 @@ Cela évite d'avoir un assist sans but correspondant et simplifie les requêtes 
 Chaque `MatchEvent` porte aussi :
 - `periodNumber` : dans quelle période l'événement s'est produit.
 - `minute` : calculé ou saisi manuellement.
-- `teamSide` : `HOME` ou `AWAY`.
+- `teamSide` : `HOME` ou `AWAY` — "notre équipe" vs "adversaire" se déduit en comparant
+  `teamSide` à `Match.homeOrAway`, jamais stocké séparément.
+
+**Backend (C2)** — `MatchEventsService`, `clubs/:clubId/teams/:teamId/matches/:matchId/events`,
+CRUD complet (Coach/SuperAdmin TEAM/ALL, AdminClub/Player `READ` seul, Parent aucun accès — mêmes
+scopes que `match_period`, permissions déjà seedées en A0) :
+- `POST .../events` (`CREATE`), `GET .../events` (`READ`, triés période puis minute),
+  `PATCH .../events/:id` (`UPDATE`), `DELETE .../events/:id` (`DELETE`).
+- `type`/`teamSide` immuables après création (même convention que `Match.matchType`) : un
+  événement mal typé se supprime et se recrée. `PATCH` ne corrige que
+  `periodNumber`/`minute`/`playerId`/`relatedPlayerId`/`externalPlayerId`/`comment` — les
+  références joueur restent re-validées contre le `type`/`teamSide` existant.
+- **Validation des références selon `type` et le côté** (tableau ci-dessus) : `OWN_GOAL`,
+  `SUBSTITUTION`, `PENALTY_SCORED`, `PENALTY_MISSED` sont réservés à notre équipe (pas de pendant
+  "adversaire" documenté — pas trackés côté adverse dans ce MVP). Côté "notre équipe",
+  `playerId` est requis et vérifié appartenir à l'équipe (`assertPlayerInTeam`), jamais
+  d'`externalPlayerId` ; `relatedPlayerId` n'est permis que pour `GOAL` (passeur). Côté
+  adversaire, jamais de `playerId`/`relatedPlayerId`, et **`externalPlayerId` reste TOUJOURS
+  optionnel** (retour utilisateur du 2026-07-18 : "je ne veux pas m'imposer un joueur adverse...
+  je veux pouvoir rester global uniquement sur l'équipe adverse") — un but/carton adverse peut
+  être enregistré sans nommer de joueur suivi.
+- **Aucune restriction basée sur `Match.status`** (contrairement à `MatchPeriodsService`) : "le
+  score est recalculable à tout moment depuis les événements" (§Clôture ci-dessous) — ajouter un
+  événement manqué ou corriger une erreur reste possible après la clôture du match. La Partie C,
+  C5 ("correction post-match") n'ajoute donc pas de nouvelle capacité backend, seulement une
+  interface frontend dédiée accessible depuis l'onglet Après-match.
 
 #### Clôture du match
 
