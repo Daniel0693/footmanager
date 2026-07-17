@@ -1214,6 +1214,14 @@
       "MATCH_NOT_FOUND": "This match does not belong to this team",
       "MULTIPLE_CAPTAINS_NOT_ALLOWED": "Only one captain can be designated at a time",
       "CAPTAIN_MUST_BE_STARTER": "The captain must be in the starting lineup"
+    },
+    "MATCH_PERIODS": {
+      "NOT_FOUND": "Period not found",
+      "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
+      "MATCH_NOT_FOUND": "This match does not belong to this team",
+      "MATCH_NOT_ACTIVE": "This match is finished, cancelled, or postponed",
+      "ALREADY_OPEN": "A period is already in progress",
+      "ALREADY_ENDED": "This period has already ended"
     }
   },
   "stepperExample": {

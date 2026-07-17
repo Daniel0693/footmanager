@@ -333,14 +333,38 @@ côté client** : `Math.floor((now - period.startedAt) / 60)`. Si l'app est ferm
 la minute repart correctement depuis le timestamp serveur.
 
 Flux complet pour 2×45 min :
-1. Coach → "Lancer période 1" → `MatchPeriod(periodNumber=1, startedAt=T1)`
+1. Coach → "Lancer période 1" → `MatchPeriod(periodNumber=1, startedAt=T1)`, `Match.status = LIVE`
 2. Coach → "Fin période 1" → `MatchPeriod(endedAt=T2)`, `Match.status = HALFTIME`
-3. Coach → "Lancer période 2" → `MatchPeriod(periodNumber=2, startedAt=T3)`
-4. Coach → "Fin période 2" → `MatchPeriod(endedAt=T4)`, `Match.status = FINISHED`
+3. Coach → "Lancer période 2" → `MatchPeriod(periodNumber=2, startedAt=T3)`, `Match.status = LIVE`
+4. Coach → "Fin période 2" → `MatchPeriod(endedAt=T4)`, `Match.status = HALFTIME`
+5. Coach → "Clore le match" (§Clôture ci-dessous) → `Match.status = FINISHED` + calcul du score
 
 Pour 4×20 min, le même flux s'applique avec 4 `MatchPeriod`. L'UI affiche le numéro de période
 en cours. **MVP : un seul utilisateur gère le live** (l'app ne gère pas la concurrence en temps
 réel avant une phase ultérieure).
+
+**Terminer une période fait toujours passer `Match.status` à `HALFTIME`, y compris pour la
+DERNIÈRE période configurée** (implémenté en C1, décision du 2026-07-18) : la transition vers
+`FINISHED` est un geste explicite et distinct ("Clore le match", §Clôture du match ci-dessous),
+jamais un effet de bord automatique de la fin de la dernière période — permet à l'entraîneur de
+revoir/corriger avant clôture définitive.
+
+**Backend (C1)** — `MatchPeriodsService`, `clubs/:clubId/teams/:teamId/matches/:matchId/periods` :
+- `POST .../periods/start` (`match_period CREATE`) — démarre la période suivante
+  (`periodNumber` calculé serveur = dernière période + 1), `startedAt` = timestamp serveur.
+  Rejette si une période est déjà ouverte (`MATCH_PERIODS.ALREADY_OPEN`) ou si le match n'est
+  plus actif (`MATCH_PERIODS.MATCH_NOT_ACTIVE` — terminé/annulé/reporté).
+- `PATCH .../periods/:id/end` (`match_period UPDATE`) — termine la période visée, `endedAt` =
+  timestamp serveur. Rejette une période déjà terminée (`MATCH_PERIODS.ALREADY_ENDED`).
+- `GET .../periods` (`match_period READ`) — liste les périodes du match, triées par
+  `periodNumber`. Player a aussi `match_period READ TEAM` (suit le déroulé, ne gère rien) ;
+  AdminClub `READ CLUB` uniquement ; Parent aucun accès (absent de son jeu de permissions,
+  contrairement à `match` scope `PARENT` qui donne uniquement le résultat final).
+- **Pas de plafond serveur sur le nombre de périodes démarrables** (ex. via `Match.numberOfPeriods`
+  résolu) : ce champ n'est aujourd'hui renseigné nulle part côté frontend pour un match créé
+  directement (aucun champ dédié dans `EventFormDialog`, contrairement à `gameFormat` depuis B10),
+  une résolution serait donc incomplète. Le frontend (C4) masquera simplement "Lancer la période
+  suivante" une fois le nombre configuré atteint — pas une garde serveur dure pour l'instant.
 
 #### Événements live (`MatchEvent`)
 

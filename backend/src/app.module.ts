@@ -10,6 +10,7 @@ import { EventsModule } from './events/events.module';
 import { ExternalTeamsModule } from './external-teams/external-teams.module';
 import { MatchAttendancesModule } from './match-attendances/match-attendances.module';
 import { MatchLineupsModule } from './match-lineups/match-lineups.module';
+import { MatchPeriodsModule } from './match-periods/match-periods.module';
 import { MatchesModule } from './matches/matches.module';
 import { MembersModule } from './members/members.module';
 import { ParentChildModule } from './parent-child/parent-child.module';
@@ -60,6 +61,7 @@ import { UsersModule } from './users/users.module';
     MatchesModule,
     MatchAttendancesModule,
     MatchLineupsModule,
+    MatchPeriodsModule,
   ],
 })
 export class AppModule {}

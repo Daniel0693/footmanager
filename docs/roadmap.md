@@ -552,7 +552,7 @@ Tests à la fin de la Partie B : 742 tests backend + 588 tests frontend.
 | Étape | Contenu |
 |---|---|
 | C0 | Schéma `MatchPeriod`, `MatchEvent` + `ExternalPlayer` (avancée de la Phase 7, nécessaire pour `MatchEvent.externalPlayerId` — reste nullable même pour un événement adverse, retour utilisateur du 2026-07-18 : pas de joueur imposé, l'événement peut rester global au niveau de l'équipe adverse) ✅ |
-| C1 | Backend gestion des périodes (timestamps serveur) |
+| C1 | Backend gestion des périodes (`MatchPeriodsService`, timestamps serveur) — démarrer/terminer une période fait passer `Match.status` LIVE/HALFTIME ; terminer la DERNIÈRE période ne passe PAS automatiquement à `FINISHED` (geste explicite et distinct, "Clore le match", C3) ; pas de plafond serveur sur le nombre de périodes (`numberOfPeriods` non résolu, jamais exposé côté frontend pour un match direct) ✅ |
 | C2 | Backend `MatchEvent` CRUD (buts/passes, cartons, remplacements, pénos) |
 | C3 | Backend clôture — calcul du score, écriture sur `ChampionshipMatch` ou `Match` selon le type |
 | C4 | Frontend interface live |
