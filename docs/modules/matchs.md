@@ -62,6 +62,22 @@ Exemples :
   mode édition (une fiche match dédiée arrivera avec les Parties B-D) ; un événement déjà de type
   `MATCH` reste néanmoins éditable pour ses champs génériques (titre/date/lieu/description) via
   la route `Event` existante, sans toucher aux champs `Match`.
+- `CHAMPIONNAT` : **jamais créé directement depuis le Calendrier**. Naît de la création d'un
+  `ChampionshipMatch` dans le module Championnat (existant depuis la Phase 3) — celui-ci crée
+  automatiquement l'`Event`+`Match` liés en une transaction, uniquement si l'une de nos équipes
+  participe à la rencontre (une rencontre entre deux adversaires n'a pas de fiche match pour
+  nous). Le Calendrier affiche ensuite ce match, sans permettre de le recréer.
+
+  Implémenté en A3 (`ChampionshipMatchesService.createLinkedMatchIfOwnTeamInvolved`, appelé par
+  `create` et `createBulk`) : `Event.title` = nom de l'adversaire uniquement (jamais de texte en
+  dur type "vs"/"Match contre" — le back ne compose jamais de texte traduit, voir
+  `docs/architecture.md` §3) ; `homeOrAway` dérivé de la position de notre équipe parmi les deux
+  participants. `ChampionshipMatchesService.update` répercute un changement de `scheduledAt` sur
+  l'`Event.startAt` lié (le reste — titre/lieu/description — n'a pas d'équivalent sur
+  `ChampionshipMatch`, rien à répercuter). `remove` supprime le `Match`+`Event` lié avant la
+  rencontre elle-même, pour ne jamais laisser de fiche match orpheline. **Le statut n'est
+  volontairement pas synchronisé** entre `ChampionshipMatchStatus` et `LiveMatchStatus` — la
+  clôture d'un match live (Partie C) reste l'unique flux qui fait passer un `Match` à `FINISHED`.
 
 **Affichage dans le Calendrier (A5)** : un match (créé directement ou via le module Championnat,
 A3) apparaît automatiquement dans les 3 vues (Liste/Mois/Semaine) comme n'importe quel `Event` —
@@ -83,22 +99,6 @@ vraie page de gestion. **Point reporté** : badge visuel enrichi dans le calendr
 score une fois joué) — nécessiterait d'enrichir `GET events`/`events/mine` avec les données
 `Match` associées, non fait ici pour rester dans le périmètre de la Partie A ; à reprendre si
 signalé comme un besoin réel, ou naturellement à la construction de la fiche match.
-- `CHAMPIONNAT` : **jamais créé directement depuis le Calendrier**. Naît de la création d'un
-  `ChampionshipMatch` dans le module Championnat (existant depuis la Phase 3) — celui-ci crée
-  automatiquement l'`Event`+`Match` liés en une transaction, uniquement si l'une de nos équipes
-  participe à la rencontre (une rencontre entre deux adversaires n'a pas de fiche match pour
-  nous). Le Calendrier affiche ensuite ce match, sans permettre de le recréer.
-
-  Implémenté en A3 (`ChampionshipMatchesService.createLinkedMatchIfOwnTeamInvolved`, appelé par
-  `create` et `createBulk`) : `Event.title` = nom de l'adversaire uniquement (jamais de texte en
-  dur type "vs"/"Match contre" — le back ne compose jamais de texte traduit, voir
-  `docs/architecture.md` §3) ; `homeOrAway` dérivé de la position de notre équipe parmi les deux
-  participants. `ChampionshipMatchesService.update` répercute un changement de `scheduledAt` sur
-  l'`Event.startAt` lié (le reste — titre/lieu/description — n'a pas d'équivalent sur
-  `ChampionshipMatch`, rien à répercuter). `remove` supprime le `Match`+`Event` lié avant la
-  rencontre elle-même, pour ne jamais laisser de fiche match orpheline. **Le statut n'est
-  volontairement pas synchronisé** entre `ChampionshipMatchStatus` et `LiveMatchStatus` — la
-  clôture d'un match live (Partie C) reste l'unique flux qui fait passer un `Match` à `FINISHED`.
 
 **Convocations** : sélection des joueurs convoqués depuis l'effectif (statut `PENDING` dans
 `MatchAttendance`). Les joueurs/parents répondent (`ACCEPTED`/`DECLINED`). Le signalement visuel

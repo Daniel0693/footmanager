@@ -507,7 +507,23 @@ Décisions actées avant le premier incrément (voir `docs/modules/matchs.md`) :
 | A3 | Backend — auto-création `Event`+`Match` transactionnelle depuis `ChampionshipMatch` (création simple et en masse), uniquement si notre équipe est participante ✅ |
 | A4 | Frontend — `EventFormDialog` : sous-formulaire match (type, adversaire existant/nouveau, `cupRound` si Coupe) ✅ |
 | A5 | Frontend — affichage des matchs de championnat dans le Calendrier ✅ |
-| A6 | Tests multi-rôles bout-en-bout Partie A |
+| A6 | Tests multi-rôles bout-en-bout Partie A ✅ |
+
+Scénario multi-rôles bout-en-bout (A6, docs/modules/auth-roles.md §"Multi-rôles — règle de test
+obligatoire") : `backend/src/common/matchs-fondations-multi-role.integration.spec.ts` — même
+persona Marc (Coach équipe 5/Player équipe 8/Parent Club 2 équipe 12). Marc-Coach crée un match
+Amical et un match Coupe (avec `cupRound`) directement via `MatchesService`, puis planifie une
+rencontre de championnat impliquant son équipe et vérifie la liaison automatique Event+Match
+(A3) — `matchType CHAMPIONNAT`, `homeOrAway` dérivé, titre = nom de l'adversaire sans texte en
+dur ; refusé en écriture sur l'équipe 8 où il n'est que Player. Marc-Player lit les matchs de sa
+propre équipe en lecture seule (`canManage=false`), écriture refusée par le guard. Marc-Parent
+lit (scope `PARENT`) les matchs de l'équipe de son enfant, écriture refusée.
+
+**Clôture Partie A** : schéma `Match` posé, liaison bidirectionnelle Calendrier ↔ Championnat
+opérationnelle (création directe Amical/Coupe/Tournoi ; auto-création depuis un `ChampionshipMatch`
+pour les matchs de championnat), garde-fous d'intégrité (édition/suppression d'un événement lié à
+un match bloquées côté frontend et backend). Tests à la fin de la Partie A : 699 tests backend +
+554 tests frontend.
 
 ### Partie B — Préparation & convocations
 
