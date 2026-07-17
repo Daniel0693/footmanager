@@ -419,9 +419,34 @@ scopes que `match_period`, permissions déjà seedées en A0) :
 À la fin de la dernière période, le coach clique **"Clore le match"** :
 1. `Match.status` passe à `FINISHED`.
 2. Le score est calculé depuis les `MatchEvent` de type `GOAL`/`OWN_GOAL` et écrit sur :
-   - `ChampionshipMatch.scoreHome/Away` si c'est un match de championnat.
-   - `Match.scoreHome/Away` si c'est un match amical.
-3. Le classement du championnat est actualisé à la prochaine requête (calculé à la volée).
+   - `ChampionshipMatch.scoreHome/Away` (+ `status = FINISHED`) si c'est un match de championnat.
+   - `Match.scoreHome/Away` si c'est un match amical/coupe/tournoi.
+3. Le classement du championnat est actualisé à la prochaine requête (calculé à la volée) — le
+   filtre `ChampionshipsService.getStandings` ne retient que les `ChampionshipMatch`
+   `status = FINISHED` (pas seulement un score non-null), d'où l'écriture du statut en plus du
+   score à l'étape 2.
+
+**Backend (C3)** — `MatchesService.close`, `POST clubs/:clubId/teams/:teamId/matches/:matchId/close`,
+gardé par `match_period UPDATE` (pas `match UPDATE` : "Clore le match" est ❌ pour AdminClub dans
+le tableau de droits ci-dessus, alors qu'AdminClub a le CRUD complet sur `match` — réutiliser
+`match UPDATE` aurait ouvert la clôture à AdminClub par erreur) :
+- **Calcul du score** : `COUNT(GOAL WHERE teamSide = Match.homeOrAway)` pour notre équipe,
+  `COUNT(GOAL WHERE teamSide ≠ homeOrAway) + COUNT(OWN_GOAL)` pour l'adversaire (un csc de notre
+  équipe profite toujours à l'adversaire — `OWN_GOAL` est réservé à notre équipe, voir §Événements
+  live ci-dessus). **`PENALTY_SCORED`/`PENALTY_MISSED` ne comptent jamais dans le score** —
+  réservés à une séance de tirs au but (qui départage sans s'ajouter au score de la rencontre,
+  convention football standard "2-2, 4-3 aux tirs au but"), jamais lus par `close`.
+- **Garde-fous** : rejette si le match est déjà `FINISHED`/`CANCELLED`/`POSTPONED`
+  (`MATCHES.MATCH_NOT_ACTIVE`) ou si une période est encore ouverte, `startedAt` non-nul et
+  `endedAt` nul (`MATCHES.PERIOD_STILL_OPEN`) — pas de vérification que TOUTES les périodes
+  configurées ont été jouées (même raisonnement que `MatchPeriodsService`, C1 : `numberOfPeriods`
+  n'est résolu nulle part côté backend aujourd'hui).
+- **Gap connu, non traité ici** : `ChampionshipMatchesService.update` (saisie manuelle d'un
+  résultat) n'a aucun garde-fou empêchant d'écraser le score/statut d'un `ChampionshipMatch` lié à
+  un `Match` que le Coach gère en live — l'intention documentée plus haut ("le statut n'est
+  volontairement pas synchronisé... la clôture live reste l'unique flux qui fait passer un Match à
+  FINISHED") n'est pas encore appliquée à ce second flux d'écriture. À reprendre si un cas réel
+  de désynchronisation est signalé.
 
 **Correction post-match** : l'entraîneur peut corriger un score ou ajouter un événement manqué.
 Le score est recalculable à tout moment depuis les événements.

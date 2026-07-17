@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import type { HomeOrAway, LiveMatchStatus } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
@@ -186,6 +187,91 @@ export class MatchesService {
       await tx.match.delete({ where: { id } });
       await tx.event.delete({ where: { id: match.eventId } });
     });
+  }
+
+  // Clôture d'un match live (docs/modules/matchs.md §Clôture du match,
+  // Phase 4, Partie C, C3) : passe Match.status à FINISHED et écrit le score
+  // calculé depuis les MatchEvent GOAL/OWN_GOAL sur ChampionshipMatch (match
+  // CHAMPIONNAT — seul flux qui le fait passer à FINISHED, voir docs/modules/
+  // matchs.md §Création directe) ou sur Match lui-même (les 3 autres types).
+  // PENALTY_SCORED/MISSED ne comptent jamais dans le score (réservés à une
+  // séance de tirs au but, hors score de la rencontre — docs/schema/
+  // evenements.md §MatchEvent).
+  async close(clubId: number, teamId: number, id: number) {
+    const match = await this.findMatchOrThrow(clubId, teamId, id);
+    this.assertMatchActiveForClosure(match.status);
+
+    const openPeriod = await this.prisma.matchPeriod.findFirst({
+      where: { matchId: id, endedAt: null },
+    });
+    if (openPeriod) {
+      throw new AppException('MATCHES.PERIOD_STILL_OPEN', HttpStatus.CONFLICT);
+    }
+
+    const { scoreHome, scoreAway } = await this.computeScore(
+      id,
+      match.homeOrAway,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      if (match.championshipMatchId) {
+        await tx.championshipMatch.update({
+          where: { id: match.championshipMatchId },
+          data: { status: 'FINISHED', scoreHome, scoreAway },
+        });
+      }
+      return tx.match.update({
+        where: { id },
+        data: {
+          status: 'FINISHED',
+          scoreHome: match.championshipMatchId ? undefined : scoreHome,
+          scoreAway: match.championshipMatchId ? undefined : scoreAway,
+        },
+        include: MATCH_INCLUDE,
+      });
+    });
+  }
+
+  // Score = GOAL marqués par notre équipe (teamSide === homeOrAway) et par
+  // l'adversaire (teamSide inverse), PLUS un OWN_GOAL de notre équipe qui
+  // profite TOUJOURS à l'adversaire (csc) — OWN_GOAL est réservé à notre
+  // équipe (docs/schema/evenements.md, MatchEventsService), pas de pendant
+  // adverse documenté.
+  private async computeScore(matchId: number, homeOrAway: HomeOrAway) {
+    const goalEvents = await this.prisma.matchEvent.findMany({
+      where: { matchId, type: { in: ['GOAL', 'OWN_GOAL'] } },
+      select: { type: true, teamSide: true },
+    });
+
+    let ourGoals = 0;
+    let opponentGoals = 0;
+    for (const goalEvent of goalEvents) {
+      const isOurs = goalEvent.teamSide === homeOrAway;
+      if (goalEvent.type === 'OWN_GOAL') {
+        opponentGoals += 1;
+      } else if (isOurs) {
+        ourGoals += 1;
+      } else {
+        opponentGoals += 1;
+      }
+    }
+
+    return homeOrAway === 'HOME'
+      ? { scoreHome: ourGoals, scoreAway: opponentGoals }
+      : { scoreHome: opponentGoals, scoreAway: ourGoals };
+  }
+
+  private assertMatchActiveForClosure(status: LiveMatchStatus) {
+    if (
+      status === 'FINISHED' ||
+      status === 'CANCELLED' ||
+      status === 'POSTPONED'
+    ) {
+      throw new AppException(
+        'MATCHES.MATCH_NOT_ACTIVE',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   private async assertExternalTeamInClub(

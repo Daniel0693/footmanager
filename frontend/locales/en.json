@@ -1199,7 +1199,9 @@
       "CHAMPIONNAT_NOT_DIRECT": "A championship match can only be created from the Championship module",
       "CUP_ROUND_NOT_ALLOWED": "The cup round can only be set for a cup match",
       "EXTERNAL_TEAM_NOT_FOUND": "This external team does not belong to this club",
-      "OPPONENT_NOT_EDITABLE": "The opponent, round, and home/away side of a championship match are derived from the championship and cannot be edited here"
+      "OPPONENT_NOT_EDITABLE": "The opponent, round, and home/away side of a championship match are derived from the championship and cannot be edited here",
+      "MATCH_NOT_ACTIVE": "This match is already finished, cancelled, or postponed",
+      "PERIOD_STILL_OPEN": "A period is still in progress: end it before closing the match"
     },
     "MATCH_ATTENDANCES": {
       "NOT_FOUND": "Attendance not found",

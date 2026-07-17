@@ -77,4 +77,18 @@ export class MatchesController {
   ) {
     return this.matchesService.remove(clubId, teamId, id);
   }
+
+  // Permission match_period (pas match) : "Clore le match" est réservé à qui
+  // gère le live (Coach/SuperAdmin), pas à qui gère seulement la fiche
+  // (AdminClub a match UPDATE mais pas match_period UPDATE — docs/modules/
+  // matchs.md §Droits par rôle, "Clore le match" est ❌ pour AdminClub).
+  @RequirePermission('match_period', 'UPDATE')
+  @Post(':id/close')
+  close(
+    @Param('clubId', ParseIntPipe) clubId: number,
+    @Param('teamId', ParseIntPipe) teamId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.matchesService.close(clubId, teamId, id);
+  }
 }

@@ -14,6 +14,9 @@ describe('MatchesService', () => {
   let matchUpdate: jest.Mock;
   let matchDelete: jest.Mock;
   let matchFindMany: jest.Mock;
+  let periodFindFirst: jest.Mock;
+  let eventFindMany: jest.Mock;
+  let championshipMatchUpdate: jest.Mock;
   let permissionsCan: jest.Mock;
   let service: MatchesService;
 
@@ -30,6 +33,9 @@ describe('MatchesService', () => {
     matchUpdate = jest.fn().mockResolvedValue({ id: 900 });
     matchDelete = jest.fn();
     matchFindMany = jest.fn().mockResolvedValue([]);
+    periodFindFirst = jest.fn().mockResolvedValue(null);
+    eventFindMany = jest.fn().mockResolvedValue([]);
+    championshipMatchUpdate = jest.fn();
 
     const prismaStub = {
       team: { findFirst: teamFindFirst },
@@ -42,6 +48,9 @@ describe('MatchesService', () => {
         update: matchUpdate,
         delete: matchDelete,
       },
+      matchPeriod: { findFirst: periodFindFirst },
+      matchEvent: { findMany: eventFindMany },
+      championshipMatch: { update: championshipMatchUpdate },
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         callback(prismaStub),
       ),
@@ -263,6 +272,99 @@ describe('MatchesService', () => {
 
       expect(matchDelete).toHaveBeenCalledWith({ where: { id: 900 } });
       expect(eventDelete).toHaveBeenCalledWith({ where: { id: 300 } });
+    });
+  });
+
+  describe('close', () => {
+    it('calcule le score (GOAL/OWN_GOAL) et clôt un match Amical (écrit sur Match)', async () => {
+      matchFindFirst.mockResolvedValue({
+        id: 900,
+        eventId: 300,
+        matchType: 'AMICAL',
+        homeOrAway: 'HOME',
+        status: 'HALFTIME',
+        championshipMatchId: null,
+      });
+      eventFindMany.mockResolvedValue([
+        { type: 'GOAL', teamSide: 'HOME' }, // notre but
+        { type: 'GOAL', teamSide: 'HOME' }, // notre 2e but
+        { type: 'GOAL', teamSide: 'AWAY' }, // but adverse
+        { type: 'OWN_GOAL', teamSide: 'HOME' }, // csc de notre équipe → profite à l'adversaire
+      ]);
+
+      await service.close(1, 5, 900);
+
+      expect(matchUpdate).toHaveBeenCalledWith({
+        where: { id: 900 },
+        data: { status: 'FINISHED', scoreHome: 2, scoreAway: 2 },
+        include: {
+          event: true,
+          opponentExternalTeam: { select: { id: true, name: true } },
+        },
+      });
+      expect(championshipMatchUpdate).not.toHaveBeenCalled();
+    });
+
+    it('écrit le score sur ChampionshipMatch (pas sur Match) pour un match Championnat', async () => {
+      matchFindFirst.mockResolvedValue({
+        id: 900,
+        eventId: 300,
+        matchType: 'CHAMPIONNAT',
+        homeOrAway: 'AWAY',
+        status: 'HALFTIME',
+        championshipMatchId: 42,
+      });
+      eventFindMany.mockResolvedValue([{ type: 'GOAL', teamSide: 'AWAY' }]);
+
+      await service.close(1, 5, 900);
+
+      expect(championshipMatchUpdate).toHaveBeenCalledWith({
+        where: { id: 42 },
+        data: { status: 'FINISHED', scoreHome: 0, scoreAway: 1 },
+      });
+      expect(matchUpdate).toHaveBeenCalledWith({
+        where: { id: 900 },
+        data: {
+          status: 'FINISHED',
+          scoreHome: undefined,
+          scoreAway: undefined,
+        },
+        include: {
+          event: true,
+          opponentExternalTeam: { select: { id: true, name: true } },
+        },
+      });
+    });
+
+    it('rejette la clôture si une période est encore ouverte', async () => {
+      matchFindFirst.mockResolvedValue({
+        id: 900,
+        matchType: 'AMICAL',
+        homeOrAway: 'HOME',
+        status: 'LIVE',
+        championshipMatchId: null,
+      });
+      periodFindFirst.mockResolvedValue({ id: 1, endedAt: null });
+
+      await expect(service.close(1, 5, 900)).rejects.toBeInstanceOf(
+        AppException,
+      );
+      expect(matchUpdate).not.toHaveBeenCalled();
+    });
+
+    it('rejette la clôture d’un match déjà terminé/annulé/reporté', async () => {
+      matchFindFirst.mockResolvedValue({
+        id: 900,
+        matchType: 'AMICAL',
+        homeOrAway: 'HOME',
+        status: 'FINISHED',
+        championshipMatchId: null,
+      });
+
+      await expect(service.close(1, 5, 900)).rejects.toBeInstanceOf(
+        AppException,
+      );
+      expect(matchUpdate).not.toHaveBeenCalled();
     });
   });
 

@@ -1199,7 +1199,9 @@
       "CHAMPIONNAT_NOT_DIRECT": "Un match de championnat ne peut être créé que depuis le module Championnat",
       "CUP_ROUND_NOT_ALLOWED": "La phase de coupe ne peut être renseignée que pour un match de coupe",
       "EXTERNAL_TEAM_NOT_FOUND": "Cette équipe adverse n'appartient pas à ce club",
-      "OPPONENT_NOT_EDITABLE": "L'adversaire, la phase et le lieu (domicile/extérieur) d'un match de championnat sont dérivés du championnat et ne peuvent pas être modifiés ici"
+      "OPPONENT_NOT_EDITABLE": "L'adversaire, la phase et le lieu (domicile/extérieur) d'un match de championnat sont dérivés du championnat et ne peuvent pas être modifiés ici",
+      "MATCH_NOT_ACTIVE": "Ce match est déjà terminé, annulé ou reporté",
+      "PERIOD_STILL_OPEN": "Une période est encore en cours : terminez-la avant de clore le match"
     },
     "MATCH_ATTENDANCES": {
       "NOT_FOUND": "Convocation introuvable",

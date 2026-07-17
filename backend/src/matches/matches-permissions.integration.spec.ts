@@ -92,6 +92,15 @@ const permissions = {
   updateClub: { id: 7, resource: 'match', action: 'UPDATE', scope: 'CLUB' },
   deleteClub: { id: 8, resource: 'match', action: 'DELETE', scope: 'CLUB' },
   readParent: { id: 9, resource: 'match', action: 'READ', scope: 'PARENT' },
+  // "Clore le match" (docs/modules/matchs.md §Droits par rôle) est gardé par
+  // match_period UPDATE, pas match UPDATE — AdminClub gère la fiche match
+  // mais jamais le live (voir le test dédié plus bas).
+  periodUpdateTeam: {
+    id: 10,
+    resource: 'match_period',
+    action: 'UPDATE',
+    scope: 'TEAM',
+  },
 } as const;
 
 const roles = {
@@ -103,6 +112,7 @@ const roles = {
       { permission: permissions.readTeam },
       { permission: permissions.updateTeam },
       { permission: permissions.deleteTeam },
+      { permission: permissions.periodUpdateTeam },
     ],
   },
   adminClub: {
@@ -197,6 +207,7 @@ const createHandler = MatchesController.prototype.create;
 const findAllHandler = MatchesController.prototype.findAll;
 const updateHandler = MatchesController.prototype.update;
 const removeHandler = MatchesController.prototype.remove;
+const closeHandler = MatchesController.prototype.close;
 /* eslint-enable @typescript-eslint/unbound-method */
 
 describe('Module Match — scénario multi-rôles (MatchesController)', () => {
@@ -297,6 +308,25 @@ describe('Module Match — scénario multi-rôles (MatchesController)', () => {
     await expect(
       guard.canActivate(buildContext(request, removeHandler)),
     ).resolves.toBe(true);
+  });
+
+  it('Coach peut clore un match de son équipe (match_period UPDATE) ; AdminClub ne peut jamais le faire malgré son CRUD complet sur match', async () => {
+    const coachRequest = {
+      params: { clubId: '1', teamId: '5', id: '900' },
+      user: { userId: 71 },
+    } as Partial<PermissionedRequest>;
+    await expect(
+      guard.canActivate(buildContext(coachRequest, closeHandler)),
+    ).resolves.toBe(true);
+    expect(coachRequest.permissionScope).toBe('TEAM');
+
+    const adminClubRequest = {
+      params: { clubId: '1', teamId: '6', id: '900' },
+      user: { userId: 70 },
+    } as Partial<PermissionedRequest>;
+    await expect(
+      guard.canActivate(buildContext(adminClubRequest, closeHandler)),
+    ).rejects.toBeInstanceOf(AppException);
   });
 
   it('Player consulte les matchs de son équipe (READ seul), canManage=false', async () => {
