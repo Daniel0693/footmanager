@@ -88,6 +88,7 @@
       "name": "Nom de l'équipe",
       "namePlaceholder": "Ex. U15 A",
       "nameRequired": "Le nom est requis",
+      "category": "Catégorie d'âge",
       "submitCreate": "Créer",
       "submitEdit": "Enregistrer",
       "created": "Équipe créée avec succès",
@@ -189,6 +190,15 @@
     "MALE": "Homme",
     "FEMALE": "Femme",
     "OTHER": "Autre"
+  },
+  "teamCategory": {
+    "U9": "U9",
+    "U11": "U11",
+    "U13": "U13",
+    "U15": "U15",
+    "U17": "U17",
+    "U19": "U19",
+    "SENIORS": "Actifs / Seniors"
   },
   "foot": {
     "LEFT": "Gauche",
@@ -598,7 +608,8 @@
     "cupRoundRequired": "La phase de la coupe est requise",
     "homeOrAway": "Domicile / Extérieur",
     "homeOrAwayHOME": "Domicile",
-    "homeOrAwayAWAY": "Extérieur"
+    "homeOrAwayAWAY": "Extérieur",
+    "gameFormat": "Format de jeu"
   },
   "matchDetail": {
     "backToCalendar": "Retour au calendrier",
@@ -616,7 +627,11 @@
     },
     "convocationsHeading": "Convocations",
     "compositionHeading": "Composition",
-    "comingSoon": "Cette section arrivera dans une prochaine phase."
+    "comingSoon": "Cette section arrivera dans une prochaine phase.",
+    "edit": "Modifier",
+    "editTitle": "Modifier le match",
+    "submitEdit": "Enregistrer",
+    "updated": "Match modifié avec succès"
   },
   "matchConvocations": {
     "addButton": "Convoquer des joueurs",
@@ -645,12 +660,23 @@
   "matchComposition": {
     "loadFailed": "Impossible de charger la composition",
     "pitchLabel": "Terrain",
+    "formationLabel": "Système",
+    "benchHeading": "Banc",
     "benchEmpty": "Aucun joueur disponible",
     "spotOccupied": "Ce poste est déjà occupé par {player}.",
-    "titularsHeading": "Titulaires",
     "shirtNumberLabel": "Numéro de maillot",
     "unplace": "Retirer du terrain",
-    "removeFailed": "Échec du retrait"
+    "removeFailed": "Échec du retrait",
+    "makeCaptain": "Nommer capitaine",
+    "removeCaptain": "Retirer le brassard",
+    "markNonRetenu": "Marquer non retenu",
+    "restoreToBench": "Remettre disponible",
+    "nonRetenuHeading": "Non retenus",
+    "formationChangedBenchedCount": "{count, plural, one {# joueur renvoyé au banc} other {# joueurs renvoyés au banc}} (poste inexistant dans ce système)",
+    "lineGK": "GB",
+    "lineDEF": "DEF",
+    "lineMID": "MIL",
+    "lineFWD": "ATT"
   },
   "championshipForm": {
     "createTitle": "Nouveau championnat",
@@ -676,6 +702,7 @@
     "pointsForWin": "Points (victoire)",
     "pointsForDraw": "Points (nul)",
     "pointsForLoss": "Points (défaite)",
+    "gameFormat": "Format de jeu",
     "numberOfPeriods": "Nombre de périodes",
     "periodDurationMinutes": "Durée d'une période (min)",
     "tiebreakerPreset": "Règles de départage",
@@ -1184,7 +1211,9 @@
     "MATCH_LINEUPS": {
       "NOT_FOUND": "Ligne de composition introuvable",
       "TEAM_NOT_IN_CLUB": "Cette équipe n'appartient pas à ce club",
-      "MATCH_NOT_FOUND": "Ce match n'appartient pas à cette équipe"
+      "MATCH_NOT_FOUND": "Ce match n'appartient pas à cette équipe",
+      "MULTIPLE_CAPTAINS_NOT_ALLOWED": "Un seul capitaine peut être désigné à la fois",
+      "CAPTAIN_MUST_BE_STARTER": "Le capitaine doit être titulaire"
     }
   },
   "stepperExample": {

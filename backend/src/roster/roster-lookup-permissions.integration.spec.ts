@@ -31,6 +31,7 @@ const team: Team = {
   id: 8,
   clubId: 1,
   name: 'U15 A',
+  category: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

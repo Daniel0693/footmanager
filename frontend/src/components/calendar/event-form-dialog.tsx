@@ -46,6 +46,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { EVENT_TYPES, type EventType } from "@/lib/event";
+import { GAME_FORMATS, GAME_FORMAT_PLAYER_COUNT, type GameFormat } from "@/lib/formations";
+import { CATEGORY_DEFAULT_GAME_FORMAT } from "@/lib/game-formats";
+import type { TeamCategory } from "@/lib/team-categories";
 import { cn } from "@/lib/utils";
 import {
   computeOccurrenceDates,
@@ -60,6 +63,11 @@ import {
 export interface EventFormTeam {
   id: number;
   name: string;
+  // Optionnel : seul le préremplissage du format de jeu suggéré (B10, voir
+  // `initialGameFormat` ci-dessous) en a besoin — la plupart des appelants
+  // (vues calendrier, dialogues de suppression...) n'ont besoin que de
+  // id/name et n'ont pas à porter cette donnée.
+  category?: TeamCategory | null;
 }
 
 export interface ExistingEvent {
@@ -114,6 +122,7 @@ const formSchema = z
     opponentExternalTeamId: z.string().optional(),
     cupRound: z.string().optional(),
     homeOrAway: z.string().optional(),
+    gameFormat: z.string().optional(),
     recurrenceType: z.enum(RECURRENCE_TYPES),
     recurrenceWeekdays: z.array(z.string()),
     recurrenceMonthlyMode: z.enum(["dayOfMonth", "weekdayOrdinal"]),
@@ -150,6 +159,9 @@ const formSchema = z
         }
         if (!data.homeOrAway) {
           ctx.addIssue({ code: "custom", path: ["homeOrAway"], message: "required" });
+        }
+        if (!data.gameFormat) {
+          ctx.addIssue({ code: "custom", path: ["gameFormat"], message: "required" });
         }
         if (data.matchType === "COUPE" && !data.cupRound) {
           ctx.addIssue({ code: "custom", path: ["cupRound"], message: "required" });
@@ -249,6 +261,16 @@ function buildMonthLabels(locale: string): string[] {
   );
 }
 
+// Préremplissage du format de jeu depuis la catégorie de l'équipe
+// initialement sélectionnée (docs/modules/matchs.md §Format de jeu, B10) —
+// seulement à l'ouverture, pas de mise à jour réactive si l'utilisateur
+// change ensuite l'équipe via le sélecteur (même niveau de simplicité que
+// matchType/homeOrAway, valeurs par défaut fixes elles aussi).
+function initialGameFormat(teams: EventFormTeam[]): GameFormat {
+  const category = teams[0]?.category;
+  return category ? CATEGORY_DEFAULT_GAME_FORMAT[category] : "ELEVEN";
+}
+
 function defaultValues(
   teams: EventFormTeam[],
   event?: ExistingEvent,
@@ -276,6 +298,7 @@ function defaultValues(
     opponentExternalTeamId: "",
     cupRound: undefined,
     homeOrAway: "HOME",
+    gameFormat: initialGameFormat(teams),
     isRecurring: false,
     recurrenceType: "weekly",
     recurrenceWeekdays: [],
@@ -542,6 +565,7 @@ export function EventFormDialog({
         opponentExternalTeamId: Number(values.opponentExternalTeamId),
         cupRound: values.matchType === "COUPE" ? values.cupRound : undefined,
         homeOrAway: values.homeOrAway,
+        gameFormat: values.gameFormat,
       });
       try {
         const response = await apiFetch(`/clubs/${clubId}/teams/${values.teamId}/matches`, {
@@ -1210,6 +1234,34 @@ function MatchEventFields({
             )}
           />
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label>{t("gameFormat")}</Label>
+        <Controller
+          control={control}
+          name="gameFormat"
+          render={({ field }) => (
+            <Select value={field.value ?? ""} onValueChange={field.onChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {(v: string | null) =>
+                    v
+                      ? `${GAME_FORMAT_PLAYER_COUNT[v as GameFormat]} vs ${GAME_FORMAT_PLAYER_COUNT[v as GameFormat]}`
+                      : ""
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {GAME_FORMATS.map((format) => (
+                  <SelectItem key={format} value={format}>
+                    {`${GAME_FORMAT_PLAYER_COUNT[format]} vs ${GAME_FORMAT_PLAYER_COUNT[format]}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
       </div>
 
       {matchType === "COUPE" && (

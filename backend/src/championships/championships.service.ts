@@ -77,6 +77,11 @@ export class ChampionshipsService {
           numberOfPeriods: dto.numberOfPeriods ?? DEFAULT_NUMBER_OF_PERIODS,
           periodDurationMinutes:
             dto.periodDurationMinutes ?? DEFAULT_PERIOD_DURATION_MINUTES,
+          // Pas de constante DEFAULT_GAME_FORMAT ici : `undefined` laisse
+          // Prisma appliquer le défaut déclaré au schéma (@default(ELEVEN)),
+          // contrairement aux autres champs ci-dessus qui n'ont pas de
+          // défaut Prisma natif.
+          gameFormat: dto.gameFormat,
         },
       });
       await tx.championshipParticipant.create({
@@ -234,6 +239,7 @@ export class ChampionshipsService {
         tiebreakerPreset: dto.tiebreakerPreset,
         numberOfPeriods: dto.numberOfPeriods,
         periodDurationMinutes: dto.periodDurationMinutes,
+        gameFormat: dto.gameFormat,
       },
     });
   }

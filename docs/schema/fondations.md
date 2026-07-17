@@ -56,12 +56,27 @@ renommer ou ajouter ses propres catégories.
 | `id` | PK | |
 | `clubId` | FK → Club | |
 | `name` | String | ex. "U15 A" |
+| `category` | enum `TeamCategory`, nullable | pyramide suisse standard (Phase 4, B10, 2026-07-17) — nullable pour les équipes existantes non catégorisées, mais requis à la création d'une nouvelle équipe (`CreateTeamDto`). Source de la suggestion de `GameFormat` par défaut à la création directe d'un match (`docs/modules/matchs.md` §Format de jeu), jamais une contrainte |
+
+```prisma
+enum TeamCategory {
+  U9
+  U11
+  U13
+  U15
+  U17
+  U19
+  SENIORS
+}
+```
 
 `Season` (calendrier de saisons) est désormais rattachée au `Club`, pas à `Team` — révision A14,
 voir `championnats.md`. Aucun historique de catégorie/nom par saison n'est capturé pour
 l'instant (les champs `teamNameSnapshot`/`categorySnapshot` envisagés en conception n'ont
 jamais été implémentés et n'auraient de toute façon plus de sens au niveau club, qui regroupe
-plusieurs équipes de noms/catégories différents).
+plusieurs équipes de noms/catégories différents). **`Team.category` (B10) ne contredit pas cette
+décision** : il vit sur l'équipe elle-même, jamais sur `Season` (club-wide), donc aucun conflit
+avec le regroupement multi-catégories d'un club.
 
 ---
 

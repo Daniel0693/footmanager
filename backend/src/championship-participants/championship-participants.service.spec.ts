@@ -13,6 +13,7 @@ const team: Team = {
   id: 5,
   clubId: 1,
   name: 'U15',
+  category: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -31,6 +32,7 @@ const championship: Championship = {
   tiebreakerPreset: null,
   numberOfPeriods: 2,
   periodDurationMinutes: 45,
+  gameFormat: 'ELEVEN',
   createdAt: new Date(),
   updatedAt: new Date(),
 };

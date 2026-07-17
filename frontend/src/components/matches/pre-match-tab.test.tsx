@@ -30,7 +30,7 @@ describe("PreMatchTab", () => {
     mockApiFetch.mockImplementation((url: string) => {
       if (url.includes("/attendances")) return Promise.resolve(jsonResponse({ data: [], canManage: true }));
       if (url.includes("/lineups")) return Promise.resolve(jsonResponse({ data: [], canManage: true }));
-      return Promise.resolve(jsonResponse(null, false));
+      return Promise.resolve(jsonResponse({ id: 900, formation: null }));
     });
 
     renderWithIntl(<PreMatchTab clubId="1" teamId="5" matchId="900" />);
@@ -64,7 +64,7 @@ describe("PreMatchTab", () => {
         );
       }
       if (url.includes("/lineups")) return Promise.resolve(jsonResponse({ data: [], canManage: true }));
-      return Promise.resolve(jsonResponse(null, false));
+      return Promise.resolve(jsonResponse({ id: 900, formation: null }));
     });
     const user = userEvent.setup();
 
@@ -84,6 +84,33 @@ describe("PreMatchTab", () => {
       expect(
         mockApiFetch.mock.calls.filter(([url]) => (url as string).includes("/attendances")).length,
       ).toBeGreaterThan(2),
+    );
+  });
+
+  it("la liste des dispositifs se recharge quand matchRefreshKey change (édition du format de jeu depuis la fiche match)", async () => {
+    let gameFormat = "ELEVEN";
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("/attendances")) return Promise.resolve(jsonResponse({ data: [], canManage: true }));
+      if (url.includes("/lineups")) return Promise.resolve(jsonResponse({ data: [], canManage: true }));
+      return Promise.resolve(jsonResponse({ id: 900, formation: null, gameFormat }));
+    });
+
+    const { rerender } = renderWithIntl(
+      <PreMatchTab clubId="1" teamId="5" matchId="900" matchRefreshKey={0} />,
+    );
+    await screen.findByRole("group", { name: "Terrain" });
+
+    expect(await screen.findByRole("combobox", { name: "Système" })).toHaveTextContent("4-4-2");
+
+    // Simule MatchEditDialog : le format de jeu du match passe à NINE côté
+    // backend, et le parent (matches/[matchId]/page.tsx) incrémente
+    // matchRefreshKey — sans qu'aucune action ne soit faite dans la colonne
+    // Convocations (refreshKey interne inchangé).
+    gameFormat = "NINE";
+    rerender(<PreMatchTab clubId="1" teamId="5" matchId="900" matchRefreshKey={1} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Système" })).toHaveTextContent("3-3-2"),
     );
   });
 });

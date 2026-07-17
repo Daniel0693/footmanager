@@ -289,6 +289,7 @@ interface LineupRow {
   lineupStatus: string;
   position: string | null;
   shirtNumber: number | null;
+  isCaptain?: boolean;
 }
 
 describe('B5 — scénario multi-rôles bout-en-bout (module Matchs, Partie B — convocations & composition)', () => {
@@ -540,13 +541,52 @@ describe('B5 — scénario multi-rôles bout-en-bout (module Matchs, Partie B �
               ) ?? null,
             ),
         ),
+        findUnique: jest.fn(
+          ({
+            where,
+          }: {
+            where: { matchId_playerId: { matchId: number; playerId: number } };
+          }) =>
+            Promise.resolve(
+              lineupsStore.find(
+                (r) =>
+                  r.matchId === where.matchId_playerId.matchId &&
+                  r.playerId === where.matchId_playerId.playerId,
+              ) ?? null,
+            ),
+        ),
+        updateMany: jest.fn(
+          ({
+            where,
+            data,
+          }: {
+            where: {
+              matchId: number;
+              isCaptain?: boolean;
+              playerId?: { not: number };
+            };
+            data: Partial<LineupRow>;
+          }) => {
+            const matches = lineupsStore.filter(
+              (r) =>
+                r.matchId === where.matchId &&
+                (where.isCaptain === undefined ||
+                  r.isCaptain === where.isCaptain) &&
+                (where.playerId?.not === undefined ||
+                  r.playerId !== where.playerId.not),
+            );
+            for (const row of matches) Object.assign(row, data);
+            return Promise.resolve({ count: matches.length });
+          },
+        ),
         delete: jest.fn(({ where: { id } }: { where: { id: number } }) => {
           lineupsStore = lineupsStore.filter((r) => r.id !== id);
           return Promise.resolve({ id });
         }),
       },
-      $transaction: jest.fn((operations: Promise<unknown>[]) =>
-        Promise.all(operations),
+      $transaction: jest.fn(
+        (arg: Promise<unknown>[] | ((tx: unknown) => unknown)) =>
+          typeof arg === 'function' ? arg(prismaStub) : Promise.all(arg),
       ),
     } as unknown as PrismaService;
 

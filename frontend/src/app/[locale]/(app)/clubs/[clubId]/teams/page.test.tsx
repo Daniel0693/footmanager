@@ -151,7 +151,10 @@ describe("TeamsPage", () => {
     await waitFor(() =>
       expect(mockApiFetch).toHaveBeenCalledWith(
         "/clubs/1/teams/1",
-        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ name: "U15 B" }) }),
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ name: "U15 B", category: "SENIORS" }),
+        }),
       ),
     );
   });

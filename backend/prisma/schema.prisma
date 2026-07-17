@@ -81,13 +81,43 @@ model Club {
   externalTeams        ExternalTeam[]
 }
 
+// Catégorie d'âge (Phase 4, B10 — décision du 2026-07-17) : pyramide suisse
+// standard. Nullable sur Team (équipes existantes non catégorisées) mais
+// requise à la création d'une nouvelle équipe (CreateTeamDto) — source de la
+// suggestion de GameFormat par défaut sur Championship/Match (aucune
+// contrainte, seulement un pré-remplissage : voir docs/modules/matchs.md
+// §Format de jeu).
+enum TeamCategory {
+  U9
+  U11
+  U13
+  U15
+  U17
+  U19
+  SENIORS
+}
+
+// Format de jeu — nombre de joueurs sur le terrain, gardien inclus (Phase 4,
+// B10). `frontend/src/lib/formations.ts` définit les dispositifs tactiques
+// disponibles pour chaque format.
+enum GameFormat {
+  FOUR
+  FIVE
+  SIX
+  SEVEN
+  EIGHT
+  NINE
+  ELEVEN
+}
+
 model Team {
-  id        Int      @id @default(autoincrement())
+  id        Int           @id @default(autoincrement())
   clubId    Int
-  club      Club     @relation(fields: [clubId], references: [id])
+  club      Club          @relation(fields: [clubId], references: [id])
   name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  category  TeamCategory?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   memberRoles                MemberRole[]
   playerTeams                PlayerTeam[]
@@ -681,6 +711,14 @@ model Match {
   numberOfPeriods       Int?
   periodDurationMinutes Int?
 
+  // Format de jeu (Phase 4, B10) — même logique de surcharge que
+  // numberOfPeriods/periodDurationMinutes : écrase le format du Championship
+  // pour un match CHAMPIONNAT si renseigné, sinon choisi directement par le
+  // Coach à la création pour les 3 autres types (pré-rempli depuis
+  // Team.category, toujours modifiable — garde la possibilité par exemple
+  // de préparer une équipe U13 (format NINE) sur un match amical à ELEVEN).
+  gameFormat GameFormat?
+
   // Null si championshipMatchId est non-null — score de référence alors sur
   // ChampionshipMatch (docs/schema/championnats.md §ChampionshipMatch).
   scoreHome Int?
@@ -688,6 +726,14 @@ model Match {
 
   globalRating  Decimal? @db.Decimal(4, 1) // sur 10, voir docs/schema/index.md
   globalComment String?  @db.Text
+
+  // Système tactique choisi pour la composition (ex. "4-3-3") — décision du
+  // 2026-07-17. Chaîne libre plutôt qu'un enum Prisma : la liste des
+  // formations disponibles (`frontend/src/lib/formations.ts`) est une
+  // préoccupation d'affichage, pas une contrainte métier, même raisonnement
+  // que MatchLineup.pitchSpotId (aucune table de correspondance dupliquée
+  // côté backend).
+  formation String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -756,14 +802,23 @@ model MatchLineup {
 
   lineupStatus LineupStatus
   position     Position?
-  // Identifiant du point sur le terrain SVG (ex. "cb-left", voir
-  // frontend/src/lib/positions.ts POSITION_PITCH_SPOTS) — distinct de
+  // Identifiant du point sur le terrain SVG, relatif à la formation choisie
+  // sur Match.formation (ex. "def-left", voir frontend/src/lib/formations.ts
+  // — décision du 2026-07-17, remplace l'ancien référentiel générique
+  // POSITION_PITCH_SPOTS partagé avec la fiche joueur) — distinct de
   // `position` : deux joueurs peuvent partager le même `position` (2 CB) mais
   // occupent chacun un point différent du terrain. Champ purement visuel,
   // pas de table de correspondance côté backend (source de vérité = le
   // frontend), donc une simple chaîne plutôt qu'un enum Prisma à resynchroniser.
   pitchSpotId String?
   shirtNumber Int?
+  // Capitaine du match — au plus un par match, invariant maintenu côté
+  // application (MatchLineupsService, pas de contrainte SQL : un index
+  // partiel `WHERE isCaptain` n'est pas exprimable dans le DSL Prisma sans
+  // migration manuelle, l'invariant applicatif suffit ici car ce champ n'est
+  // modifiable que via ce service). Décision du 2026-07-17 : un capitaine
+  // doit être titulaire (placé sur le terrain), pas seulement convoqué.
+  isCaptain Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -965,10 +1020,19 @@ model Championship {
   pointsForLoss         Int      @default(0)
   tiebreakerRules       Json
   tiebreakerPreset      String?
-  numberOfPeriods       Int      @default(2)
-  periodDurationMinutes Int      @default(45)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  numberOfPeriods       Int        @default(2)
+  periodDurationMinutes Int        @default(45)
+  // Format de jeu de la compétition (Phase 4, B10) — pré-rempli depuis
+  // Team.category à la création (frontend), toujours modifiable ensuite.
+  // Pas de contrainte "un championnat = un seul format sur toute sa durée"
+  // au niveau applicatif : une compétition ne change normalement pas de
+  // format en cours de saison, contrairement à numberOfPeriods/
+  // periodDurationMinutes qui peuvent légitimement varier match par match
+  // (ChampionshipMatch en porte sa propre surcharge) — gameFormat n'a donc
+  // volontairement pas d'équivalent sur ChampionshipMatch.
+  gameFormat            GameFormat @default(ELEVEN)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
 
   participants ChampionshipParticipant[]
   matches      ChampionshipMatch[]

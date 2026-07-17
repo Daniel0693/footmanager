@@ -146,9 +146,14 @@ export function ConvocationsTab({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    // lg:flex lg:h-full lg:min-h-0 lg:flex-col : le bouton "Convoquer des
+    // joueurs" reste fixe (shrink-0) pendant que la liste, seule zone
+    // dimensionnée (lg:min-h-0 lg:flex-1) et défilante (lg:overflow-y-auto)
+    // ci-dessous, absorbe le surplus — évite que la page entière défile pour
+    // une longue liste de convocations (retour utilisateur du 2026-07-17).
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0 lg:flex-col">
       {canManage && (
-        <div className="flex justify-end">
+        <div className="flex shrink-0 justify-end">
           <ConvenePlayersDialog
             clubId={clubId}
             teamId={teamId}
@@ -170,7 +175,7 @@ export function ConvocationsTab({
       ) : attendances === null ? null : attendances.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
-        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
           {attendances.map((attendance) => (
             <div
               key={attendance.id}

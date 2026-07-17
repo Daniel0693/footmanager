@@ -120,10 +120,12 @@ décisions actées avant l'implémentation, voir `docs/modules/matchs.md` et `do
 | `status` | enum `LiveMatchStatus` | |
 | `numberOfPeriods` | Int, nullable | écrase le défaut du Championship si renseigné |
 | `periodDurationMinutes` | Int, nullable | idem |
+| `gameFormat` | enum `GameFormat`, nullable | format de jeu (nombre de joueurs, Phase 4 B10) — écrase celui du Championship pour un match CHAMPIONNAT si renseigné ; pré-rempli depuis `Team.category` à la création pour les 3 autres types, toujours modifiable. Voir `docs/schema/fondations.md` §Team et `docs/modules/matchs.md` §Format de jeu |
 | `scoreHome` | Int, nullable | **null si `championshipMatchId` est non-null** |
 | `scoreAway` | Int, nullable | **null si `championshipMatchId` est non-null** |
 | `globalRating` | Decimal(4,1), nullable | **sur 10** — performance collective |
 | `globalComment` | Text, nullable | compte-rendu post-match |
+| `formation` | String, nullable | système tactique choisi pour la composition (ex. `"4-3-3"`, décision du 2026-07-17) — chaîne libre, pas un enum Prisma : la liste des formations disponibles (`frontend/src/lib/formations.ts`) est une préoccupation d'affichage, aucune table de correspondance dupliquée côté backend |
 
 **Règle de score** : si `championshipMatchId` est non-null, le score de référence est sur
 `ChampionshipMatch`. `Match.scoreHome/Away` restent null. Enforced au niveau applicatif
@@ -189,10 +191,11 @@ Schéma implémenté en Phase 4 (Partie B, B0, 2026-07-17).
 | `id` | PK | |
 | `matchId` | FK → Match | |
 | `playerId` | FK → PlayerProfile | |
-| `lineupStatus` | enum `LineupStatus` | |
+| `lineupStatus` | enum `LineupStatus` | `NON_CONVOQUE` utilisé depuis B8 pour marquer un joueur présent/accepté mais volontairement écarté du match (ex. surnuméraire) — distinct de "pas encore traité" (aucune ligne) |
 | `position` | enum `Position`, nullable | poste joué pour ce match — peut différer de `PlayerTeam.mainPosition` (ex. dépannage), jamais lu depuis `PlayerTeam` |
-| `pitchSpotId` | String, nullable | point précis sur le terrain SVG (ex. `"cb-left"`, décision du 2026-07-17) — référence `frontend/src/lib/positions.ts` `POSITION_PITCH_SPOTS`, jamais dupliqué côté backend (pure préoccupation d'affichage) ; distinct de `position` car deux joueurs peuvent partager le même poste (2 `CB`) tout en occupant chacun un point différent |
+| `pitchSpotId` | String, nullable | point précis sur le terrain SVG, relatif à la formation choisie sur `Match.formation` (ex. `"def-left"`, décision du 2026-07-17 ; référentiel remplacé en B8 par `frontend/src/lib/formations.ts`, voir note plus bas) — jamais dupliqué côté backend (pure préoccupation d'affichage) ; distinct de `position` car deux joueurs peuvent partager le même poste (2 `CB`) tout en occupant chacun un point différent |
 | `shirtNumber` | Int, nullable | idem, peut différer de `PlayerTeam.jerseyNumber` |
+| `isCaptain` | Boolean, défaut `false` | au plus un par match — invariant maintenu par `MatchLineupsService` (pas de contrainte SQL, un index partiel n'est pas exprimable dans le DSL Prisma), jamais par un autre point d'entrée. Décision du 2026-07-17 : réservé aux titulaires (`pitchSpotId` non nul) |
 
 **Contraintes** : unicité sur `(matchId, playerId)` — une seule ligne de composition par joueur et
 par match ; unicité sur `(matchId, pitchSpotId)` — deux joueurs ne peuvent jamais occuper le même

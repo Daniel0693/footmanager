@@ -215,6 +215,33 @@ describe('MatchesService', () => {
           homeOrAway: undefined,
           numberOfPeriods: undefined,
           periodDurationMinutes: undefined,
+          formation: undefined,
+        },
+        include: {
+          event: true,
+          opponentExternalTeam: { select: { id: true, name: true } },
+        },
+      });
+    });
+
+    it('modifie le système tactique (formation)', async () => {
+      matchFindFirst.mockResolvedValue({
+        id: 900,
+        eventId: 300,
+        matchType: 'AMICAL',
+      });
+
+      await service.update(1, 5, 900, { formation: '4-3-3' });
+
+      expect(matchUpdate).toHaveBeenCalledWith({
+        where: { id: 900 },
+        data: {
+          opponentExternalTeamId: undefined,
+          cupRound: undefined,
+          homeOrAway: undefined,
+          numberOfPeriods: undefined,
+          periodDurationMinutes: undefined,
+          formation: '4-3-3',
         },
         include: {
           event: true,

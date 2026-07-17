@@ -50,6 +50,7 @@ const existingChampionship: ExistingChampionship = {
   tiebreakerPreset: "SIMPLE",
   numberOfPeriods: 2,
   periodDurationMinutes: 45,
+  gameFormat: "ELEVEN",
 };
 
 describe("ChampionshipFormDialog", () => {

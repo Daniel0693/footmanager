@@ -1,7 +1,9 @@
+import { GameFormat } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
   IsDate,
+  IsEnum,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -64,4 +66,8 @@ export class UpdateChampionshipDto {
   @IsInt()
   @Min(1)
   periodDurationMinutes?: number;
+
+  @IsOptional()
+  @IsEnum(GameFormat)
+  gameFormat?: GameFormat;
 }

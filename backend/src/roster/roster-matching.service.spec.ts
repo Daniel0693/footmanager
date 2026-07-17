@@ -10,6 +10,7 @@ const team: Team = {
   id: 5,
   clubId: 1,
   name: 'U15 A',
+  category: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -18,6 +19,7 @@ const otherTeam: Team = {
   id: 9,
   clubId: 1,
   name: 'U15 B',
+  category: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

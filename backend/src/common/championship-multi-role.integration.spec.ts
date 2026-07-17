@@ -655,6 +655,7 @@ describe('B15 — scénario multi-rôles bout-en-bout (module Championship)', ()
       tiebreakerPreset: null,
       numberOfPeriods: 2,
       periodDurationMinutes: 45,
+      gameFormat: 'ELEVEN',
       createdAt: new Date(),
       updatedAt: new Date(),
     });

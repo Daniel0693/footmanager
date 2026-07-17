@@ -34,7 +34,7 @@ export class MatchLineupsService {
   // Composition resoumise en une fois à chaque édition (pas un ajout
   // incrémental) : chaque ligne est upsert sur (matchId, playerId) — crée si
   // le joueur n'a pas encore de ligne, met à jour sinon (changement de
-  // statut/poste/numéro).
+  // statut/poste/numéro/capitanat).
   async upsertBulk(
     clubId: number,
     teamId: number,
@@ -47,9 +47,48 @@ export class MatchLineupsService {
       await assertPlayerInTeam(this.prisma, entry.playerId, teamId);
     }
 
-    await this.prisma.$transaction(
-      entries.map((entry) =>
-        this.prisma.matchLineup.upsert({
+    // Au plus un capitaine par match, invariant maintenu ici (pas de
+    // contrainte SQL, voir docs/schema/evenements.md §MatchLineup) — un seul
+    // envoi ne peut jamais désigner deux capitaines à la fois, et désigner
+    // un nouveau capitaine retire automatiquement le précédent.
+    const captainEntries = entries.filter((entry) => entry.isCaptain === true);
+    if (captainEntries.length > 1) {
+      throw new AppException(
+        'MATCH_LINEUPS.MULTIPLE_CAPTAINS_NOT_ALLOWED',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (captainEntries.length === 1) {
+        const [captainEntry] = captainEntries;
+        const existing = await tx.matchLineup.findUnique({
+          where: {
+            matchId_playerId: { matchId, playerId: captainEntry.playerId },
+          },
+        });
+        const willBeStarter =
+          captainEntry.pitchSpotId !== undefined
+            ? captainEntry.pitchSpotId !== null
+            : existing?.pitchSpotId != null;
+        if (!willBeStarter) {
+          throw new AppException(
+            'MATCH_LINEUPS.CAPTAIN_MUST_BE_STARTER',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        await tx.matchLineup.updateMany({
+          where: {
+            matchId,
+            isCaptain: true,
+            playerId: { not: captainEntry.playerId },
+          },
+          data: { isCaptain: false },
+        });
+      }
+
+      for (const entry of entries) {
+        await tx.matchLineup.upsert({
           where: {
             matchId_playerId: { matchId, playerId: entry.playerId },
           },
@@ -60,16 +99,18 @@ export class MatchLineupsService {
             position: entry.position,
             pitchSpotId: entry.pitchSpotId,
             shirtNumber: entry.shirtNumber,
+            isCaptain: entry.isCaptain,
           },
           update: {
             lineupStatus: entry.lineupStatus,
             position: entry.position,
             pitchSpotId: entry.pitchSpotId,
             shirtNumber: entry.shirtNumber,
+            isCaptain: entry.isCaptain,
           },
-        }),
-      ),
-    );
+        });
+      }
+    });
 
     return this.findAllByMatch(clubId, teamId, matchId, memberId);
   }

@@ -28,7 +28,11 @@ export class TeamsController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @Body() dto: CreateTeamDto,
   ) {
-    return this.teamsService.create({ clubId, name: dto.name });
+    return this.teamsService.create({
+      clubId,
+      name: dto.name,
+      category: dto.category,
+    });
   }
 
   @RequirePermission('team', 'READ')

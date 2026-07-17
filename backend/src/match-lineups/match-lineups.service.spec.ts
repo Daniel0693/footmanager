@@ -11,9 +11,12 @@ describe('MatchLineupsService', () => {
   let lineupFindMany: jest.Mock;
   let lineupUpsert: jest.Mock;
   let lineupDelete: jest.Mock;
+  let lineupFindUnique: jest.Mock;
+  let lineupUpdateMany: jest.Mock;
   let transaction: jest.Mock;
   let permissionsCan: jest.Mock;
   let service: MatchLineupsService;
+  let prismaStub: PrismaService;
 
   beforeEach(() => {
     teamFindFirst = jest.fn().mockResolvedValue({ id: 5, clubId: 1 });
@@ -23,18 +26,27 @@ describe('MatchLineupsService', () => {
     lineupFindMany = jest.fn().mockResolvedValue([]);
     lineupUpsert = jest.fn();
     lineupDelete = jest.fn();
-    transaction = jest.fn((operations: Promise<unknown>[]) =>
-      Promise.all(operations),
+    lineupFindUnique = jest.fn().mockResolvedValue(null);
+    lineupUpdateMany = jest.fn();
+    // Supporte les deux formes de $transaction utilisées par le service :
+    // un tableau d'opérations (Promise.all) pour d'autres services, un
+    // callback interactif `(tx) => ...` pour upsertBulk (vérification du
+    // capitaine avant l'upsert, voir MatchLineupsService).
+    transaction = jest.fn(
+      (arg: Promise<unknown>[] | ((tx: PrismaService) => unknown)) =>
+        typeof arg === 'function' ? arg(prismaStub) : Promise.all(arg),
     );
 
-    const prismaStub = {
+    prismaStub = {
       team: { findFirst: teamFindFirst },
       playerTeam: { findFirst: playerTeamFindFirst },
       match: { findFirst: matchFindFirst },
       matchLineup: {
         findFirst: lineupFindFirst,
         findMany: lineupFindMany,
+        findUnique: lineupFindUnique,
         upsert: lineupUpsert,
+        updateMany: lineupUpdateMany,
         delete: lineupDelete,
       },
       $transaction: transaction,
@@ -111,6 +123,108 @@ describe('MatchLineupsService', () => {
           5,
           900,
           [{ playerId: 10, lineupStatus: 'TITULAIRE' }],
+          42,
+        ),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(lineupUpsert).not.toHaveBeenCalled();
+    });
+
+    it('désigne un capitaine titulaire et retire le capitanat des autres lignes du match', async () => {
+      await service.upsertBulk(
+        1,
+        5,
+        900,
+        [
+          {
+            playerId: 10,
+            lineupStatus: 'TITULAIRE',
+            pitchSpotId: 'st',
+            isCaptain: true,
+          },
+        ],
+        42,
+      );
+
+      expect(lineupUpdateMany).toHaveBeenCalledWith({
+        where: { matchId: 900, isCaptain: true, playerId: { not: 10 } },
+        data: { isCaptain: false },
+      });
+      expect(lineupUpsert).toHaveBeenCalledWith({
+        where: { matchId_playerId: { matchId: 900, playerId: 10 } },
+        create: {
+          matchId: 900,
+          playerId: 10,
+          lineupStatus: 'TITULAIRE',
+          position: undefined,
+          pitchSpotId: 'st',
+          shirtNumber: undefined,
+          isCaptain: true,
+        },
+        update: {
+          lineupStatus: 'TITULAIRE',
+          position: undefined,
+          pitchSpotId: 'st',
+          shirtNumber: undefined,
+          isCaptain: true,
+        },
+      });
+    });
+
+    it('rejette un capitaine qui ne serait pas titulaire (ni placé maintenant, ni déjà placé)', async () => {
+      lineupFindUnique.mockResolvedValue(null);
+
+      await expect(
+        service.upsertBulk(
+          1,
+          5,
+          900,
+          [{ playerId: 10, lineupStatus: 'REMPLACANT', isCaptain: true }],
+          42,
+        ),
+      ).rejects.toBeInstanceOf(AppException);
+      expect(lineupUpsert).not.toHaveBeenCalled();
+      expect(lineupUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('accepte un capitaine déjà titulaire dont l’envoi ne touche pas pitchSpotId', async () => {
+      lineupFindUnique.mockResolvedValue({
+        id: 1,
+        matchId: 900,
+        playerId: 10,
+        pitchSpotId: 'st',
+      });
+
+      await service.upsertBulk(
+        1,
+        5,
+        900,
+        [{ playerId: 10, lineupStatus: 'TITULAIRE', isCaptain: true }],
+        42,
+      );
+
+      expect(lineupUpsert).toHaveBeenCalled();
+    });
+
+    it('rejette plusieurs capitaines désignés dans le même envoi', async () => {
+      await expect(
+        service.upsertBulk(
+          1,
+          5,
+          900,
+          [
+            {
+              playerId: 10,
+              lineupStatus: 'TITULAIRE',
+              pitchSpotId: 'st',
+              isCaptain: true,
+            },
+            {
+              playerId: 11,
+              lineupStatus: 'TITULAIRE',
+              pitchSpotId: 'gk',
+              isCaptain: true,
+            },
+          ],
           42,
         ),
       ).rejects.toBeInstanceOf(AppException);

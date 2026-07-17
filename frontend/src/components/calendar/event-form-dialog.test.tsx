@@ -466,21 +466,22 @@ describe("EventFormDialog", () => {
     await user.type(screen.getByLabelText("Début"), "2026-10-01T18:00");
 
     // Comboboxes une fois le sous-formulaire affiché (matchType par défaut
-    // AMICAL, pas de Phase de la coupe) : [Type, matchType, homeOrAway, adversaire].
+    // AMICAL, pas de Phase de la coupe) :
+    // [Type, matchType, homeOrAway, gameFormat, adversaire].
     let comboboxes = await screen.findAllByRole("combobox");
-    expect(comboboxes).toHaveLength(4);
+    expect(comboboxes).toHaveLength(5);
     await user.click(comboboxes[1]); // Type de match
     await user.click(await screen.findByRole("option", { name: "Coupe" }));
 
-    // Phase de la coupe apparaît en 4e position (COUPE sélectionné) :
-    // [Type, matchType, homeOrAway, cupRound, adversaire].
+    // Phase de la coupe apparaît en 5e position (COUPE sélectionné) :
+    // [Type, matchType, homeOrAway, gameFormat, cupRound, adversaire].
     comboboxes = await screen.findAllByRole("combobox");
-    expect(comboboxes).toHaveLength(5);
-    await user.click(comboboxes[3]);
+    expect(comboboxes).toHaveLength(6);
+    await user.click(comboboxes[4]);
     await user.click(await screen.findByRole("option", { name: "8e de finale" }));
 
     comboboxes = await screen.findAllByRole("combobox");
-    await user.click(comboboxes[4]); // Adversaire
+    await user.click(comboboxes[5]); // Adversaire
     await user.click(await screen.findByRole("option", { name: "FC Rivals" }));
 
     // Titre auto-rempli depuis l'adversaire choisi (jamais tapé manuellement).
@@ -529,11 +530,11 @@ describe("EventFormDialog", () => {
     await user.type(screen.getByLabelText("Titre"), "Amical vs FC Rivals");
     await user.type(screen.getByLabelText("Début"), "2026-10-01T18:00");
 
-    // [Type, matchType, homeOrAway, adversaire] — Amical par défaut, pas de
-    // champ Phase de la coupe.
+    // [Type, matchType, homeOrAway, gameFormat, adversaire] — Amical par
+    // défaut, pas de champ Phase de la coupe.
     const comboboxes = await screen.findAllByRole("combobox");
-    expect(comboboxes).toHaveLength(4);
-    await user.click(comboboxes[3]);
+    expect(comboboxes).toHaveLength(5);
+    await user.click(comboboxes[4]);
     await user.click(await screen.findByRole("option", { name: "FC Rivals" }));
 
     await user.click(screen.getByRole("button", { name: "Ajouter" }));
@@ -544,6 +545,45 @@ describe("EventFormDialog", () => {
     const body = JSON.parse((options as RequestInit).body as string);
     expect(body).toMatchObject({ matchType: "AMICAL", opponentExternalTeamId: 20 });
     expect(body.cupRound).toBeUndefined();
+  });
+
+  it("création d'un match : le format de jeu est préempli depuis la catégorie de l'équipe (U13 → 9 vs 9)", async () => {
+    mockApiFetch.mockImplementation((url: string) => {
+      if (url.includes("external-teams")) {
+        return Promise.resolve(jsonResponse({ data: [{ id: 20, name: "FC Rivals" }] }));
+      }
+      return Promise.resolve(jsonResponse({ id: 900 }));
+    });
+    const onSuccess = jest.fn();
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <EventFormDialog
+        clubId="1"
+        teams={[{ id: 5, name: "U13 A", category: "U13" }]}
+        onSuccess={onSuccess}
+        trigger={<Button>Ajouter un événement</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ajouter un événement" }));
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "Match" }));
+    await user.type(screen.getByLabelText("Titre"), "Amical vs FC Rivals");
+    await user.type(screen.getByLabelText("Début"), "2026-10-01T18:00");
+
+    const comboboxes = await screen.findAllByRole("combobox");
+    expect(comboboxes[3]).toHaveTextContent("9 vs 9");
+    await user.click(comboboxes[4]);
+    await user.click(await screen.findByRole("option", { name: "FC Rivals" }));
+
+    await user.click(screen.getByRole("button", { name: "Ajouter" }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const matchCall = mockApiFetch.mock.calls.find(([url]) => (url as string).endsWith("/matches"));
+    const [, options] = matchCall!;
+    const body = JSON.parse((options as RequestInit).body as string);
+    expect(body.gameFormat).toBe("NINE");
   });
 
   it("mode édition : Match n'est plus proposé comme type sélectionnable", async () => {

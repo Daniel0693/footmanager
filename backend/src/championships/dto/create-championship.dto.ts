@@ -1,7 +1,9 @@
+import { GameFormat } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
   IsDate,
+  IsEnum,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -59,4 +61,12 @@ export class CreateChampionshipDto {
   @IsInt()
   @Min(1)
   periodDurationMinutes?: number;
+
+  // Format de jeu (Phase 4, B10) — pré-rempli côté frontend depuis
+  // Team.category, mais optionnel ici : le schéma retombe sur
+  // GameFormat.ELEVEN si omis (même défaut que numberOfPeriods/
+  // periodDurationMinutes ci-dessus).
+  @IsOptional()
+  @IsEnum(GameFormat)
+  gameFormat?: GameFormat;
 }

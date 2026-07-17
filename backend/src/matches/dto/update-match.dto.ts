@@ -1,4 +1,4 @@
-import { CupRound, HomeOrAway } from '@prisma/client';
+import { CupRound, GameFormat, HomeOrAway } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDate,
@@ -6,6 +6,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -58,4 +59,13 @@ export class UpdateMatchDto {
   @IsInt()
   @Min(1)
   periodDurationMinutes?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  formation?: string;
+
+  @IsOptional()
+  @IsEnum(GameFormat)
+  gameFormat?: GameFormat;
 }

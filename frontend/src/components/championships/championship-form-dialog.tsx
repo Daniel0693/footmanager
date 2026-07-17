@@ -28,6 +28,7 @@ import {
 import { useRouter } from "@/i18n/navigation";
 import { apiFetch, authHeaders, parseErrorCode } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
+import { GAME_FORMATS, GAME_FORMAT_PLAYER_COUNT, type GameFormat } from "@/lib/formations";
 import { CUSTOM_PRESET_KEY, TIEBREAKER_PRESETS } from "@/lib/tiebreaker-presets";
 import { TIEBREAKER_RULES, type TiebreakerRule } from "@/lib/tiebreaker-rules";
 
@@ -46,6 +47,7 @@ export interface ExistingChampionship {
   tiebreakerPreset: string | null;
   numberOfPeriods: number;
   periodDurationMinutes: number;
+  gameFormat: GameFormat;
 }
 
 interface SeasonOption {
@@ -73,6 +75,7 @@ const formSchema = z.object({
   pointsForLoss: z.string().min(1),
   numberOfPeriods: z.string().min(1),
   periodDurationMinutes: z.string().min(1),
+  gameFormat: z.enum(GAME_FORMATS),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -88,6 +91,7 @@ function defaultValues(championship?: ExistingChampionship): FormValues {
     pointsForLoss: String(championship?.pointsForLoss ?? 0),
     numberOfPeriods: String(championship?.numberOfPeriods ?? 2),
     periodDurationMinutes: String(championship?.periodDurationMinutes ?? 45),
+    gameFormat: championship?.gameFormat ?? "ELEVEN",
   };
 }
 
@@ -306,6 +310,7 @@ export function ChampionshipFormDialog({
       tiebreakerPreset: presetKey === CUSTOM_PRESET_KEY ? undefined : presetKey,
       numberOfPeriods: Number(values.numberOfPeriods),
       periodDurationMinutes: Number(values.periodDurationMinutes),
+      gameFormat: values.gameFormat,
     });
     try {
       const response =
@@ -484,6 +489,36 @@ export function ChampionshipFormDialog({
                 {...register("pointsForLoss")}
               />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="championship-gameFormat">{t("gameFormat")}</Label>
+            <Controller
+              control={control}
+              name="gameFormat"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger
+                    id="championship-gameFormat"
+                    className="w-full"
+                    aria-label={t("gameFormat")}
+                  >
+                    <SelectValue>
+                      {(value: GameFormat) =>
+                        `${GAME_FORMAT_PLAYER_COUNT[value]} vs ${GAME_FORMAT_PLAYER_COUNT[value]}`
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GAME_FORMATS.map((format) => (
+                      <SelectItem key={format} value={format}>
+                        {`${GAME_FORMAT_PLAYER_COUNT[format]} vs ${GAME_FORMAT_PLAYER_COUNT[format]}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

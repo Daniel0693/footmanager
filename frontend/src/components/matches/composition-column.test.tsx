@@ -35,11 +35,42 @@ function lineupRow(overrides: Record<string, unknown> = {}) {
     playerId: 11,
     lineupStatus: "TITULAIRE",
     position: "ST",
-    pitchSpotId: "st",
+    pitchSpotId: "fwd-1",
     shirtNumber: 9,
+    isCaptain: false,
     player: { id: 11, member: { id: 21, firstName: "Léa", lastName: "Autre" } },
     ...overrides,
   };
+}
+
+// Route par URL : `/attendances`, `/lineups/bulk`, `/lineups` (GET) et
+// `/lineups/:id` (DELETE) avant le repli sur la fiche match elle-même
+// (`GET`/`PATCH .../matches/900`, désormais interrogée par CompositionColumn
+// pour le système tactique, docs/modules/matchs.md §Composition B8).
+function mockRoutes({
+  attendances,
+  lineups,
+  canManage = true,
+  formation = null,
+}: {
+  attendances?: unknown[];
+  lineups?: unknown[];
+  canManage?: boolean;
+  formation?: string | null;
+}) {
+  mockApiFetch.mockImplementation((url: string, init?: RequestInit) => {
+    if (url.includes("/attendances")) {
+      return Promise.resolve(jsonResponse({ data: attendances ?? [] }));
+    }
+    if (url.endsWith("/bulk")) return Promise.resolve(jsonResponse([]));
+    if (url.endsWith("/lineups")) {
+      return Promise.resolve(jsonResponse({ data: lineups ?? [], canManage }));
+    }
+    if (url.match(/\/lineups\/\d+$/) && init?.method === "DELETE") {
+      return Promise.resolve(jsonResponse({}));
+    }
+    return Promise.resolve(jsonResponse({ id: 900, formation }));
+  });
 }
 
 function renderColumn(refreshKey = 0) {
@@ -63,50 +94,34 @@ describe("CompositionColumn", () => {
   });
 
   it("canManage=true : le banc se peuple des joueurs ayant accepté leur convocation, non encore placés", async () => {
-    mockApiFetch.mockImplementation((url: string) => {
-      if (url.includes("/attendances")) {
-        return Promise.resolve(
-          jsonResponse({
-            data: [
-              attendance(),
-              attendance({
-                playerId: 11,
-                player: { member: { firstName: "Léa", lastName: "Autre" } },
-              }),
-              attendance({ playerId: 12, convocationStatus: "PENDING" }),
-            ],
-          }),
-        );
-      }
-      return Promise.resolve(jsonResponse({ data: [lineupRow()], canManage: true }));
+    mockRoutes({
+      attendances: [
+        attendance(),
+        attendance({ playerId: 11, player: { member: { firstName: "Léa", lastName: "Autre" } } }),
+        attendance({ playerId: 12, convocationStatus: "PENDING" }),
+      ],
+      lineups: [lineupRow()],
     });
 
     renderColumn();
 
-    // Léa (playerId 11) est déjà placée (lineupRow) : elle apparaît en
-    // titulaire, pas au banc. Tom (accepté, non placé) est au banc. Le
-    // joueur PENDING n'apparaît nulle part.
+    // Léa (playerId 11) est déjà placée (lineupRow) : elle apparaît sur le
+    // terrain, pas au banc. Tom (accepté, non placé) est au banc. Le joueur
+    // PENDING n'apparaît nulle part.
     expect(await screen.findByRole("button", { name: "Tom Joueur" })).toBeInTheDocument();
-    expect(screen.getByText("Titulaires")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Buteur — Léa Autre" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ATT — Léa Autre" })).toBeInTheDocument();
     expect(screen.queryByText("Non Répondu")).not.toBeInTheDocument();
   });
 
   it("canManage=true : placer un joueur du banc sur un poste envoie un POST bulk TITULAIRE", async () => {
-    mockApiFetch.mockImplementation((url: string) => {
-      if (url.includes("/attendances")) {
-        return Promise.resolve(jsonResponse({ data: [attendance()] }));
-      }
-      if (url.endsWith("/bulk")) return Promise.resolve(jsonResponse([]));
-      return Promise.resolve(jsonResponse({ data: [], canManage: true }));
-    });
+    mockRoutes({ attendances: [attendance()], lineups: [] });
     const user = userEvent.setup();
 
     renderColumn();
     await screen.findByRole("button", { name: "Tom Joueur" });
 
     await user.click(screen.getByRole("button", { name: "Tom Joueur" }));
-    await user.click(screen.getByRole("button", { name: "Buteur" }));
+    await user.click(screen.getAllByRole("button", { name: "ATT" })[0]);
 
     await waitFor(() =>
       expect(mockApiFetch).toHaveBeenCalledWith(
@@ -117,23 +132,18 @@ describe("CompositionColumn", () => {
     const call = mockApiFetch.mock.calls.find(([url]) => (url as string).endsWith("/bulk"));
     const body = JSON.parse((call![1] as RequestInit).body as string);
     expect(body).toEqual({
-      entries: [{ playerId: 10, lineupStatus: "TITULAIRE", position: "ST", pitchSpotId: "st" }],
+      entries: [{ playerId: 10, lineupStatus: "TITULAIRE", position: "ST", pitchSpotId: "fwd-1" }],
     });
   });
 
-  it("canManage=true : retirer un titulaire du terrain envoie un DELETE", async () => {
-    mockApiFetch.mockImplementation((url: string) => {
-      if (url.includes("/attendances")) return Promise.resolve(jsonResponse({ data: [] }));
-      if (url.endsWith("/lineups"))
-        return Promise.resolve(jsonResponse({ data: [lineupRow()], canManage: true }));
-      return Promise.resolve(jsonResponse({}, true));
-    });
+  it("canManage=true : sélectionner un titulaire puis Retirer du terrain envoie un DELETE", async () => {
+    mockRoutes({ attendances: [], lineups: [lineupRow()] });
     const user = userEvent.setup();
 
     renderColumn();
-    await screen.findByText("Titulaires");
+    await user.click(await screen.findByRole("button", { name: "ATT — Léa Autre" }));
 
-    await user.click(screen.getByRole("button", { name: "Retirer du terrain" }));
+    await user.click(await screen.findByRole("button", { name: "Retirer du terrain" }));
 
     await waitFor(() =>
       expect(mockApiFetch).toHaveBeenCalledWith(
@@ -143,18 +153,14 @@ describe("CompositionColumn", () => {
     );
   });
 
-  it("canManage=true : modifier le numéro de maillot d'un titulaire envoie un POST bulk au blur", async () => {
-    mockApiFetch.mockImplementation((url: string) => {
-      if (url.includes("/attendances")) return Promise.resolve(jsonResponse({ data: [] }));
-      if (url.endsWith("/bulk")) return Promise.resolve(jsonResponse([]));
-      return Promise.resolve(jsonResponse({ data: [lineupRow()], canManage: true }));
-    });
+  it("canManage=true : sélectionner un titulaire puis modifier son numéro de maillot envoie un POST bulk au blur", async () => {
+    mockRoutes({ attendances: [], lineups: [lineupRow()] });
     const user = userEvent.setup();
 
     renderColumn();
-    await screen.findByText("Titulaires");
+    await user.click(await screen.findByRole("button", { name: "ATT — Léa Autre" }));
 
-    const input = screen.getByLabelText("Numéro de maillot");
+    const input = await screen.findByLabelText("Numéro de maillot");
     await user.clear(input);
     await user.type(input, "7");
     await user.tab();
@@ -170,34 +176,104 @@ describe("CompositionColumn", () => {
     expect(body).toEqual({ entries: [{ playerId: 11, lineupStatus: "TITULAIRE", shirtNumber: 7 }] });
   });
 
-  it("canManage=false (Player) : lecture seule, pas de fetch des convocations, badges poste/numéro", async () => {
+  it("canManage=true : sélectionner un titulaire puis le nommer capitaine envoie un POST bulk isCaptain", async () => {
+    mockRoutes({ attendances: [], lineups: [lineupRow()] });
+    const user = userEvent.setup();
+
+    renderColumn();
+    await user.click(await screen.findByRole("button", { name: "ATT — Léa Autre" }));
+
+    await user.click(await screen.findByRole("button", { name: "Nommer capitaine" }));
+
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        "/clubs/1/teams/5/matches/900/lineups/bulk",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    const call = mockApiFetch.mock.calls.find(([url]) => (url as string).endsWith("/bulk"));
+    const body = JSON.parse((call![1] as RequestInit).body as string);
+    expect(body).toEqual({
+      entries: [{ playerId: 11, lineupStatus: "TITULAIRE", isCaptain: true }],
+    });
+  });
+
+  it("canManage=true : sélectionner un joueur du banc puis le marquer non retenu envoie un POST bulk NON_CONVOQUE", async () => {
+    mockRoutes({ attendances: [attendance()], lineups: [] });
+    const user = userEvent.setup();
+
+    renderColumn();
+    await user.click(await screen.findByRole("button", { name: "Tom Joueur" }));
+    await user.click(await screen.findByRole("button", { name: "Marquer non retenu" }));
+
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        "/clubs/1/teams/5/matches/900/lineups/bulk",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    const call = mockApiFetch.mock.calls.find(([url]) => (url as string).endsWith("/bulk"));
+    const body = JSON.parse((call![1] as RequestInit).body as string);
+    expect(body).toEqual({ entries: [{ playerId: 10, lineupStatus: "NON_CONVOQUE" }] });
+  });
+
+  it("canManage=true : change de système et retire les titulaires dont le poste n'existe plus", async () => {
+    mockRoutes({
+      attendances: [],
+      lineups: [lineupRow({ pitchSpotId: "def-5" })], // n'existe pas en 4-3-3
+      formation: "4-4-2",
+    });
+    const user = userEvent.setup();
+
+    renderColumn();
+    await screen.findByRole("combobox", { name: "Système" });
+
+    await user.click(screen.getByRole("combobox", { name: "Système" }));
+    await user.click(await screen.findByRole("option", { name: "4-3-3" }));
+
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        "/clubs/1/teams/5/matches/900/lineups/1",
+        expect.objectContaining({ method: "DELETE" }),
+      ),
+    );
+    await waitFor(() =>
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        "/clubs/1/teams/5/matches/900",
+        expect.objectContaining({ method: "PATCH", body: JSON.stringify({ formation: "4-3-3" }) }),
+      ),
+    );
+  });
+
+  it("canManage=false (Player) : lecture seule, pas de fetch des convocations, pas de sélecteur de système", async () => {
     mockApiFetch.mockImplementation((url: string) => {
       if (url.includes("/attendances")) {
         throw new Error("Player ne devrait jamais déclencher ce fetch (bench inutile en lecture seule)");
       }
-      return Promise.resolve(jsonResponse({ data: [lineupRow()], canManage: false }));
+      if (url.endsWith("/lineups")) {
+        return Promise.resolve(jsonResponse({ data: [lineupRow()], canManage: false }));
+      }
+      return Promise.resolve(jsonResponse({ id: 900, formation: null }));
     });
 
     renderColumn();
 
-    expect(await screen.findByText("Titulaires")).toBeInTheDocument();
-    expect(screen.getByText("#9")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "ATT — Léa Autre" })).toHaveAttribute(
+      "tabindex",
+      "-1",
+    );
     expect(screen.queryByLabelText("Numéro de maillot")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Système" })).not.toBeInTheDocument();
   });
 
   it("se recharge quand refreshKey change (synchronisation avec les convocations)", async () => {
-    mockApiFetch.mockImplementation((url: string) => {
-      if (url.includes("/attendances")) return Promise.resolve(jsonResponse({ data: [] }));
-      return Promise.resolve(jsonResponse({ data: [], canManage: true }));
-    });
+    mockRoutes({ attendances: [], lineups: [] });
 
     const { rerender } = renderColumn(0);
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
     mockApiFetch.mockClear();
 
-    rerender(
-      <CompositionColumn clubId="1" teamId="5" matchId="900" refreshKey={1} />,
-    );
+    rerender(<CompositionColumn clubId="1" teamId="5" matchId="900" refreshKey={1} />);
 
     await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
   });

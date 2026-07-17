@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { renderWithIntl, screen } from "@/test-utils/render";
+import { renderWithIntl, screen, waitFor } from "@/test-utils/render";
 import { MatchDetailPageContent } from "./page";
 
 // require() dans la factory jest.mock : nécessaire pour un mock fiable, voir navigation-mock.tsx.
@@ -112,5 +112,43 @@ describe("MatchDetailPageContent", () => {
 
     expect(await screen.findByText("Impossible de charger le match")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Retour au calendrier" })).toBeInTheDocument();
+  });
+
+  it("permet de modifier un match existant (bouton Modifier → PATCH avec le nouveau format de jeu)", async () => {
+    const user = userEvent.setup();
+    mockApiFetch.mockImplementation((url: string, options?: RequestInit) => {
+      if (options?.method === "PATCH") {
+        return Promise.resolve(jsonResponse(matchDetail({ gameFormat: "NINE" })));
+      }
+      if (url.includes("/external-teams")) return Promise.resolve(jsonResponse({ data: [] }));
+      if (url.includes("/attendances")) return Promise.resolve(jsonResponse({ data: [], canManage: true }));
+      if (url.includes("/lineups")) return Promise.resolve(jsonResponse({ data: [], canManage: true }));
+      return Promise.resolve(jsonResponse(matchDetail()));
+    });
+
+    renderWithIntl(<MatchDetailPageContent clubId="1" teamId="5" matchId="900" />);
+    await screen.findByRole("heading", { name: "FC Rivaux" });
+
+    await user.click(screen.getByRole("button", { name: "Modifier" }));
+    expect(await screen.findByRole("heading", { name: "Modifier le match" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: "Format de jeu" }));
+    await user.click(await screen.findByRole("option", { name: "9 vs 9" }));
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => {
+      const patchCall = mockApiFetch.mock.calls.find(
+        ([, options]) => (options as RequestInit | undefined)?.method === "PATCH",
+      );
+      expect(patchCall).toBeDefined();
+    });
+    const patchCall = mockApiFetch.mock.calls.find(
+      ([, options]) => (options as RequestInit | undefined)?.method === "PATCH",
+    )!;
+    const [url, options] = patchCall;
+    expect(url).toBe("/clubs/1/teams/5/matches/900");
+    const body = JSON.parse((options as RequestInit).body as string);
+    expect(body.gameFormat).toBe("NINE");
   });
 });

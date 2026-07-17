@@ -43,6 +43,7 @@ const championship: ExistingChampionship = {
   tiebreakerPreset: null,
   numberOfPeriods: 2,
   periodDurationMinutes: 45,
+  gameFormat: "ELEVEN",
 };
 
 function renderActions(

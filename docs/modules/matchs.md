@@ -20,7 +20,7 @@ Entités associées (détail des champs : `docs/schema/evenements.md`) :
 
 ---
 
-## Format de jeu — configurable par catégorie
+## Périodes de jeu — configurable par catégorie
 
 Le nombre de périodes et leur durée ne sont pas fixés à 2×45 minutes. Ils sont hérités du
 `Championship` associé (`Championship.numberOfPeriods`, `Championship.periodDurationMinutes`)
@@ -30,6 +30,33 @@ Exemples :
 - Seniors : 2 × 45 min
 - Juniors suisses (certaines catégories) : 4 × 20 min
 - Toute autre configuration : entièrement configurable
+
+---
+
+## Format de jeu — nombre de joueurs sur le terrain (Phase 4, B10, 2026-07-17)
+
+À ne pas confondre avec les **périodes de jeu** ci-dessus (durée/nombre de périodes) : le
+**format de jeu** (`GameFormat`) désigne le nombre de joueurs sur le terrain par équipe, gardien
+inclus — 4, 5, 6, 7, 8, 9 ou 11. Chaque équipe a une **catégorie d'âge** (`Team.category`,
+`docs/schema/fondations.md`, ex. U13) qui joue habituellement dans un format donné (ex. U13 → 9),
+mais rien n'impose ce lien : un club peut vouloir faire jouer ses U13 en 11 contre 11 pour
+préparer la saison suivante (cas prévu explicitement, décision du 2026-07-17).
+
+**Résolution du format effectif d'un match** — même logique de surcharge que les périodes de
+jeu :
+1. Match CHAMPIONNAT : `Match.gameFormat` s'il est renseigné, sinon `Championship.gameFormat`
+   (champ obligatoire du formulaire de création du championnat, ELEVEN par défaut — pas de
+   préremplissage automatique depuis la catégorie de l'équipe organisatrice à ce stade, toujours
+   modifiable).
+2. Match AMICAL/COUPE/TOURNOI (créé directement) : `Match.gameFormat`, préempli depuis la
+   catégorie de l'équipe sélectionnée (`frontend/src/lib/game-formats.ts`,
+   `CATEGORY_DEFAULT_GAME_FORMAT` — ex. U13 → 9) au moment de l'ouverture du formulaire, toujours
+   modifiable ensuite.
+
+Le format pilote la liste des systèmes tactiques proposés dans l'onglet Composition
+(`frontend/src/lib/formations.ts` §Composition, B10) — un système 9 joueurs (`3-3-2`) n'a pas de
+sens pour un match en format 11, et inversement. Identifiants sans chiffre de gardien pour tous
+les formats (`3-3-2`, pas `1-3-3-2`), même convention que le 11 contre 11 (`4-4-2`).
 
 ---
 
@@ -126,15 +153,17 @@ attendances`) :
   convocation (ou celle de leur enfant), jamais un retour à `PENDING`.
 - `DELETE .../attendances/:id` — retire une convocation, Coach/AdminClub/SuperAdmin uniquement.
 
-**Composition** (`MatchLineup`) : onze de départ, remplaçants (le statut `NON_CONVOQUE` reste
-disponible dans l'enum mais n'est plus piloté depuis l'UI actuelle — voir B6 ci-dessous).
+**Composition** (`MatchLineup`) : onze de départ (`TITULAIRE`), non retenus (`NON_CONVOQUE`,
+piloté depuis l'UI à partir de B8, voir plus bas) — `REMPLACANT` reste dans l'enum mais n'est
+piloté par aucune UI : le "banc" de B6/B7/B8 est un état dérivé (convocation acceptée, pas encore
+placé), jamais persisté sous ce statut.
 
 Implémenté en B2 (`MatchLineupsService`, `clubs/:clubId/teams/:teamId/matches/:matchId/lineups`) :
 - `POST .../lineups/bulk` — la composition est **resoumise en une fois** à chaque édition (pas un
   ajout incrémental comme les convocations) : chaque ligne `{playerId, lineupStatus, position?,
-  pitchSpotId?, shirtNumber?}` est upsert sur `(matchId, playerId)`, crée si le joueur n'a pas
-  encore de ligne, met à jour sinon. `position`/`shirtNumber` sont propres à ce match, jamais lus
-  depuis `PlayerTeam`. `pitchSpotId` ajouté en B6, voir plus bas.
+  pitchSpotId?, shirtNumber?, isCaptain?}` est upsert sur `(matchId, playerId)`, crée si le joueur
+  n'a pas encore de ligne, met à jour sinon. `position`/`shirtNumber` sont propres à ce match,
+  jamais lus depuis `PlayerTeam`. `pitchSpotId` ajouté en B6, `isCaptain` en B8, voir plus bas.
 - `GET .../lineups` — pas de scope OWN/PARENT ici (contrairement aux convocations) : Coach/
   AdminClub/SuperAdmin voient la composition, Player la voit également **en entier** (`match_lineup
   READ TEAM`, pas de filtrage à sa propre ligne), Parent n'y a aucun accès.
@@ -149,13 +178,19 @@ retour utilisateur du 2026-07-17 : la liste de Composition manquait de lisibilit
 faisait doublon avec les Convocations (deux écrans distincts pour préparer un seul et même
 avant-match).
 
-**Frontend (B6) — première fiche match** (`clubs/:clubId/teams/:teamId/matches/:matchId`) —
+**Frontend (B6/B7) — première fiche match** (`clubs/:clubId/teams/:teamId/matches/:matchId`) —
 en-tête (adversaire = `event.title`, date/heure, type, domicile/extérieur, lieu, score une fois
 joué, statut) + onglets, sur le modèle de la fiche joueur (`DETAIL_TABS` + placeholder "bientôt
 disponible" pour Direct/Après-match, pas encore construits). Onglet unique **"Avant-match"** :
-fusionne Convocations et Composition en une seule vue à deux colonnes (`PreMatchTab`), plutôt que
-deux onglets séparés — les deux se complètent (composer nécessite de savoir qui a accepté) et se
-consultent ensemble en pratique.
+fusionne Convocations et Composition en une seule vue à **3 colonnes inégales** (`PreMatchTab`,
+grid `[0.9fr_1.3fr_0.8fr]`) — Convocations/Composition/Banc — plutôt que des onglets séparés : les
+trois se complètent (composer nécessite de savoir qui a accepté) et se consultent ensemble en
+pratique. Largeurs inégales et Banc isolé du terrain en sa propre colonne : correctif B7
+(2026-07-17, retour utilisateur sur capture d'écran) — la première version B6 avait une colonne
+Convocations trop large (2 colonnes égales) et un terrain carré étiré sur toute la largeur de sa
+colonne (viewBox `100×100` sans borne de taille), rendant le Banc — affiché sous le terrain —
+difficile à repérer. Le terrain est maintenant borné (`max-w-xs`) et le Banc vit dans sa propre
+colonne, toujours visible sans avoir à défiler sous un terrain démesuré.
 
 - **Colonne Convocations** (`ConvocationsTab`) : liste sous forme de lignes compactes (avatar +
   nom, pas un `Table` — seulement 2-3 informations par joueur, une vraie grille avec en-têtes de
@@ -181,52 +216,110 @@ consultent ensemble en pratique.
   (accepté puis absent, décliné puis présent en dernière minute). Le endpoint
   `PATCH .../attendances/:id` accepte déjà `attendanceStatus` côté backend (implémenté en B1) —
   seule l'UI d'édition est différée, pas la permission ni la route.
-- **Colonne Composition** (`CompositionColumn`) : terrain SVG interactif (`LineupPitch`) au lieu
-  d'une liste — réutilise le même terrain stylisé que le sélecteur de poste de la fiche joueur
-  (`components/players/position-pitch.tsx`, `POSITION_PITCH_SPOTS` dans `lib/positions.ts`),
-  aucune coordonnée dupliquée. Le **banc** (joueurs disponibles pour la composition) n'est **pas**
-  un statut persisté : c'est simplement "convocation acceptée, pas encore placé sur le terrain"
-  (`ConvocationStatus.ACCEPTED` moins les lignes `MatchLineup` avec `pitchSpotId` non nul),
-  recalculé à chaque rendu — c'est la "population automatique" demandée : accepter une convocation
-  suffit à rendre un joueur disponible pour la composition, sans étape d'ajout manuelle
-  supplémentaire (l'ancien `AddToLineupDialog` de B4 a été supprimé). Une ligne `MatchLineup`
-  n'existe désormais que pour un joueur **effectivement placé** sur le terrain — le retirer
-  supprime la ligne plutôt que de la repasser en `REMPLACANT` (rien à y stocker une fois hors du
-  terrain), ce qui explique pourquoi `NON_CONVOQUE`/`REMPLACANT` restent dans l'enum sans être
-  pilotables depuis cette UI (voir note sous le tableau `MatchLineup`).
-- **Synchronisation entre les deux colonnes** : chaque colonne reste un composant indépendant qui
-  fait son propre fetch (convention du projet, cohérente avec le reste de la fiche match) — pas
-  d'état partagé. `PreMatchTab` maintient un simple compteur `refreshKey`, incrémenté via le
-  `onChange` de `ConvocationsTab` à chaque rechargement réussi des convocations ; `CompositionColumn`
-  refait sa propre requête `.../attendances` quand `refreshKey` change, pour garder le banc à jour
-  sans dupliquer l'état des convocations.
-- **Glisser-déposer fait maison** (`LineupPitch`), Pointer Events, **aucune dépendance ajoutée**
-  (décision du 2026-07-17, confirmée avec l'utilisateur — alternative envisagée : `@dnd-kit`) :
-  presser un joueur (banc ou déjà placé) puis le faire glisser sur un point du terrain le place à
-  ce poste ; le faire glisser vers le banc le retire du terrain. **Repli clic** systématique en
-  complément du glisser (sélectionner un joueur d'un clic puis cliquer sa destination) — nécessaire
-  pour le clavier/l'accessibilité, et c'est aussi la voie empruntée par les tests (jsdom
-  n'implémente pas `elementFromPoint`, utilisé uniquement pour le hit-testing du drag réel ; les
-  deux chemins — `endDrag` après un vrai glisser, gestionnaires `onClick` sinon — sont mutuellement
-  exclusifs via un drapeau `suppressClickRef` pour éviter un double traitement du même geste).
-- **Deux joueurs au même poste** (ex. 2 `CB`) : `pitchSpotId` (nouveau champ `MatchLineup`, B6,
-  ex. `"cb-left"`/`"cb-right"`) épingle chaque joueur à un point précis et distinct du terrain,
-  indépendamment de `position` (le poste "métier", qui peut être identique pour les deux) — décision
-  du 2026-07-17, alternative envisagée et écartée : recalculer gauche/droite à l'affichage sans
-  champ dédié (plus simple mais moins stable, pas de garantie qu'un même joueur reste toujours au
-  même point). Contrainte `@@unique([matchId, pitchSpotId])` : impossible que deux joueurs occupent
-  le même point sur un même match (les lignes `pitchSpotId = null`, c'est-à-dire tous les joueurs
-  non placés, ne sont jamais en conflit entre elles — PostgreSQL traite plusieurs `NULL` comme
-  distincts dans une contrainte unique). Le frontend bloque aussi côté client (toast d'erreur) une
-  tentative de dépôt sur un point déjà occupé par un *autre* joueur, pour ne jamais déclencher
-  cette contrainte côté serveur.
-- **Numéro de maillot** : conservé comme un champ texte éditable, affiché dans une liste
-  "Titulaires" sous le terrain (un joueur placé = une ligne avec poste + numéro + bouton retirer),
-  complément lisible/accessible au terrain visuel.
-- **Droits** : Coach/SuperAdmin composent (glisser-déposer, numéro, retrait) ; AdminClub/Player
-  voient le terrain et la liste des titulaires en lecture seule (pas de banc affiché, inutile sans
-  interaction possible) ; Parent n'a aucun accès à `match_lineup` — le fetch échoue et la colonne
-  affiche l'état d'erreur générique.
+- **Colonnes Composition + Banc** (`CompositionColumn`) : un seul composant qui retourne un
+  fragment de 2 éléments (`<>...</>`) — Composition (sélecteur de système + terrain) et Banc —
+  placés directement comme 2 des 3 colonnes du grid par `PreMatchTab`, toujours exactement 2
+  éléments retournés (y compris en chargement/erreur) pour que le nombre de colonnes reste stable.
+- **Système tactique** (`Match.formation`, B8 — ex. `"4-3-3"`) : sélecteur en tête de colonne
+  Composition (Coach/SuperAdmin uniquement), `frontend/src/lib/formations.ts` définit ~6 systèmes
+  courants (4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 3-4-3, 5-3-2), chacun exactement 11 points (`FormationSlot`
+  — remplace le référentiel générique `POSITION_PITCH_SPOTS` de la fiche joueur, plus utilisé ici
+  depuis B8). Les identifiants de point (`"def-1".."def-5"`, `"mid-1".."mid-5"`, `"fwd-1".."fwd-3"`,
+  `"gk"`) sont volontairement génériques et partagés entre toutes les formations — un joueur à
+  `"def-2"` dans un 4-4-2 reste sur `"def-2"` en passant à un 3-5-2 (qui définit aussi ce point),
+  avec de nouvelles coordonnées automatiquement. **Changer de système "conserve les joueurs
+  compatibles"** (décision du 2026-07-17, alternative envisagée et écartée : tout vider à chaque
+  changement) : `CompositionColumn.handleFormationChange` calcule l'ensemble des points de la
+  nouvelle formation, retire (`DELETE`) uniquement les titulaires dont le point n'existe plus dans
+  cette formation (ex. `"def-5"` en passant d'un 5-3-2 à un 4-3-3), toast récapitulatif si des
+  joueurs sont ainsi renvoyés au banc — les autres gardent leur `pitchSpotId` tel quel, donc leur
+  poste et leurs coordonnées se mettent à jour tout seuls au prochain rendu, sans action
+  supplémentaire.
+- **Terrain SVG interactif** (`PitchSvg`) au lieu d'une liste. Le **banc** (`BenchList`, joueurs
+  disponibles pour la composition) n'est **pas** un statut persisté par défaut : c'est simplement
+  "convocation acceptée, pas encore placé sur le terrain, pas marqué non retenu" — recalculé à
+  chaque rendu, c'est la "population automatique" demandée : accepter une convocation suffit à
+  rendre un joueur disponible, sans étape d'ajout manuelle (l'ancien `AddToLineupDialog` de B4 a
+  été supprimé en B6). Une ligne `MatchLineup` n'existe que pour un joueur **effectivement placé**
+  (`pitchSpotId` non nul) ou **marqué non retenu** (`lineupStatus = NON_CONVOQUE`, voir plus bas) —
+  retirer du terrain ou remettre un non-retenu disponible supprime simplement la ligne.
+- **Synchronisation entre les colonnes** : chacune reste un composant indépendant qui fait son
+  propre fetch (convention du projet, cohérente avec le reste de la fiche match) — pas d'état
+  partagé. `PreMatchTab` maintient un simple compteur `refreshKey`, incrémenté via le `onChange`
+  de `ConvocationsTab` à chaque rechargement réussi des convocations ; `CompositionColumn` refait
+  sa propre requête `.../attendances` (et `.../matches/:matchId` pour le système tactique) quand
+  `refreshKey` change, pour garder Composition et Banc à jour sans dupliquer l'état des
+  convocations. `PitchSvg`/`BenchList` partagent quant à eux la sélection/le geste de glisser via
+  un hook commun (`usePitchInteractions`, état centralisé plutôt que porté par un seul composant
+  terrain — condition pour pouvoir séparer terrain et banc en deux colonnes distinctes tout en
+  gardant l'interaction cohérente entre elles, ex. sélectionner un joueur dans le Banc puis cliquer
+  un point du terrain).
+- **Glisser-déposer fait maison** (`usePitchInteractions`), Pointer Events, **aucune dépendance
+  ajoutée** (décision du 2026-07-17, confirmée avec l'utilisateur — alternative envisagée :
+  `@dnd-kit`) : presser un joueur (banc ou déjà placé) puis le faire glisser sur un point du
+  terrain le place à ce poste ; le faire glisser vers le banc le retire du terrain. **Repli clic**
+  systématique en complément du glisser (sélectionner un joueur d'un clic puis cliquer sa
+  destination) — nécessaire pour le clavier/l'accessibilité, et c'est aussi la voie empruntée par
+  les tests (jsdom n'implémente pas `elementFromPoint`, utilisé uniquement pour le hit-testing du
+  drag réel ; les deux chemins — pointerup global après un vrai glisser, gestionnaires `onClick`
+  sinon — sont mutuellement exclusifs via un drapeau `suppressClickRef` pour éviter un double
+  traitement du même geste).
+- **Fiabilité et retour visuel du glisser** (B9, retour utilisateur du 2026-07-17 : glisser-déposer
+  entre deux points du terrain peu fiable, pas de retour visuel pendant le geste) : le suivi du
+  geste (`pointermove`/`pointerup`/`pointercancel`) est désormais posé sur `window` au
+  `pointerdown` plutôt que sur chaque élément via `setPointerCapture` — un seul point d'écoute
+  global, indépendant de la frontière DOM banc/SVG et des éventuelles limites de support de la
+  capture de pointeur sur des éléments SVG selon les navigateurs. Retour visuel renforcé pendant le
+  geste : jeton flottant façon avatar (initiales + nom) suivant le curseur plutôt qu'une simple
+  étiquette texte, point survolé mis en évidence (vert si dépôt valide, rouge si déjà occupé par un
+  *autre* joueur), Banc mis en évidence au survol pour un retrait du terrain.
+- **Deux joueurs au même poste** (ex. 2 `CB`) : `pitchSpotId` (champ `MatchLineup`, B6) épingle
+  chaque joueur à un point précis et distinct du terrain, indépendamment de `position` (le poste
+  "métier", identique pour les deux — dérivé de la ligne du point via `LINE_TO_POSITION`, une
+  valeur représentative par ligne GK/DEF/MID/FWD plutôt qu'une correspondance fine à maintenir).
+  Contrainte `@@unique([matchId, pitchSpotId])` : impossible que deux joueurs occupent le même
+  point sur un même match (les lignes `pitchSpotId = null` ne sont jamais en conflit entre elles —
+  PostgreSQL traite plusieurs `NULL` comme distincts). Le frontend bloque aussi côté client (toast
+  d'erreur) une tentative de dépôt sur un point déjà occupé par un *autre* joueur.
+- **Barre d'actions contextuelle du titulaire sélectionné** (B8, remplace l'ancienne liste
+  "Titulaires" toujours affichée — retour utilisateur du 2026-07-17 : "on sait déjà qu'il est
+  titulaire, ça fait doublon avec le terrain", "pas assez dynamique") : cliquer un point occupé le
+  sélectionne (surbrillance ambre, cohérent avec la sélection banc→terrain) et fait apparaître sous
+  le terrain une barre avec le numéro de maillot (champ éditable), le bouton "Nommer
+  capitaine"/"Retirer le brassard" et le retrait du terrain — disparaît dès qu'une action est prise
+  ou qu'un autre joueur est sélectionné, plutôt qu'un tableau statique en permanence à l'écran.
+- **Capitaine** (`MatchLineup.isCaptain`, B8) : badge étoile ambre affiché en incrustation sur le
+  point du terrain du capitaine (lecture seule pour tous les rôles). Désignation réservée aux
+  titulaires (décision du 2026-07-17, alternative envisagée : n'importe quel convoqué même sur le
+  banc) — au plus un capitaine par match, invariant maintenu par `MatchLineupsService` (voir
+  `docs/schema/evenements.md` §MatchLineup) : désigner un nouveau capitaine retire automatiquement
+  le brassard du précédent en une seule requête.
+- **Non retenu** (`LineupStatus.NON_CONVOQUE`, B8 — ex. joueur présent mais surnuméraire) :
+  sélectionner un joueur du banc fait apparaître l'action "Marquer non retenu" ; les joueurs ainsi
+  marqués rejoignent une section séparée "Non retenus" sous le banc (pour ne pas les mélanger aux
+  joueurs réellement disponibles), avec l'action inverse "Remettre disponible" (supprime
+  simplement la ligne `MatchLineup`).
+- **Identité + numéro affichés ensemble** (B9, retour utilisateur du 2026-07-17 : une fois un
+  numéro renseigné, plus moyen de savoir qui est le joueur sans cliquer dessus) : chaque point
+  occupé affiche désormais les initiales (identité, toujours visibles) **et** le numéro de maillot
+  s'il est renseigné (`#N`, texte plus petit juste en dessous) — jamais l'un à la place de l'autre.
+- **Terrain dimensionné par la hauteur disponible** (B9, retour utilisateur du 2026-07-17 : trop
+  petit après le passage à une largeur bornée en B7) : `h-full`/`aspect-square` plutôt que
+  `w-full`/`max-w-xs` — le terrain grandit jusqu'à occuper toute la hauteur que lui laisse sa
+  colonne (même chaîne `min-h-0`/`flex-1` que la colonne Convocations, B8, désormais aussi
+  appliquée à la colonne Composition).
+- **Droits** : Coach/SuperAdmin composent (système, glisser-déposer, numéro, capitaine, non-retenu,
+  retrait) ; AdminClub/Player voient le terrain en lecture seule (pas de sélecteur de système, pas
+  de banc affiché — inutiles sans interaction possible) ; Parent n'a aucun accès à `match_lineup` —
+  le fetch échoue et la colonne affiche l'état d'erreur générique.
+- **Colonne Convocations bornée + défilement interne** (B8, retour utilisateur sur capture d'écran
+  du 2026-07-17 : une longue liste de convocations faisait défiler toute la page). Chaîne
+  `lg:h-full`/`lg:min-h-0`/`lg:flex-1` reprise telle quelle depuis `players/[playerId]/page.tsx`
+  (page → `Tabs`/`TabsContent` → grid `PreMatchTab` → colonne Convocations → liste dans
+  `ConvocationsTab`, seule zone avec `lg:overflow-y-auto`) : le bouton "Convoquer des joueurs" reste
+  fixe pendant que seule la liste défile, bornée à l'espace réellement disponible sous le header de
+  l'app plutôt qu'à la hauteur de son contenu. Composition/Banc ne reçoivent pas ce traitement —
+  non signalés comme problématiques (terrain de taille bornée, banc généralement court).
 
 ---
 

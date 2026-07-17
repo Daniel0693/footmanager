@@ -2,6 +2,7 @@ import { LineupStatus, Position } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -37,6 +38,10 @@ export class UpsertMatchLineupEntryDto {
   @IsOptional()
   @IsInt()
   shirtNumber?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isCaptain?: boolean;
 }
 
 // Composition envoyée en une fois, à chaque édition (docs/modules/matchs.md

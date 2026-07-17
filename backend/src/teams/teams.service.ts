@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import type { TeamCategory } from '@prisma/client';
 import { AppException } from '../common/exceptions/app.exception';
 import { MembersService } from '../members/members.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,13 +14,16 @@ export class TeamsService {
     private readonly permissionsService: PermissionsService,
   ) {}
 
-  create(data: { clubId: number; name: string }) {
+  create(data: { clubId: number; name: string; category: TeamCategory }) {
     return this.prisma.team.create({ data });
   }
 
   async update(clubId: number, id: number, dto: UpdateTeamDto) {
     await this.findByIdInClub(clubId, id);
-    return this.prisma.team.update({ where: { id }, data: { name: dto.name } });
+    return this.prisma.team.update({
+      where: { id },
+      data: { name: dto.name, category: dto.category },
+    });
   }
 
   // Suppression bloquée dès que l'équipe n'est plus "vide" (au moins un

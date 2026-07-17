@@ -1,4 +1,4 @@
-import { CupRound, HomeOrAway, MatchType } from '@prisma/client';
+import { CupRound, GameFormat, HomeOrAway, MatchType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDate,
@@ -62,4 +62,11 @@ export class CreateMatchDto {
   @IsInt()
   @Min(1)
   periodDurationMinutes?: number;
+
+  // Pré-rempli côté frontend depuis Team.category (Phase 4, B10) — optionnel
+  // ici (comme numberOfPeriods/periodDurationMinutes ci-dessus), aucun
+  // format n'est imposé par défaut si omis (reste `null`).
+  @IsOptional()
+  @IsEnum(GameFormat)
+  gameFormat?: GameFormat;
 }

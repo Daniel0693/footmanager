@@ -9,6 +9,7 @@ const team: Team = {
   id: 5,
   clubId: 1,
   name: 'U15 A',
+  category: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -31,6 +32,7 @@ const coachMember: Member = {
 describe('TeamsService', () => {
   let findFirst: jest.Mock;
   let findMany: jest.Mock;
+  let create: jest.Mock;
   let update: jest.Mock;
   let deleteTeam: jest.Mock;
   let memberRoleCount: jest.Mock;
@@ -45,6 +47,7 @@ describe('TeamsService', () => {
   beforeEach(() => {
     findFirst = jest.fn();
     findMany = jest.fn();
+    create = jest.fn();
     update = jest.fn();
     deleteTeam = jest.fn();
     memberRoleCount = jest.fn().mockResolvedValue(0);
@@ -55,7 +58,7 @@ describe('TeamsService', () => {
     resolveOrProvisionMember = jest.fn();
     canEffective = jest.fn();
     const prismaStub = {
-      team: { findFirst, findMany, update, delete: deleteTeam },
+      team: { findFirst, findMany, create, update, delete: deleteTeam },
       memberRole: { count: memberRoleCount },
       playerTeam: { count: playerTeamCount },
       teamStaff: { count: teamStaffCount },
@@ -165,6 +168,18 @@ describe('TeamsService', () => {
     });
   });
 
+  describe('create', () => {
+    it('crée une équipe avec sa catégorie (Phase 4, B10)', async () => {
+      create.mockResolvedValue({ ...team, category: 'U13' });
+
+      await service.create({ clubId: 1, name: 'U13 A', category: 'U13' });
+
+      expect(create).toHaveBeenCalledWith({
+        data: { clubId: 1, name: 'U13 A', category: 'U13' },
+      });
+    });
+  });
+
   describe('update', () => {
     it('renvoie 404 si l’équipe est introuvable dans ce club', async () => {
       findFirst.mockResolvedValue(null);
@@ -184,7 +199,19 @@ describe('TeamsService', () => {
       expect(result.name).toBe('Nouveau nom');
       expect(update).toHaveBeenCalledWith({
         where: { id: 5 },
-        data: { name: 'Nouveau nom' },
+        data: { name: 'Nouveau nom', category: undefined },
+      });
+    });
+
+    it('modifie la catégorie d’une équipe existante', async () => {
+      findFirst.mockResolvedValue(team);
+      update.mockResolvedValue({ ...team, category: 'U15' });
+
+      await service.update(1, 5, { name: 'U15 A', category: 'U15' });
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: { name: 'U15 A', category: 'U15' },
       });
     });
   });

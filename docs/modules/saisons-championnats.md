@@ -135,7 +135,10 @@ Chaque championnat définit :
 - Ses propres dates (définies librement, indépendantes de la Season).
 - Système de points : `pointsForWin`, `pointsForDraw`, `pointsForLoss`.
 - Règles de départage : tableau JSON ordonné de `TiebreakerRule`.
-- Format de jeu par défaut : `numberOfPeriods` + `periodDurationMinutes` (écrasables par match).
+- Périodes de jeu par défaut : `numberOfPeriods` + `periodDurationMinutes` (écrasables par match).
+- Format de jeu (nombre de joueurs, Phase 4 B10) : `gameFormat`, pré-rempli depuis la catégorie
+  de l'équipe organisatrice à la création, écrasable par match — voir `docs/modules/matchs.md`
+  §Format de jeu.
 
 ### Création — équipe propriétaire selon le rôle (B19)
 
@@ -232,8 +235,9 @@ Représente toute rencontre du championnat — notre équipe ou adversaires entr
 | Match amical (pas de championnat) | `Match.scoreHome` / `Match.scoreAway` |
 | Match de championnat | `ChampionshipMatch.scoreHome/Away`. `Match.scoreHome/Away` = NULL |
 
-**Format de jeu** : `numberOfPeriods` et `periodDurationMinutes` héritent du Championship,
-écrasables par match individuel.
+**Périodes de jeu** : `numberOfPeriods` et `periodDurationMinutes` héritent du Championship,
+écrasables par match individuel. **Format de jeu** (`gameFormat`, Phase 4 B10) : même logique
+d'héritage/surcharge, voir `docs/modules/matchs.md` §Format de jeu.
 
 ---
 

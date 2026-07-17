@@ -231,9 +231,15 @@ describe('Module MatchLineup — scénario multi-rôles (MatchLineupsController)
       team: { findFirst: teamFindFirst },
       playerTeam: { findFirst: playerTeamFindFirst },
       match: { findFirst: matchFindFirst },
-      matchLineup: { upsert: lineupUpsert, findMany: lineupFindMany },
-      $transaction: jest.fn((operations: Promise<unknown>[]) =>
-        Promise.all(operations),
+      matchLineup: {
+        upsert: lineupUpsert,
+        findMany: lineupFindMany,
+        findUnique: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn(),
+      },
+      $transaction: jest.fn(
+        (arg: Promise<unknown>[] | ((tx: unknown) => unknown)) =>
+          typeof arg === 'function' ? arg(prismaStub) : Promise.all(arg),
       ),
     } as unknown as PrismaService;
     service = new MatchLineupsService(prismaStub, permissionsService);

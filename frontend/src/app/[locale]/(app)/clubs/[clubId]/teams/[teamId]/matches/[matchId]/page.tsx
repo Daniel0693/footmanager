@@ -4,12 +4,15 @@ import { useLocale, useTranslations } from "next-intl";
 import { use, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MatchEditDialog } from "@/components/matches/match-edit-dialog";
 import { PreMatchTab } from "@/components/matches/pre-match-tab";
 import { Link } from "@/i18n/navigation";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
+import type { GameFormat } from "@/lib/formations";
 
 type MatchType = "CHAMPIONNAT" | "COUPE" | "AMICAL" | "TOURNOI";
 type LiveMatchStatus =
@@ -28,12 +31,18 @@ interface MatchDetail {
   status: LiveMatchStatus;
   scoreHome: number | null;
   scoreAway: number | null;
+  gameFormat: GameFormat | null;
+  cupRound: string | null;
+  opponentExternalTeamId: number | null;
+  opponentExternalTeam: { id: number; name: string } | null;
   canManage: boolean;
   event: {
     id: number;
     title: string;
     startAt: string;
+    endAt: string | null;
     location: string | null;
+    description: string | null;
   };
 }
 
@@ -57,6 +66,12 @@ export function MatchDetailPageContent({
   const { accessToken } = useAuth();
   const [match, setMatch] = useState<MatchDetail | null>(null);
   const [hasError, setHasError] = useState(false);
+  // Voir PreMatchTab (`matchRefreshKey`) : incrémenté seulement après une
+  // édition réussie du match (jamais au montage initial, contrairement à
+  // reloadMatch) pour forcer CompositionColumn à recharger le gameFormat/la
+  // liste de dispositifs (retour utilisateur du 2026-07-18 — la liste ne
+  // suivait pas un changement de format fait depuis Modifier).
+  const [matchRefreshKey, setMatchRefreshKey] = useState(0);
 
   const fetchMatch = useCallback(async () => {
     const response = await apiFetch(
@@ -67,26 +82,21 @@ export function MatchDetailPageContent({
     return response.json();
   }, [clubId, teamId, matchId, accessToken]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await fetchMatch();
-        if (!cancelled) {
-          setMatch(data);
-          setHasError(false);
-        }
-      } catch {
-        if (!cancelled) {
-          setHasError(true);
-          toast.error(t("loadFailed"));
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const reloadMatch = useCallback(async () => {
+    try {
+      const data = await fetchMatch();
+      setMatch(data);
+      setHasError(false);
+    } catch {
+      setHasError(true);
+      toast.error(t("loadFailed"));
+    }
   }, [fetchMatch, t]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void reloadMatch();
+  }, [reloadMatch]);
 
   if (hasError) {
     return (
@@ -114,15 +124,22 @@ export function MatchDetailPageContent({
       : null;
 
   return (
-    <div className="flex w-full flex-col gap-4 p-4">
+    // lg:h-full lg:min-h-0 : borne la hauteur à l'espace disponible sous le
+    // header de l'app (fourni par AppShell, main flex-1 min-h-0
+    // overflow-y-auto) plutôt que de suivre la hauteur du contenu — sans ça,
+    // aucune zone interne (ex. colonne Convocations, PreMatchTab) ne peut
+    // défiler en interne : elle grandirait indéfiniment et ferait défiler la
+    // page entière à la place (retour utilisateur du 2026-07-17). Même motif
+    // que players/[playerId]/page.tsx.
+    <div className="flex w-full flex-col gap-4 p-4 lg:h-full lg:min-h-0">
       <Link
         href={`/clubs/${clubId}/teams/${teamId}/calendar`}
-        className="text-sm text-muted-foreground underline"
+        className="shrink-0 text-sm text-muted-foreground underline"
       >
         {t("backToCalendar")}
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="font-heading text-xl font-semibold">{match.event.title}</h1>
           <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
@@ -154,10 +171,26 @@ export function MatchDetailPageContent({
             </Badge>
           )}
           <Badge variant="outline">{t(`status${match.status}`)}</Badge>
+          {match.canManage && (
+            <MatchEditDialog
+              clubId={clubId}
+              teamId={teamId}
+              match={match}
+              onSuccess={() => {
+                setMatchRefreshKey((key) => key + 1);
+                void reloadMatch();
+              }}
+              trigger={
+                <Button variant="outline" size="sm">
+                  {t("edit")}
+                </Button>
+              }
+            />
+          )}
         </div>
       </div>
 
-      <Tabs defaultValue="avantMatch">
+      <Tabs defaultValue="avantMatch" className="lg:min-h-0 lg:flex-1">
         <TabsList className="flex-wrap">
           {DETAIL_TABS.map((tab) => (
             <TabsTrigger key={tab} value={tab}>
@@ -165,8 +198,13 @@ export function MatchDetailPageContent({
             </TabsTrigger>
           ))}
         </TabsList>
-        <TabsContent value="avantMatch">
-          <PreMatchTab clubId={clubId} teamId={teamId} matchId={matchId} />
+        <TabsContent value="avantMatch" className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+          <PreMatchTab
+            clubId={clubId}
+            teamId={teamId}
+            matchId={matchId}
+            matchRefreshKey={matchRefreshKey}
+          />
         </TabsContent>
         {DETAIL_TABS.filter((tab) => tab !== "avantMatch").map((tab) => (
           <TabsContent key={tab} value={tab}>

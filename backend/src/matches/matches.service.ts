@@ -75,6 +75,7 @@ export class MatchesService {
           homeOrAway: dto.homeOrAway,
           numberOfPeriods: dto.numberOfPeriods,
           periodDurationMinutes: dto.periodDurationMinutes,
+          gameFormat: dto.gameFormat,
         },
         include: MATCH_INCLUDE,
       });
@@ -170,6 +171,8 @@ export class MatchesService {
           homeOrAway: dto.homeOrAway,
           numberOfPeriods: dto.numberOfPeriods,
           periodDurationMinutes: dto.periodDurationMinutes,
+          formation: dto.formation,
+          gameFormat: dto.gameFormat,
         },
         include: MATCH_INCLUDE,
       });

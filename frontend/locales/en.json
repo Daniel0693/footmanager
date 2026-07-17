@@ -88,6 +88,7 @@
       "name": "Team name",
       "namePlaceholder": "E.g. U15 A",
       "nameRequired": "Name is required",
+      "category": "Age category",
       "submitCreate": "Create",
       "submitEdit": "Save",
       "created": "Team created successfully",
@@ -189,6 +190,15 @@
     "MALE": "Male",
     "FEMALE": "Female",
     "OTHER": "Other"
+  },
+  "teamCategory": {
+    "U9": "U9",
+    "U11": "U11",
+    "U13": "U13",
+    "U15": "U15",
+    "U17": "U17",
+    "U19": "U19",
+    "SENIORS": "Adults / Seniors"
   },
   "foot": {
     "LEFT": "Left",
@@ -598,7 +608,8 @@
     "cupRoundRequired": "The cup round is required",
     "homeOrAway": "Home / Away",
     "homeOrAwayHOME": "Home",
-    "homeOrAwayAWAY": "Away"
+    "homeOrAwayAWAY": "Away",
+    "gameFormat": "Game format"
   },
   "matchDetail": {
     "backToCalendar": "Back to calendar",
@@ -616,7 +627,11 @@
     },
     "convocationsHeading": "Convocations",
     "compositionHeading": "Lineup",
-    "comingSoon": "This section will arrive in a future phase."
+    "comingSoon": "This section will arrive in a future phase.",
+    "edit": "Edit",
+    "editTitle": "Edit match",
+    "submitEdit": "Save",
+    "updated": "Match updated successfully"
   },
   "matchConvocations": {
     "addButton": "Convene players",
@@ -645,12 +660,23 @@
   "matchComposition": {
     "loadFailed": "Unable to load the lineup",
     "pitchLabel": "Pitch",
+    "formationLabel": "Formation",
+    "benchHeading": "Bench",
     "benchEmpty": "No player available",
     "spotOccupied": "This spot is already taken by {player}.",
-    "titularsHeading": "Starting lineup",
     "shirtNumberLabel": "Shirt number",
     "unplace": "Remove from pitch",
-    "removeFailed": "Failed to remove"
+    "removeFailed": "Failed to remove",
+    "makeCaptain": "Make captain",
+    "removeCaptain": "Remove armband",
+    "markNonRetenu": "Mark as not selected",
+    "restoreToBench": "Return to bench",
+    "nonRetenuHeading": "Not selected",
+    "formationChangedBenchedCount": "{count, plural, one {# player sent back to the bench} other {# players sent back to the bench}} (no matching spot in this formation)",
+    "lineGK": "GK",
+    "lineDEF": "DEF",
+    "lineMID": "MID",
+    "lineFWD": "FWD"
   },
   "championshipForm": {
     "createTitle": "New championship",
@@ -676,6 +702,7 @@
     "pointsForWin": "Points (win)",
     "pointsForDraw": "Points (draw)",
     "pointsForLoss": "Points (loss)",
+    "gameFormat": "Game format",
     "numberOfPeriods": "Number of periods",
     "periodDurationMinutes": "Period duration (min)",
     "tiebreakerPreset": "Tiebreaker rules",
@@ -1184,7 +1211,9 @@
     "MATCH_LINEUPS": {
       "NOT_FOUND": "Lineup entry not found",
       "TEAM_NOT_IN_CLUB": "This team does not belong to this club",
-      "MATCH_NOT_FOUND": "This match does not belong to this team"
+      "MATCH_NOT_FOUND": "This match does not belong to this team",
+      "MULTIPLE_CAPTAINS_NOT_ALLOWED": "Only one captain can be designated at a time",
+      "CAPTAIN_MUST_BE_STARTER": "The captain must be in the starting lineup"
     }
   },
   "stepperExample": {

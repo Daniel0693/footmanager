@@ -67,8 +67,9 @@ deux.
 | `pointsForLoss` | Int, défaut `0` | |
 | `tiebreakerRules` | Json | tableau ordonné de `TiebreakerRule` — ex. `["GOAL_DIFFERENCE","GOALS_SCORED"]` ; validé côté DTO applicatif, pas un enum Postgres (ordre choisi par l'utilisateur) |
 | `tiebreakerPreset` | String, nullable | label du preset choisi (affichage uniquement) |
-| `numberOfPeriods` | Int, défaut `2` | format de jeu par défaut pour ce championnat |
+| `numberOfPeriods` | Int, défaut `2` | nombre de périodes par défaut pour ce championnat |
 | `periodDurationMinutes` | Int, défaut `45` | durée d'une période en minutes |
+| `gameFormat` | enum `GameFormat`, défaut `ELEVEN` | **format de jeu** — nombre de joueurs sur le terrain, gardien inclus (Phase 4, B10, 2026-07-17, `docs/schema/fondations.md` §Team). À ne pas confondre avec `numberOfPeriods`/`periodDurationMinutes` ci-dessus (structure des périodes) — deux notions distinctes que la documentation antérieure appelait toutes les deux vaguement "format de jeu", corrigé ici |
 
 **Règles de départage disponibles (`TiebreakerRule`)** :
 ```
