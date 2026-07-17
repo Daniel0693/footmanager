@@ -151,9 +151,15 @@ Scopée au **Club** (pas au Championship). Créée une fois, réutilisable d'une
 
 ## ExternalPlayer — Joueur d'une équipe adverse
 
+Initialement prévue pour la Phase 7 (Scouting), implémentée dès la Phase 4 Partie C
+(2026-07-18) : nécessaire pour attribuer un but/carton adverse à un joueur précis dans
+`MatchEvent.externalPlayerId` (`docs/schema/evenements.md` §MatchEvent). La Phase 7 réutilisera
+cette même entité telle quelle plutôt que d'en recréer une.
+
 | Champ | Type | Notes |
 |---|---|---|
 | `id` | PK | |
+| `clubId` | FK → Club | scope club direct, pas seulement via `externalTeamId` (voir note ci-dessous) |
 | `externalTeamId` | FK → ExternalTeam, **nullable** | null si équipe inconnue au moment de la création |
 | `name` | String | |
 | `position` | enum `Position`, nullable | poste habituel — voir `index.md` |
@@ -163,6 +169,9 @@ Scopée au **Club** (pas au Championship). Créée une fois, réutilisable d'une
 
 **`externalTeamId` nullable** : un joueur peut être créé sans équipe connue (vu en tournoi).
 L'équipe est assignable plus tard — tous les rapports existants en bénéficient automatiquement.
+**`clubId` ajouté en Phase 4 Partie C** (absent de la conception initiale) : `externalTeamId`
+étant nullable, un joueur créé sans équipe connue n'aurait sinon aucun rattachement club fiable —
+cassant le scope club obligatoire de toute permission (règle d'or CLAUDE.md).
 
 **Note RGPD** : données personnelles de joueurs tiers (non-utilisateurs). Limiter aux
 informations strictement nécessaires (nom, poste, numéro) — pas de données sensibles.
@@ -197,6 +206,6 @@ enum ChampionshipMatchStatus {
 @@index([clubId, status])           sur Season (trouver rapidement la ACTIVE d'un club)
 @@index([seasonId])                 sur Championship
 @@index([championshipId])           sur ChampionshipParticipant, ChampionshipMatch
-@@index([clubId])                   sur ExternalTeam
+@@index([clubId])                   sur ExternalTeam, ExternalPlayer
 @@index([externalTeamId])           sur ExternalPlayer
 ```

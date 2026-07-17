@@ -178,6 +178,9 @@ Flux pour 2×45 min : `MatchPeriod(1, start)` → `MatchPeriod(1, end)` → `Mat
 → `MatchPeriod(2, start)` → `MatchPeriod(2, end)` → `Match.status=FINISHED`.
 Identique pour 4×20 min avec 4 `MatchPeriod`.
 
+**Contrainte** : unicité sur `(matchId, periodNumber)` — une seule ligne par période et par
+match (Phase 4, Partie C, C0).
+
 **MVP** : un seul utilisateur gère le live. Multi-utilisateur en temps réel : phase ultérieure.
 
 ---
@@ -221,6 +224,12 @@ conflit entre eux : PostgreSQL traite plusieurs `NULL` comme distincts dans une 
 
 **L'assist n'est pas un événement séparé** : c'est `relatedPlayerId` sur l'événement `GOAL`.
 Calcul : `COUNT(MatchEvent WHERE type=GOAL AND relatedPlayerId=X)` = assists du joueur X.
+
+**`externalPlayerId` reste nullable même pour un événement adverse** (`teamSide=AWAY`, retour
+utilisateur du 2026-07-18) : un but/carton adverse doit pouvoir être enregistré sans nommer de
+joueur précis (équipe/joueurs non suivis) — l'événement reste alors global au niveau de l'équipe
+adverse, sans forcer un choix dans `ExternalPlayer` (`docs/schema/championnats.md`
+§ExternalPlayer).
 
 | Type d'événement | `playerId` | `relatedPlayerId` | `externalPlayerId` |
 |---|---|---|---|

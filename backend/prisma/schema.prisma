@@ -79,14 +79,15 @@ model Club {
   scoutingCriteria     PlayerScoutingCriterion[]
   seasons              Season[]
   externalTeams        ExternalTeam[]
+  externalPlayers      ExternalPlayer[]
 }
 
 // Catégorie d'âge (Phase 4, B10 — décision du 2026-07-17) : pyramide suisse
 // standard. Nullable sur Team (équipes existantes non catégorisées) mais
 // requise à la création d'une nouvelle équipe (CreateTeamDto) — source de la
-// suggestion de GameFormat par défaut sur Championship/Match (aucune
-// contrainte, seulement un pré-remplissage : voir docs/modules/matchs.md
-// §Format de jeu).
+// suggestion de GameFormat par défaut à la création directe d'un match
+// (aucune contrainte, seulement un pré-remplissage : voir docs/modules/
+// matchs.md §Format de jeu).
 enum TeamCategory {
   U9
   U11
@@ -355,15 +356,17 @@ model PlayerProfile {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  playerTeams        PlayerTeam[]
-  playerMeasurements PlayerMeasurement[]
-  playerInterviews   PlayerInterview[]
-  playerNotes        PlayerNote[]
-  playerObjectives   PlayerObjective[]
-  playerEvaluations  PlayerEvaluation[]
-  playerAbsences     PlayerAbsence[]
-  matchAttendances   MatchAttendance[]
-  matchLineups       MatchLineup[]
+  playerTeams                PlayerTeam[]
+  playerMeasurements         PlayerMeasurement[]
+  playerInterviews           PlayerInterview[]
+  playerNotes                PlayerNote[]
+  playerObjectives           PlayerObjective[]
+  playerEvaluations          PlayerEvaluation[]
+  playerAbsences             PlayerAbsence[]
+  matchAttendances           MatchAttendance[]
+  matchLineups               MatchLineup[]
+  matchEventsAsPlayer        MatchEvent[]        @relation("MatchEventPlayer")
+  matchEventsAsRelatedPlayer MatchEvent[]        @relation("MatchEventRelatedPlayer")
 }
 
 enum MeasurementType {
@@ -677,6 +680,23 @@ enum LiveMatchStatus {
   POSTPONED
 }
 
+// Côté du terrain pour un MatchEvent (docs/schema/index.md) — premier usage
+// réel ici (Phase 4, Partie C).
+enum TeamSide {
+  HOME
+  AWAY
+}
+
+enum MatchEventType {
+  GOAL
+  OWN_GOAL
+  YELLOW_CARD
+  RED_CARD
+  SUBSTITUTION
+  PENALTY_SCORED
+  PENALTY_MISSED
+}
+
 model Match {
   id      Int   @id @default(autoincrement())
   eventId Int   @unique
@@ -740,6 +760,8 @@ model Match {
 
   attendances MatchAttendance[]
   lineups     MatchLineup[]
+  periods     MatchPeriod[]
+  events      MatchEvent[]
 
   @@index([opponentExternalTeamId])
 }
@@ -810,21 +832,88 @@ model MatchLineup {
   // occupent chacun un point différent du terrain. Champ purement visuel,
   // pas de table de correspondance côté backend (source de vérité = le
   // frontend), donc une simple chaîne plutôt qu'un enum Prisma à resynchroniser.
-  pitchSpotId String?
-  shirtNumber Int?
+  pitchSpotId  String?
+  shirtNumber  Int?
   // Capitaine du match — au plus un par match, invariant maintenu côté
   // application (MatchLineupsService, pas de contrainte SQL : un index
   // partiel `WHERE isCaptain` n'est pas exprimable dans le DSL Prisma sans
   // migration manuelle, l'invariant applicatif suffit ici car ce champ n'est
   // modifiable que via ce service). Décision du 2026-07-17 : un capitaine
   // doit être titulaire (placé sur le terrain), pas seulement convoqué.
-  isCaptain Boolean @default(false)
+  isCaptain    Boolean      @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([matchId, playerId])
   @@unique([matchId, pitchSpotId])
+  @@index([matchId])
+}
+
+// Périodes du match, gestion live (docs/schema/evenements.md §MatchPeriod,
+// Phase 4 Partie C). `startedAt`/`endedAt` sont des timestamps SERVEUR,
+// jamais saisis côté client — la minute affichée en direct est toujours
+// recalculée par le frontend depuis `startedAt`
+// (`Math.floor((now - startedAt) / 60)`), jamais stockée : robuste à une
+// fermeture/réouverture de l'app. MVP : un seul utilisateur gère le live
+// (pas de gestion de concurrence temps réel).
+model MatchPeriod {
+  id      Int   @id @default(autoincrement())
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id])
+
+  periodNumber Int
+  startedAt    DateTime?
+  endedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([matchId, periodNumber])
+  @@index([matchId])
+}
+
+// Événements live et post-match (docs/schema/evenements.md §MatchEvent,
+// Phase 4 Partie C) — but/csc/carton/remplacement/pénalty. L'assist n'est
+// PAS un événement séparé : c'est `relatedPlayerId` sur un événement GOAL
+// (évite un assist sans but correspondant, simplifie les requêtes de
+// statistiques). Toutes les FK joueur sont nullables : un événement
+// `teamSide=AWAY` (adversaire) doit pouvoir être enregistré sans nommer de
+// joueur précis (équipe/joueurs non suivis, retour utilisateur du
+// 2026-07-18) — `playerId`/`relatedPlayerId` restent alors null, seul
+// `externalPlayerId` peut être renseigné (et lui-même reste optionnel, même
+// raisonnement).
+model MatchEvent {
+  id      Int   @id @default(autoincrement())
+  matchId Int
+  match   Match @relation(fields: [matchId], references: [id])
+
+  type         MatchEventType
+  teamSide     TeamSide
+  periodNumber Int?
+  minute       Int?
+
+  // Notre joueur : buteur/auteur du csc, joueur cartonné, joueur ENTRANT
+  // (SUBSTITUTION), tireur (PENALTY_SCORED/MISSED).
+  playerId Int?
+  player   PlayerProfile? @relation("MatchEventPlayer", fields: [playerId], references: [id])
+
+  // Passeur décisif (GOAL) ou joueur SORTANT (SUBSTITUTION) — jamais les
+  // deux à la fois sur le même événement, cohérence maintenue au niveau
+  // applicatif (MatchEventsService), pas par contrainte SQL.
+  relatedPlayerId Int?
+  relatedPlayer   PlayerProfile? @relation("MatchEventRelatedPlayer", fields: [relatedPlayerId], references: [id])
+
+  // Joueur adverse impliqué (but/carton côté adversaire) — nullable même
+  // pour un événement adverse, voir note ci-dessus.
+  externalPlayerId Int?
+  externalPlayer   ExternalPlayer? @relation(fields: [externalPlayerId], references: [id])
+
+  comment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([matchId])
 }
 
@@ -972,9 +1061,7 @@ model Season {
 // Équipe adverse (docs/schema/championnats.md §ExternalTeam) — scopée au
 // CLUB (pas au Championship ni à la Team) : créée une fois, réutilisable
 // d'un championnat/d'une saison à l'autre, potentiellement affrontée par
-// plusieurs équipes du même club. `ExternalPlayer` (joueur d'une équipe
-// adverse) est hors scope Partie B — arrive en Phase 7 Scouting, malgré sa
-// présence dans le même fichier de doc.
+// plusieurs équipes du même club.
 model ExternalTeam {
   id        Int      @id @default(autoincrement())
   clubId    Int
@@ -988,8 +1075,48 @@ model ExternalTeam {
 
   participations  ChampionshipParticipant[]
   opponentMatches Match[] // matchs Coupe/Amical/Tournoi joués contre cette équipe (Phase 4)
+  players         ExternalPlayer[]
 
   @@index([clubId])
+}
+
+// Joueur d'une équipe adverse (docs/schema/championnats.md §ExternalPlayer)
+// — avancé de la Phase 7 (Scouting) à la Phase 4 Partie C (décision du
+// 2026-07-18) : nécessaire pour attribuer un but/carton adverse à un joueur
+// précis dans MatchEvent.externalPlayerId. La Phase 7 réutilisera cette
+// même entité telle quelle plutôt que d'en recréer une.
+//
+// `clubId` direct (pas seulement via externalTeamId) : `externalTeamId` est
+// nullable (joueur vu en tournoi, équipe inconnue au moment de la création,
+// assignable plus tard) — sans `clubId` propre, un tel joueur n'aurait
+// aucun rattachement club fiable, ce qui casserait le scope club obligatoire
+// de toute permission (règle d'or CLAUDE.md).
+//
+// `externalPlayerId` reste volontairement nullable sur MatchEvent (retour
+// utilisateur du 2026-07-18) : un but/carton adverse doit pouvoir être
+// enregistré sans nommer de joueur précis — équipes/joueurs non suivis,
+// on reste alors global au niveau de l'équipe adverse (teamSide=AWAY) sans
+// forcer un choix.
+model ExternalPlayer {
+  id     Int  @id @default(autoincrement())
+  clubId Int
+  club   Club @relation(fields: [clubId], references: [id])
+
+  externalTeamId Int?
+  externalTeam   ExternalTeam? @relation(fields: [externalTeamId], references: [id])
+
+  name        String
+  position    Position?
+  shirtNumber Int?
+  notes       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  matchEvents MatchEvent[]
+
+  @@index([clubId])
+  @@index([externalTeamId])
 }
 
 // Championnat d'une équipe au sein d'une saison (docs/schema/championnats.md
@@ -1007,17 +1134,17 @@ model ExternalTeam {
 // validé côté DTO applicatif) plutôt qu'un enum Postgres — cohérent avec la
 // nature "ordre choisi par l'utilisateur" de la donnée.
 model Championship {
-  id                    Int      @id @default(autoincrement())
+  id                    Int        @id @default(autoincrement())
   seasonId              Int
-  season                Season   @relation(fields: [seasonId], references: [id])
+  season                Season     @relation(fields: [seasonId], references: [id])
   teamId                Int
-  team                  Team     @relation(fields: [teamId], references: [id])
+  team                  Team       @relation(fields: [teamId], references: [id])
   name                  String
-  startDate             DateTime @db.Date
-  endDate               DateTime @db.Date
-  pointsForWin          Int      @default(3)
-  pointsForDraw         Int      @default(1)
-  pointsForLoss         Int      @default(0)
+  startDate             DateTime   @db.Date
+  endDate               DateTime   @db.Date
+  pointsForWin          Int        @default(3)
+  pointsForDraw         Int        @default(1)
+  pointsForLoss         Int        @default(0)
   tiebreakerRules       Json
   tiebreakerPreset      String?
   numberOfPeriods       Int        @default(2)
