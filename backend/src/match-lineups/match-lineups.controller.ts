@@ -8,6 +8,8 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import type { Member } from '@prisma/client';
+import { CurrentMember } from '../auth/decorators/current-member.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -26,12 +28,14 @@ export class MatchLineupsController {
     @Param('teamId', ParseIntPipe) teamId: number,
     @Param('matchId', ParseIntPipe) matchId: number,
     @Body() dto: UpsertMatchLineupsBulkDto,
+    @CurrentMember() member: Member,
   ) {
     return this.matchLineupsService.upsertBulk(
       clubId,
       teamId,
       matchId,
       dto.entries,
+      member.id,
     );
   }
 
@@ -41,8 +45,14 @@ export class MatchLineupsController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('teamId', ParseIntPipe) teamId: number,
     @Param('matchId', ParseIntPipe) matchId: number,
+    @CurrentMember() member: Member,
   ) {
-    return this.matchLineupsService.findAllByMatch(clubId, teamId, matchId);
+    return this.matchLineupsService.findAllByMatch(
+      clubId,
+      teamId,
+      matchId,
+      member.id,
+    );
   }
 
   @RequirePermission('match_lineup', 'DELETE')

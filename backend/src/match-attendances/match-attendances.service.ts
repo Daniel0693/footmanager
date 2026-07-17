@@ -5,6 +5,7 @@ import { assertParentChildLink } from '../common/parent-child-membership';
 import { assertPlayerInTeam } from '../common/player-team-membership';
 import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
+import { PermissionsService } from '../roles/permissions.service';
 import { UpdateMatchAttendanceDto } from './dto/update-match-attendance.dto';
 
 const PLAYER_INCLUDE = {
@@ -32,7 +33,10 @@ export interface MatchAttendanceRequestContext {
  */
 @Injectable()
 export class MatchAttendancesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   // Convocation en masse — idempotente : un joueur déjà convoqué n'est
   // jamais dupliqué ni réinitialisé (permet au Coach de revenir ajouter des
@@ -84,11 +88,15 @@ export class MatchAttendancesService {
       };
     }
 
-    return this.prisma.matchAttendance.findMany({
-      where,
-      include: PLAYER_INCLUDE,
-      orderBy: { id: 'asc' },
-    });
+    const [data, canManage] = await Promise.all([
+      this.prisma.matchAttendance.findMany({
+        where,
+        include: PLAYER_INCLUDE,
+        orderBy: { id: 'asc' },
+      }),
+      this.canManage(clubId, teamId, requester.memberId),
+    ]);
+    return { data, canManage };
   }
 
   async update(
@@ -213,6 +221,21 @@ export class MatchAttendancesService {
       );
     }
     return match;
+  }
+
+  // `canManage` reflète la capacité de convoquer (bouton "Convoquer des
+  // joueurs") — jamais déduit d'un rôle côté client (règle CLAUDE.md).
+  // AdminClub n'a que READ sur match_attendance (docs/modules/matchs.md
+  // §Droits par rôle), donc toujours canManage=false pour lui, contrairement
+  // à `match` où il a le CRUD complet — les deux ne coïncident jamais.
+  private async canManage(clubId: number, teamId: number, memberId: number) {
+    const scope = await this.permissionsService.can(
+      memberId,
+      'CREATE',
+      'match_attendance',
+      { clubId, teamId },
+    );
+    return !!scope;
   }
 
   private async findAttendanceOrThrow(

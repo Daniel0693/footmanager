@@ -1,5 +1,6 @@
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../prisma/prisma.service';
+import { PermissionsService } from '../roles/permissions.service';
 import { MatchLineupsService } from './match-lineups.service';
 
 describe('MatchLineupsService', () => {
@@ -11,6 +12,7 @@ describe('MatchLineupsService', () => {
   let lineupUpsert: jest.Mock;
   let lineupDelete: jest.Mock;
   let transaction: jest.Mock;
+  let permissionsCan: jest.Mock;
   let service: MatchLineupsService;
 
   beforeEach(() => {
@@ -38,20 +40,31 @@ describe('MatchLineupsService', () => {
       $transaction: transaction,
     } as unknown as PrismaService;
 
-    service = new MatchLineupsService(prismaStub);
+    permissionsCan = jest.fn().mockResolvedValue('TEAM');
+    const permissionsStub = {
+      can: permissionsCan,
+    } as unknown as PermissionsService;
+
+    service = new MatchLineupsService(prismaStub, permissionsStub);
   });
 
   describe('upsertBulk', () => {
     it('upsert chaque ligne sur (matchId, playerId), vérifie l’appartenance à l’équipe', async () => {
-      await service.upsertBulk(1, 5, 900, [
-        {
-          playerId: 10,
-          lineupStatus: 'TITULAIRE',
-          position: 'ST',
-          shirtNumber: 9,
-        },
-        { playerId: 11, lineupStatus: 'REMPLACANT' },
-      ]);
+      await service.upsertBulk(
+        1,
+        5,
+        900,
+        [
+          {
+            playerId: 10,
+            lineupStatus: 'TITULAIRE',
+            position: 'ST',
+            shirtNumber: 9,
+          },
+          { playerId: 11, lineupStatus: 'REMPLACANT' },
+        ],
+        42,
+      );
 
       expect(playerTeamFindFirst).toHaveBeenCalledTimes(2);
       expect(lineupUpsert).toHaveBeenCalledWith({
@@ -86,9 +99,13 @@ describe('MatchLineupsService', () => {
       playerTeamFindFirst.mockResolvedValue(null);
 
       await expect(
-        service.upsertBulk(1, 5, 900, [
-          { playerId: 10, lineupStatus: 'TITULAIRE' },
-        ]),
+        service.upsertBulk(
+          1,
+          5,
+          900,
+          [{ playerId: 10, lineupStatus: 'TITULAIRE' }],
+          42,
+        ),
       ).rejects.toBeInstanceOf(AppException);
       expect(lineupUpsert).not.toHaveBeenCalled();
     });
@@ -98,20 +115,31 @@ describe('MatchLineupsService', () => {
     it('renvoie 404 si le match n’appartient pas à l’équipe', async () => {
       matchFindFirst.mockResolvedValue(null);
 
-      await expect(service.findAllByMatch(1, 5, 900)).rejects.toBeInstanceOf(
-        AppException,
-      );
+      await expect(
+        service.findAllByMatch(1, 5, 900, 42),
+      ).rejects.toBeInstanceOf(AppException);
     });
 
-    it('liste la composition du match', async () => {
+    it('liste la composition du match, avec canManage', async () => {
       lineupFindMany.mockResolvedValue([{ id: 1, matchId: 900, playerId: 10 }]);
 
-      const result = await service.findAllByMatch(1, 5, 900);
+      const result = await service.findAllByMatch(1, 5, 900, 42);
 
-      expect(result).toEqual([{ id: 1, matchId: 900, playerId: 10 }]);
+      expect(result).toEqual({
+        data: [{ id: 1, matchId: 900, playerId: 10 }],
+        canManage: true,
+      });
       expect(lineupFindMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { matchId: 900 } }),
       );
+    });
+
+    it('canManage=false pour un membre sans droit (ex. Player)', async () => {
+      permissionsCan.mockResolvedValue(null);
+
+      const result = await service.findAllByMatch(1, 5, 900, 42);
+
+      expect(result.canManage).toBe(false);
     });
   });
 

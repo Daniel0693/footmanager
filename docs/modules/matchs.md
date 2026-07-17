@@ -251,6 +251,15 @@ AdminClub a un droit complet sur la fiche `match` (créer/modifier/supprimer) ma
 contrairement à Coach/SuperAdmin qui ont le CRUD complet sur tout. Voir `backend/prisma/seed.ts`
 pour le détail par rôle (étape A0, Phase 4).
 
+**`canManage` par ressource, pas un seul `canManage` global** — conséquence directe du
+paragraphe ci-dessus : `MatchesService.findOne` (`match`), `MatchAttendancesService
+.findAllByMatch` (`match_attendance`) et `MatchLineupsService.findAllByMatch` (`match_lineup`)
+calculent chacun leur propre `canManage` (vérifié contre la permission `CREATE` de LEUR ressource
+respective) plutôt que de réutiliser celui d'une autre — trouvé en préparant la fiche match (B3)
+avant même d'écrire le frontend : un AdminClub a `match.canManage = true` mais
+`match_attendance.canManage = false` et `match_lineup.canManage = false`, les trois auraient été
+incorrectement confondus par un seul booléen partagé.
+
 ---
 
 ## Lien avec les autres modules

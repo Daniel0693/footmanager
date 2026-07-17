@@ -109,8 +109,12 @@ export class MatchesService {
     return { data, canManage };
   }
 
-  async findOne(clubId: number, teamId: number, id: number) {
-    return this.findMatchOrThrow(clubId, teamId, id);
+  async findOne(clubId: number, teamId: number, id: number, memberId: number) {
+    const [match, canManage] = await Promise.all([
+      this.findMatchOrThrow(clubId, teamId, id),
+      this.canManage(clubId, teamId, memberId),
+    ]);
+    return { ...match, canManage };
   }
 
   async update(

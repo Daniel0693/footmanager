@@ -139,6 +139,25 @@ describe('MatchesService', () => {
     });
   });
 
+  describe('findOne', () => {
+    it('renvoie le match avec canManage', async () => {
+      matchFindFirst.mockResolvedValue({ id: 900, matchType: 'AMICAL' });
+
+      const result = await service.findOne(1, 5, 900, 42);
+
+      expect(result).toEqual({ id: 900, matchType: 'AMICAL', canManage: true });
+    });
+
+    it('canManage=false pour un membre sans droit de création (ex. Player)', async () => {
+      matchFindFirst.mockResolvedValue({ id: 900, matchType: 'AMICAL' });
+      permissionsCan.mockResolvedValue(null);
+
+      const result = await service.findOne(1, 5, 900, 42);
+
+      expect(result.canManage).toBe(false);
+    });
+  });
+
   describe('update', () => {
     it('rejette la modification de l’adversaire sur un match CHAMPIONNAT', async () => {
       matchFindFirst.mockResolvedValue({

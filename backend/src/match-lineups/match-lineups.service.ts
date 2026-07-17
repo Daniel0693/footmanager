@@ -3,6 +3,7 @@ import { AppException } from '../common/exceptions/app.exception';
 import { assertPlayerInTeam } from '../common/player-team-membership';
 import { assertTeamInClub } from '../common/team-club-membership';
 import { PrismaService } from '../prisma/prisma.service';
+import { PermissionsService } from '../roles/permissions.service';
 import { UpsertMatchLineupEntryDto } from './dto/upsert-match-lineups-bulk.dto';
 
 const PLAYER_INCLUDE = {
@@ -25,7 +26,10 @@ const PLAYER_INCLUDE = {
  */
 @Injectable()
 export class MatchLineupsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   // Composition resoumise en une fois à chaque édition (pas un ajout
   // incrémental) : chaque ligne est upsert sur (matchId, playerId) — crée si
@@ -36,6 +40,7 @@ export class MatchLineupsService {
     teamId: number,
     matchId: number,
     entries: UpsertMatchLineupEntryDto[],
+    memberId: number,
   ) {
     await this.findMatchOrThrow(clubId, teamId, matchId);
     for (const entry of entries) {
@@ -64,16 +69,40 @@ export class MatchLineupsService {
       ),
     );
 
-    return this.findAllByMatch(clubId, teamId, matchId);
+    return this.findAllByMatch(clubId, teamId, matchId, memberId);
   }
 
-  async findAllByMatch(clubId: number, teamId: number, matchId: number) {
+  async findAllByMatch(
+    clubId: number,
+    teamId: number,
+    matchId: number,
+    memberId: number,
+  ) {
     await this.findMatchOrThrow(clubId, teamId, matchId);
-    return this.prisma.matchLineup.findMany({
-      where: { matchId },
-      include: PLAYER_INCLUDE,
-      orderBy: { id: 'asc' },
-    });
+    const [data, canManage] = await Promise.all([
+      this.prisma.matchLineup.findMany({
+        where: { matchId },
+        include: PLAYER_INCLUDE,
+        orderBy: { id: 'asc' },
+      }),
+      this.canManage(clubId, teamId, memberId),
+    ]);
+    return { data, canManage };
+  }
+
+  // `canManage` reflète la capacité de préparer la composition (bouton
+  // "Modifier la composition") — jamais déduit d'un rôle côté client (règle
+  // CLAUDE.md). AdminClub n'a que READ sur match_lineup (docs/modules/
+  // matchs.md §Droits par rôle), donc toujours canManage=false pour lui,
+  // contrairement à `match` où il a le CRUD complet.
+  private async canManage(clubId: number, teamId: number, memberId: number) {
+    const scope = await this.permissionsService.can(
+      memberId,
+      'CREATE',
+      'match_lineup',
+      { clubId, teamId },
+    );
+    return !!scope;
   }
 
   async remove(clubId: number, teamId: number, matchId: number, id: number) {

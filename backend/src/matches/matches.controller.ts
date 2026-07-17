@@ -52,8 +52,9 @@ export class MatchesController {
     @Param('clubId', ParseIntPipe) clubId: number,
     @Param('teamId', ParseIntPipe) teamId: number,
     @Param('id', ParseIntPipe) id: number,
+    @CurrentMember() member: Member,
   ) {
-    return this.matchesService.findOne(clubId, teamId, id);
+    return this.matchesService.findOne(clubId, teamId, id, member.id);
   }
 
   @RequirePermission('match', 'UPDATE')

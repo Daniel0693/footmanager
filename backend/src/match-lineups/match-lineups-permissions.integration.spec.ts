@@ -236,7 +236,7 @@ describe('Module MatchLineup — scénario multi-rôles (MatchLineupsController)
         Promise.all(operations),
       ),
     } as unknown as PrismaService;
-    service = new MatchLineupsService(prismaStub);
+    service = new MatchLineupsService(prismaStub, permissionsService);
   });
 
   it('Coach prépare la composition de son équipe', async () => {
@@ -250,9 +250,13 @@ describe('Module MatchLineup — scénario multi-rôles (MatchLineupsController)
     ).resolves.toBe(true);
     expect(request.permissionScope).toBe('TEAM');
 
-    await service.upsertBulk(1, 5, 900, [
-      { playerId: 10, lineupStatus: 'TITULAIRE' },
-    ]);
+    await service.upsertBulk(
+      1,
+      5,
+      900,
+      [{ playerId: 10, lineupStatus: 'TITULAIRE' }],
+      43,
+    );
     expect(lineupUpsert).toHaveBeenCalled();
   });
 

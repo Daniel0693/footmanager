@@ -255,7 +255,7 @@ describe('Module MatchAttendance — scénario multi-rôles (MatchAttendancesCon
       playerProfile: { findFirst: jest.fn().mockResolvedValue(null) },
       parentChild: { findMany: jest.fn().mockResolvedValue([]) },
     } as unknown as PrismaService;
-    service = new MatchAttendancesService(prismaStub);
+    service = new MatchAttendancesService(prismaStub, permissionsService);
   });
 
   it('Coach convoque des joueurs pour un match de son équipe', async () => {

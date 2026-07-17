@@ -1,5 +1,6 @@
 import { AppException } from '../common/exceptions/app.exception';
 import { PrismaService } from '../prisma/prisma.service';
+import { PermissionsService } from '../roles/permissions.service';
 import { MatchAttendancesService } from './match-attendances.service';
 
 describe('MatchAttendancesService', () => {
@@ -16,6 +17,7 @@ describe('MatchAttendancesService', () => {
   let playerProfileFindUniqueOrThrow: jest.Mock;
   let parentChildFindMany: jest.Mock;
   let parentChildFindUnique: jest.Mock;
+  let permissionsCan: jest.Mock;
   let service: MatchAttendancesService;
 
   beforeEach(() => {
@@ -55,7 +57,12 @@ describe('MatchAttendancesService', () => {
       },
     } as unknown as PrismaService;
 
-    service = new MatchAttendancesService(prismaStub);
+    permissionsCan = jest.fn().mockResolvedValue('TEAM');
+    const permissionsStub = {
+      can: permissionsCan,
+    } as unknown as PermissionsService;
+
+    service = new MatchAttendancesService(prismaStub, permissionsStub);
   });
 
   describe('createBulk', () => {
@@ -92,12 +99,29 @@ describe('MatchAttendancesService', () => {
   });
 
   describe('findAllByMatch', () => {
-    it('scope TEAM : renvoie toutes les convocations sans filtre supplémentaire', async () => {
-      await service.findAllByMatch(1, 5, 900, { memberId: 42, scope: 'TEAM' });
+    it('scope TEAM : renvoie toutes les convocations sans filtre supplémentaire, avec canManage', async () => {
+      attendanceFindMany.mockResolvedValue([{ id: 1 }]);
+
+      const result = await service.findAllByMatch(1, 5, 900, {
+        memberId: 42,
+        scope: 'TEAM',
+      });
 
       expect(attendanceFindMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { matchId: 900 } }),
       );
+      expect(result).toEqual({ data: [{ id: 1 }], canManage: true });
+    });
+
+    it('canManage=false pour un membre sans droit de convocation (CREATE)', async () => {
+      permissionsCan.mockResolvedValue(null);
+
+      const result = await service.findAllByMatch(1, 5, 900, {
+        memberId: 42,
+        scope: 'OWN',
+      });
+
+      expect(result.canManage).toBe(false);
     });
 
     it('scope OWN : filtre sur le profil joueur du membre appelant', async () => {
