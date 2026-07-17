@@ -182,14 +182,19 @@ Identique pour 4×20 min avec 4 `MatchPeriod`.
 
 ## MatchLineup — Composition de l'équipe
 
+Schéma implémenté en Phase 4 (Partie B, B0, 2026-07-17).
+
 | Champ | Type | Notes |
 |---|---|---|
 | `id` | PK | |
 | `matchId` | FK → Match | |
 | `playerId` | FK → PlayerProfile | |
 | `lineupStatus` | enum `LineupStatus` | |
-| `position` | enum `Position`, nullable | poste joué pour ce match |
-| `shirtNumber` | Int, nullable | |
+| `position` | enum `Position`, nullable | poste joué pour ce match — peut différer de `PlayerTeam.mainPosition` (ex. dépannage), jamais lu depuis `PlayerTeam` |
+| `shirtNumber` | Int, nullable | idem, peut différer de `PlayerTeam.jerseyNumber` |
+
+**Contrainte** : unicité sur `(matchId, playerId)` — une seule ligne de composition par joueur et
+par match.
 
 ---
 
@@ -229,13 +234,21 @@ remplaçant → de substitution entrée à fin de match.
 
 ## MatchAttendance — Convocations et présences au match
 
+Schéma implémenté en Phase 4 (Partie B, B0, 2026-07-17). `convocationStatus` posé par le Coach à
+la création (toujours `PENDING`), modifié ensuite par le joueur/parent concerné
+(`ACCEPTED`/`DECLINED`) — jamais par le Coach. `attendanceStatus` renseigné le jour J (présences
+effectives), par le Coach uniquement.
+
 | Champ | Type | Notes |
 |---|---|---|
 | `id` | PK | |
 | `matchId` | FK → Match | |
 | `playerId` | FK → PlayerProfile | |
-| `convocationStatus` | enum `ConvocationStatus` | voir `index.md` |
+| `convocationStatus` | enum `ConvocationStatus`, défaut `PENDING` | voir `index.md` |
 | `attendanceStatus` | enum `AttendanceStatus`, nullable | renseigné le jour J |
+
+**Contrainte** : unicité sur `(matchId, playerId)` — une seule convocation par joueur et par
+match.
 
 ---
 
@@ -326,6 +339,7 @@ dénormalisées en MVP.
 @@unique([eventId])                               sur TrainingSession, Match
 @@unique([trainingSessionId, playerId])           sur TrainingAttendance, TrainingFeedback
 @@unique([matchId, playerId, evaluatorId])        sur MatchPlayerRating
+@@unique([matchId, playerId])                     sur MatchAttendance, MatchLineup
 @@index([matchId])                                sur MatchPeriod, MatchLineup, MatchEvent, MatchAttendance
 @@index([playerId])                               sur TrainingAttendance, TrainingFeedback, MatchPlayerRating
 @@index([teamId, startAt])                        sur Event

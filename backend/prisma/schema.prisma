@@ -332,6 +332,8 @@ model PlayerProfile {
   playerObjectives   PlayerObjective[]
   playerEvaluations  PlayerEvaluation[]
   playerAbsences     PlayerAbsence[]
+  matchAttendances   MatchAttendance[]
+  matchLineups       MatchLineup[]
 }
 
 enum MeasurementType {
@@ -690,7 +692,77 @@ model Match {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  attendances MatchAttendance[]
+  lineups     MatchLineup[]
+
   @@index([opponentExternalTeamId])
+}
+
+// Réponse à une convocation — enum global (docs/schema/index.md), premier
+// usage réel ici (Phase 4) ; réutilisé tel quel par TrainingAttendance en
+// Phase 5.
+enum ConvocationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+// Présence réelle le jour J — enum global (docs/schema/index.md), même
+// remarque que ConvocationStatus.
+enum AttendanceStatus {
+  PRESENT
+  ABSENT_EXCUSE
+  ABSENT_NON_EXCUSE
+}
+
+// Convocations et présences à un match (Phase 4, Partie B — docs/schema/
+// evenements.md §MatchAttendance). `convocationStatus` posé par le Coach à
+// la création (toujours PENDING), modifié ensuite par le joueur/parent
+// concerné (ACCEPTED/DECLINED) — jamais par le Coach. `attendanceStatus`
+// renseigné le jour J (présences effectives), par le Coach uniquement.
+model MatchAttendance {
+  id       Int           @id @default(autoincrement())
+  matchId  Int
+  match    Match         @relation(fields: [matchId], references: [id])
+  playerId Int
+  player   PlayerProfile @relation(fields: [playerId], references: [id])
+
+  convocationStatus ConvocationStatus @default(PENDING)
+  attendanceStatus  AttendanceStatus?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([matchId, playerId])
+  @@index([matchId])
+}
+
+enum LineupStatus {
+  TITULAIRE
+  REMPLACANT
+  NON_CONVOQUE
+}
+
+// Composition d'un match (Phase 4, Partie B — docs/schema/evenements.md
+// §MatchLineup). `position`/`shirtNumber` sont propres à CE match (peuvent
+// différer de PlayerTeam.mainPosition/jerseyNumber, ex. dépannage à un
+// poste inhabituel) — jamais lus depuis PlayerTeam.
+model MatchLineup {
+  id       Int           @id @default(autoincrement())
+  matchId  Int
+  match    Match         @relation(fields: [matchId], references: [id])
+  playerId Int
+  player   PlayerProfile @relation(fields: [playerId], references: [id])
+
+  lineupStatus LineupStatus
+  position     Position?
+  shirtNumber  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([matchId, playerId])
+  @@index([matchId])
 }
 
 model EvaluationCategory {

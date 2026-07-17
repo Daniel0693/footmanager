@@ -478,9 +478,11 @@ modification frontend).
 
 _~3 semaines_
 
-Découpage établi le 2026-07-16, sur le modèle des Phases 2/3 (Parties lettrées, une branche
-`feature/` par Partie, mergée dans `develop` seulement une fois entièrement terminée et testée).
-Décisions actées avant le premier incrément (voir `docs/modules/matchs.md`) :
+Découpage établi le 2026-07-16, sur le modèle des Phases 2/3 (Parties lettrées, incréments
+granulaires). **Écart avec les Phases 2/3** : une seule branche `feature/module-matchs` pour
+l'ensemble des Parties A-D (décision explicite, 2026-07-16) plutôt qu'une branche par Partie —
+mergée dans `develop` une fois la Phase 4 entière terminée et testée. Décisions actées avant le
+premier incrément (voir `docs/modules/matchs.md`) :
 - `MatchType` à 4 valeurs : `CHAMPIONNAT`/`COUPE`/`AMICAL`/`TOURNOI`.
 - `Coupe` : pas de nouvelle entité de compétition — un simple champ `cupRound` sur `Match`,
   adversaire via `ExternalTeam` (liste existante ou création à la volée), pas de bracket.
@@ -529,7 +531,7 @@ un match bloquées côté frontend et backend). Tests à la fin de la Partie A :
 
 | Étape | Contenu |
 |---|---|
-| B0 | Schéma `MatchAttendance`, `MatchLineup` |
+| B0 | Schéma `MatchAttendance`, `MatchLineup` (+ enums `ConvocationStatus`, `AttendanceStatus`, `LineupStatus`) ✅ |
 | B1 | Backend convocations : CRUD `MatchAttendance`, réponse self-service Player (`OWN`)/Parent (`PARENT`) |
 | B2 | Backend composition : CRUD `MatchLineup` (Coach/SuperAdmin uniquement) |
 | B3 | Frontend fiche match — onglet Convocations |
