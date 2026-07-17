@@ -1,7 +1,7 @@
 import { fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithIntl, screen, waitFor } from "@/test-utils/render";
-import { replace as mockReplace } from "@/test-utils/navigation-mock";
+import { push as mockPush, replace as mockReplace } from "@/test-utils/navigation-mock";
 import { CalendarPageContent } from "./calendar-page-content";
 
 jest.mock("sonner", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
@@ -282,6 +282,21 @@ describe("CalendarPageContent", () => {
     await user.click(await screen.findByText("Match amical"));
 
     expect(screen.queryByText("Modifier l'événement")).not.toBeInTheDocument();
+  });
+
+  it("clic sur un match avec fiche liée en vue Mois navigue vers la fiche match (B3)", async () => {
+    mockRoutes(twoTeams, [
+      { ...oneEvent[0], type: "MATCH", match: { id: 900 } },
+    ]);
+    const user = userEvent.setup();
+
+    renderWithIntl(<CalendarPageContent clubId="1" />);
+    await screen.findByText("Match amical");
+    await user.click(screen.getByRole("tab", { name: "Mois" }));
+
+    await user.click(await screen.findByText("Match amical"));
+
+    expect(mockPush).toHaveBeenCalledWith("/clubs/1/teams/8/matches/900");
   });
 
   it("bascule vers la vue Semaine", async () => {

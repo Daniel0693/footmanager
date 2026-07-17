@@ -311,6 +311,7 @@
     "add": "Add an event",
     "edit": "Edit",
     "delete": "Delete",
+    "viewMatch": "View match",
     "createTitle": "New event",
     "editTitle": "Edit event",
     "team": "Team",
@@ -578,6 +579,7 @@
   },
   "matches": {
     "type": "Match type",
+    "typeCHAMPIONNAT": "Championship",
     "typeCOUPE": "Cup",
     "typeAMICAL": "Friendly",
     "typeTOURNOI": "Tournament",
@@ -597,6 +599,47 @@
     "homeOrAway": "Home / Away",
     "homeOrAwayHOME": "Home",
     "homeOrAwayAWAY": "Away"
+  },
+  "matchDetail": {
+    "backToCalendar": "Back to calendar",
+    "loadFailed": "Unable to load the match",
+    "statusSCHEDULED": "Upcoming",
+    "statusLIVE": "Live",
+    "statusHALFTIME": "Half-time",
+    "statusFINISHED": "Finished",
+    "statusCANCELLED": "Cancelled",
+    "statusPOSTPONED": "Postponed",
+    "tabs": {
+      "convocations": "Convocations",
+      "composition": "Lineup",
+      "live": "Live",
+      "postMatch": "Post-match"
+    },
+    "comingSoon": "This section will arrive in a future phase."
+  },
+  "matchConvocations": {
+    "addButton": "Convene players",
+    "selectPlayersTitle": "Convene players",
+    "noAvailablePlayers": "All players in the roster are already convened.",
+    "convene": "Convene",
+    "convened": "Players convened successfully",
+    "convokeFailed": "Failed to convene players",
+    "loadFailed": "Unable to load convocations",
+    "rosterLoadFailed": "Unable to load the roster",
+    "empty": "No player convened yet",
+    "convocationStatusLabel": "Convocation status",
+    "convocationPENDING": "Pending",
+    "convocationACCEPTED": "Confirmed present",
+    "convocationDECLINED": "Absent",
+    "accept": "Accept",
+    "decline": "Decline",
+    "responseFailed": "Failed to send the response",
+    "remove": "Remove",
+    "removeDialogTitle": "Remove this convocation?",
+    "removeDialogDescription": "The player will no longer be convened to this match. This action is irreversible.",
+    "removeConfirm": "Remove permanently",
+    "removeFailed": "Failed to remove the convocation",
+    "cancel": "Cancel"
   },
   "championshipForm": {
     "createTitle": "New championship",

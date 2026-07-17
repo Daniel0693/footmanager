@@ -1,6 +1,6 @@
 "use client";
 
-import { Cake, MapPin, Pencil, Trash2 } from "lucide-react";
+import { Cake, Eye, MapPin, Pencil, Trash2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import {
 } from "@/components/calendar/event-form-dialog";
 import { DeleteEventDialog } from "@/components/calendar/delete-event-dialog";
 import { useNow } from "@/components/calendar/use-now";
+import { Link } from "@/i18n/navigation";
 import { apiFetch, authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth/auth-context";
 import { eventTypeColorClass, teamColorClass } from "@/lib/calendar-color";
@@ -620,9 +621,19 @@ export function CalendarListView({
                       {/* Un match (docs/modules/matchs.md) ne s'édite/supprime pas via ce
                           dialogue générique — Match.eventId est ON DELETE RESTRICT côté
                           backend, et une édition directe du titre/de la date désynchroniserait
-                          un match de championnat de son ChampionshipMatch. Une vraie fiche
-                          match (Parties B-D) remplacera ces actions. */}
-                      {item.event.type !== "MATCH" && (
+                          un match de championnat de son ChampionshipMatch. La fiche match (B3)
+                          remplace ces actions par un lien de consultation dédié. */}
+                      {item.event.type === "MATCH" ? (
+                        item.event.match && (
+                          <Button variant="ghost" size="icon" aria-label={t("viewMatch")} render={
+                            <Link
+                              href={`/clubs/${clubId}/teams/${item.event.team.id}/matches/${item.event.match.id}`}
+                            />
+                          }>
+                            <Eye />
+                          </Button>
+                        )
+                      ) : (
                         <div className="flex gap-1">
                           <EventFormDialog
                             clubId={clubId}

@@ -254,6 +254,7 @@ describe('EventsService', () => {
           type: 'TRAINING',
           startAt: { gte: dateFrom, lte: dateTo },
         },
+        include: { match: { select: { id: true } } },
         orderBy: { startAt: 'asc' },
       });
     });
@@ -301,7 +302,10 @@ describe('EventsService', () => {
           type: undefined,
           startAt: { gte: undefined, lte: undefined },
         },
-        include: { team: { select: { id: true, name: true } } },
+        include: {
+          team: { select: { id: true, name: true } },
+          match: { select: { id: true } },
+        },
         orderBy: { startAt: 'asc' },
       });
     });
@@ -325,7 +329,10 @@ describe('EventsService', () => {
           type: { in: ['MATCH'] },
           startAt: { gte: undefined, lte: undefined },
         },
-        include: { team: { select: { id: true, name: true } } },
+        include: {
+          team: { select: { id: true, name: true } },
+          match: { select: { id: true } },
+        },
         orderBy: { startAt: 'asc' },
       });
     });
@@ -343,7 +350,10 @@ describe('EventsService', () => {
           type: undefined,
           startAt: { gte: undefined, lte: undefined },
         },
-        include: { team: { select: { id: true, name: true } } },
+        include: {
+          team: { select: { id: true, name: true } },
+          match: { select: { id: true } },
+        },
         orderBy: { startAt: 'asc' },
       });
     });

@@ -6,6 +6,10 @@ import { CalendarListView } from "./calendar-list-view";
 
 jest.mock("sonner", () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 
+// require() dans la factory : voir navigation-mock.tsx.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+jest.mock("@/i18n/navigation", () => require("@/test-utils/navigation-mock"));
+
 const mockUseAuth = jest.fn();
 jest.mock("@/lib/auth/auth-context", () => ({
   useAuth: () => mockUseAuth(),
@@ -431,6 +435,19 @@ describe("CalendarListView", () => {
 
     expect(screen.queryByRole("button", { name: "Modifier" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Supprimer" })).not.toBeInTheDocument();
+  });
+
+  it("un événement Match avec fiche liée affiche un lien 'Voir le match' (B3)", async () => {
+    mockApiFetch.mockResolvedValueOnce(
+      jsonResponse([eventItem({ type: "MATCH", match: { id: 900 } })]),
+    );
+    renderWithIntl(
+      <CalendarListView clubId="1" teams={teams} filters={allTypesFilters} refreshKey={0} recenterKey={0} colorMode="type" />,
+    );
+    await screen.findByText("Match amical");
+
+    const viewLink = screen.getByRole("link", { name: "Voir le match" });
+    expect(viewLink).toHaveAttribute("href", "/clubs/1/teams/5/matches/900");
   });
 
   it("supprime un événement de la liste sans recharger toute la fenêtre", async () => {

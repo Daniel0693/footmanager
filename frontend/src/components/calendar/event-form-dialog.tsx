@@ -72,6 +72,11 @@ export interface ExistingEvent {
   description: string | null;
   isRecurring: boolean;
   team: EventFormTeam;
+  // Présent uniquement pour type = MATCH (Phase 4) — l'id de la fiche Match
+  // liée, nécessaire pour construire le lien "Voir le match" (docs/modules/
+  // matchs.md §Affichage dans le Calendrier) plutôt que d'ouvrir le
+  // dialogue générique désormais désactivé pour ce type.
+  match?: { id: number } | null;
 }
 
 const RECURRENCE_TYPES = ["weekly", "monthly", "yearly"] as const;

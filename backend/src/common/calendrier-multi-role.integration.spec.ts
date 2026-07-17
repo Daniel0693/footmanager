@@ -749,7 +749,10 @@ describe('B9 — scénario multi-rôles (agrégations "mine" — events/mine, me
         type: undefined,
         startAt: { gte: undefined, lte: undefined },
       },
-      include: { team: { select: { id: true, name: true } } },
+      include: {
+        team: { select: { id: true, name: true } },
+        match: { select: { id: true } },
+      },
       orderBy: { startAt: 'asc' },
     });
 
@@ -793,7 +796,10 @@ describe('B9 — scénario multi-rôles (agrégations "mine" — events/mine, me
         type: undefined,
         startAt: { gte: undefined, lte: undefined },
       },
-      include: { team: { select: { id: true, name: true } } },
+      include: {
+        team: { select: { id: true, name: true } },
+        match: { select: { id: true } },
+      },
       orderBy: { startAt: 'asc' },
     });
 

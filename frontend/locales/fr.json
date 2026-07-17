@@ -311,6 +311,7 @@
     "add": "Ajouter un événement",
     "edit": "Modifier",
     "delete": "Supprimer",
+    "viewMatch": "Voir le match",
     "createTitle": "Nouvel événement",
     "editTitle": "Modifier l'événement",
     "team": "Équipe",
@@ -578,6 +579,7 @@
   },
   "matches": {
     "type": "Type de match",
+    "typeCHAMPIONNAT": "Championnat",
     "typeCOUPE": "Coupe",
     "typeAMICAL": "Amical",
     "typeTOURNOI": "Tournoi",
@@ -597,6 +599,47 @@
     "homeOrAway": "Domicile / Extérieur",
     "homeOrAwayHOME": "Domicile",
     "homeOrAwayAWAY": "Extérieur"
+  },
+  "matchDetail": {
+    "backToCalendar": "Retour au calendrier",
+    "loadFailed": "Impossible de charger le match",
+    "statusSCHEDULED": "À venir",
+    "statusLIVE": "En cours",
+    "statusHALFTIME": "Mi-temps",
+    "statusFINISHED": "Terminé",
+    "statusCANCELLED": "Annulé",
+    "statusPOSTPONED": "Reporté",
+    "tabs": {
+      "convocations": "Convocations",
+      "composition": "Composition",
+      "live": "Direct",
+      "postMatch": "Après-match"
+    },
+    "comingSoon": "Cette section arrivera dans une prochaine phase."
+  },
+  "matchConvocations": {
+    "addButton": "Convoquer des joueurs",
+    "selectPlayersTitle": "Convoquer des joueurs",
+    "noAvailablePlayers": "Tous les joueurs de l'effectif sont déjà convoqués.",
+    "convene": "Convoquer",
+    "convened": "Joueurs convoqués avec succès",
+    "convokeFailed": "Échec de la convocation",
+    "loadFailed": "Impossible de charger les convocations",
+    "rosterLoadFailed": "Impossible de charger l'effectif",
+    "empty": "Aucun joueur convoqué pour l'instant",
+    "convocationStatusLabel": "Statut de convocation",
+    "convocationPENDING": "En attente",
+    "convocationACCEPTED": "Présent confirmé",
+    "convocationDECLINED": "Absent",
+    "accept": "Accepter",
+    "decline": "Décliner",
+    "responseFailed": "Échec de l'envoi de la réponse",
+    "remove": "Retirer",
+    "removeDialogTitle": "Retirer cette convocation ?",
+    "removeDialogDescription": "Le joueur ne sera plus convoqué à ce match. Cette action est irréversible.",
+    "removeConfirm": "Retirer définitivement",
+    "removeFailed": "Échec du retrait de la convocation",
+    "cancel": "Annuler"
   },
   "championshipForm": {
     "createTitle": "Nouveau championnat",

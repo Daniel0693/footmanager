@@ -189,10 +189,15 @@ export function CalendarPageContent({ clubId }: { clubId: string }) {
   };
 
   // Un match ne s'édite pas via ce dialogue générique (voir CalendarListView
-  // pour la même règle en vue Liste) — clic ignoré tant que la fiche match
-  // dédiée n'existe pas (Parties B-D, docs/modules/matchs.md).
+  // pour la même règle en vue Liste) — navigue vers la fiche match dédiée
+  // (B3, docs/modules/matchs.md) plutôt que d'ouvrir le dialogue générique.
   const handleEditFromGrid = (event: CalendarEvent) => {
-    if (event.type === "MATCH") return;
+    if (event.type === "MATCH") {
+      if (event.match) {
+        router.push(`/clubs/${clubId}/teams/${event.team.id}/matches/${event.match.id}`);
+      }
+      return;
+    }
     setGridDialog({ open: true, mode: "edit", event });
   };
 

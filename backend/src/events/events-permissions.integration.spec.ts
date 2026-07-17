@@ -374,7 +374,10 @@ describe('Module Calendrier — scénario multi-rôles (EventsController)', () =
         type: undefined,
         startAt: { gte: undefined, lte: undefined },
       },
-      include: { team: { select: { id: true, name: true } } },
+      include: {
+        team: { select: { id: true, name: true } },
+        match: { select: { id: true } },
+      },
       orderBy: { startAt: 'asc' },
     });
 

@@ -94,11 +94,16 @@ Mois/Semaine n'ouvrent plus le dialogue générique d'édition/suppression pour 
   pour ne jamais renvoyer l'erreur de contrainte Postgres brute — même principe que
   `TeamsService.remove`/`TEAMS.CANNOT_DELETE_NOT_EMPTY`.
 
-Ce masquage est provisoire : une vraie fiche match (Parties B-D) remplacera ces actions par une
-vraie page de gestion. **Point reporté** : badge visuel enrichi dans le calendrier (type de match,
-score une fois joué) — nécessiterait d'enrichir `GET events`/`events/mine` avec les données
-`Match` associées, non fait ici pour rester dans le périmètre de la Partie A ; à reprendre si
-signalé comme un besoin réel, ou naturellement à la construction de la fiche match.
+**Correctif B3** : la fiche match (ci-dessous) existant désormais, le masquage ci-dessus (provisoire
+depuis A5) est complété par un vrai lien de consultation — trouvé en usage réel, la fiche n'était
+reliée depuis aucun écran. `EventsService.findAllByTeam`/`findMineInClub` incluent désormais
+`match: { select: { id: true } }` (`GET .../events`, `GET .../events/mine`) ; le frontend
+(`ExistingEvent.match`) affiche un lien "Voir le match" (icône œil) à la place des boutons
+Modifier/Supprimer en vue Liste, et navigue directement vers la fiche au clic sur la grille
+Mois/Semaine — plutôt que de rouvrir le dialogue générique désactivé. **Point reporté** : badge
+visuel enrichi dans le calendrier (type de match, score une fois joué) — nécessiterait d'exposer
+aussi `matchType`/`scoreHome`/`scoreAway` dans ce même include, non fait ici pour rester ciblé sur
+la navigation ; à reprendre si signalé comme un besoin réel.
 
 **Convocations** : sélection des joueurs convoqués depuis l'effectif (statut `PENDING` dans
 `MatchAttendance`). Les joueurs/parents répondent (`ACCEPTED`/`DECLINED`). Le signalement visuel
@@ -120,6 +125,34 @@ attendances`) :
   `convocationStatus` (jamais `attendanceStatus`, réservé au Coach) sur **leur propre**
   convocation (ou celle de leur enfant), jamais un retour à `PENDING`.
 - `DELETE .../attendances/:id` — retire une convocation, Coach/AdminClub/SuperAdmin uniquement.
+
+**Frontend (B3)** : première fiche match (`clubs/:clubId/teams/:teamId/matches/:matchId`) — en-tête
+(adversaire = `event.title`, date/heure, type, domicile/extérieur, lieu, score une fois joué,
+statut) + onglets, sur le modèle de la fiche joueur (`DETAIL_TABS` + placeholder "bientôt
+disponible" pour Composition/Direct/Après-match, pas encore construits). Onglet **Convocations**
+implémenté : liste sous forme de lignes compactes (avatar + nom, pas un `Table` — seulement 2-3
+informations par joueur, une vraie grille avec en-têtes de colonnes était disproportionnée),
+filtrée par `canManage` (renvoyé par `match_attendance`, pas `match` — voir note plus haut) —
+Coach/AdminClub/SuperAdmin gèrent la liste complète : bouton "Convoquer des joueurs" (sélecteur
+multiple depuis l'effectif via `ConvenePlayersDialog`, réutilise le composant `Checkbox`),
+statut de convocation modifiable directement en un clic (groupe de 3 boutons icône
+En attente/Confirmé/Décliné, `lib/convocation-status.ts` pour le code couleur gris/vert/rouge —
+le backend autorise déjà le Coach à modifier librement `convocationStatus`, y compris un retour à
+`PENDING`, contrairement à Player/Parent), retrait avec confirmation. Un Player/Parent ne reçoit
+du backend QUE sa propre convocation (ou celle de son enfant, déjà filtrée côté service, A0/B1) et
+répond directement via deux boutons Accepter/Décliner, sans jamais avoir à déterminer côté
+frontend "est-ce la mienne ?".
+
+**Présence effective hors de cet onglet (décision du 2026-07-17)** : une première version de B3
+exposait aussi ici un sélecteur d'`AttendanceStatus` (présent/absent excusé/absent non-excusé) à
+côté de la convocation. Retiré : avant que le match ait eu lieu, `AttendanceStatus` n'a aucune
+information à apporter en plus de `ConvocationStatus` (les deux racontent la même chose — "est-ce
+que ce joueur vient ?"), donc les deux colonnes faisaient doublon. `AttendanceStatus` reste
+correctement scopé sur la **Partie D — Après-match** (§3 ci-dessous), où il aura un vrai sens : le
+constat réel de présence peut diverger de la réponse donnée avant match (accepté puis absent,
+décliné puis présent en dernière minute). Le endpoint `PATCH .../attendances/:id` accepte déjà
+`attendanceStatus` côté backend (implémenté en B1) — seule l'UI d'édition est différée, pas la
+permission ni la route.
 
 **Composition** (`MatchLineup`) : onze de départ, remplaçants, non-convoqués.
 
@@ -196,9 +229,22 @@ Le score est recalculable à tout moment depuis les événements.
 
 ### 3. Après le match
 
-- **Présences effectives** : confirmer/corriger les `AttendanceStatus`.
+- **Présences effectives** : confirmer/corriger les `AttendanceStatus`. C'est ici — et
+  uniquement ici — que l'édition de la présence a du sens (voir la décision du 2026-07-17
+  documentée §1 Convocations : avant le match, `AttendanceStatus` ferait doublon avec
+  `ConvocationStatus`).
 - **Évaluation collective** : `Match.globalRating` (sur 10) + `Match.globalComment`.
 - **Évaluations individuelles** (`MatchPlayerRating`) : note sur 10 + commentaire par joueur.
+
+**Point futur (hors scope Phase 4, nécessite le système de notifications)** : un joueur qui n'a
+jamais répondu à sa convocation (`ConvocationStatus` resté `PENDING`) devrait automatiquement
+passer en `AttendanceStatus = ABSENT_NON_EXCUSE` une fois un délai de réponse dépassé — sans
+notification avec délai/rappel (pas encore implémentée), il n'y a rien de fiable sur quoi baser
+ce délai. À reprendre quand le système de notifications sera construit ; à ce moment-là, on
+pourra aussi envisager un pré-remplissage automatique `ConvocationStatus = DECLINED` →
+`AttendanceStatus = ABSENT_EXCUSE` (le joueur a prévenu à l'avance), tout en laissant `ACCEPTED`
+sans présomption (accepter ne prouve pas la présence réelle, seul le constat du Coach le jour du
+match fait foi).
 
 ---
 

@@ -100,6 +100,7 @@ export class EventsService {
         type: query.type,
         startAt: { gte: query.dateFrom, lte: query.dateTo },
       },
+      include: { match: { select: { id: true } } },
       orderBy: { startAt: query.sortOrder ?? 'asc' },
     });
   }
@@ -164,7 +165,14 @@ export class EventsService {
         type: filters.types?.length ? { in: filters.types } : undefined,
         startAt: { gte: filters.dateFrom, lte: filters.dateTo },
       },
-      include: { team: { select: { id: true, name: true } } },
+      include: {
+        team: { select: { id: true, name: true } },
+        // Un événement de type MATCH porte une fiche Match liée (Phase 4) —
+        // le frontend en a besoin pour construire le lien "Voir le match"
+        // (docs/modules/matchs.md §Affichage dans le Calendrier) plutôt que
+        // d'ouvrir le dialogue générique désormais désactivé pour ce type.
+        match: { select: { id: true } },
+      },
       orderBy: { startAt: filters.sortOrder ?? 'asc' },
     });
   }
